@@ -32,6 +32,56 @@ overrides the default estimate of 10,000 calls per month per call site.
 Scanning always exits 0 unless the run itself fails; the failure policy
 for CI arrives with the baseline ratchet.
 
+## Example
+
+`fixtures/node-cron-summarizer` is a nightly digest job: a cron trigger
+drives a frontier model over the realtime endpoint, and a legacy file
+nobody deleted still points at a retired model.
+
+```js
+const response = await client.chat.completions.create({
+  model: "gpt-5.1",
+  max_tokens: 800,
+  messages: [
+    { role: "system", content: DIGEST_PROMPT },
+    { role: "user", content: articles.join("\n\n") },
+  ],
+});
+
+cron.schedule("0 6 * * *", runDigest);
+```
+
+`overwater scan fixtures/node-cron-summarizer` reports:
+
+```
+Prices from catalog 2026-08-05. Costs are estimates at 10,000 calls per
+month per call site; override with --volume.
+
+Call site: legacy/summarize-v1.js:7 (summarization; high confidence)
+Current:   text-davinci-003 at ~$151/mo at estimated volume
+Candidate: gpt-5-mini, current replacement in the same tier, ~$6/mo
+Tripwire:  None; there is no configuration in which a retired model id keeps working
+Flag:      Unavailable after 2024-01-04; a correctness bug, not just a cost one
+
+Call site: src/summarize.js:12 (summarization: cron scheduled; medium confidence)
+Current:   gpt-5.1 at ~$48/mo at estimated volume
+Candidate: gpt-5.1 through the batch endpoint at half price, ~$24/mo
+Tripwire:  If results are needed in under an hour, stay put
+Flag:      None
+```
+
+When a repo is already right-sized (bounded outputs, cached prompts,
+small models on small tasks), the whole verdict is:
+
+```
+Prices from catalog 2026-08-05.
+
+Keep the models you have.
+```
+
+Both outputs come from running the scanner against this repo's own
+fixtures, and the golden harness keeps them honest.
+
 ## How it judges a call site
 
 Four detection layers feed a rules engine:
@@ -78,22 +128,46 @@ Working today:
   proves the MODELS.md renderer reproduces each fixture's golden byte
   for byte.
 
-### Timeline
+### Milestones to v1.0
 
-| Step | What | State |
-|---|---|---|
-| 1 | CLI scaffold, exit code contract, CI | done |
-| 2 | Catalog: schema, validator, seeds, embedded snapshot | done |
-| 3 | Fixture repos and golden verdicts | done |
-| 4 | Detection layers 1 to 3 | done |
-| 5 | Archetype classifier and rules engine | done |
-| 6 | Renderers (terminal, MODELS.md, --json) and the golden harness | done |
-| 7 | CI guard: exit codes, baseline ratchet, --fail-on | next |
-| 8 | Composite GitHub Action and dogfood workflow | planned |
-| 9 | Catalog fetch with local cache, stale warning, --offline | planned |
-| 10 | eval subcommand generating A/B scripts per finding | planned |
+Steps 1 through 6 of the build order landed 2026-08-05: the scaffold, the
+catalog, the fixtures and goldens, all four detection layers, the rules
+engine, and the renderers with their golden harness. What remains is
+deliberate and ordered, and each milestone has an acceptance bar it must
+clear before it counts.
 
-Steps 1 through 6 landed 2026-08-05.
+**The guard (step 7).** The scan learns a failure policy: `--baseline
+.overwater.json` compares findings by stable fingerprint (rule id plus
+normalized path plus a call-site hash, so line drift does not break
+matching), `--update-baseline` rewrites the file and prunes fixed
+findings, and `--fail-on new|any|none` defaults to `new`. Done when tests
+prove three things: a new finding fails the build, a baselined finding
+passes, and a fixed finding is pruned on update.
+
+**The Action (step 8).** A composite `action.yml` at the repo root:
+downloads a pinned release binary, verifies its checksum, runs the scan,
+writes the findings table to the step summary, and exits with the
+scanner's code. Zero secrets, read permission only. Done when the dogfood
+workflow in this repo runs it against ts-chat-firehose expecting exit 1
+and against clean-app expecting exit 0, and both are green.
+
+**The living catalog (step 9).** Optional HTTPS fetch of the published
+catalog with a local cache, a "prices as of" staleness warning instead of
+a failure, and `--offline` forbidding all network activity. Done when a
+network-denying transport test proves the scanner makes zero requests
+under `--offline` and only the single catalog request otherwise.
+
+**Generated evals (step 10).** `overwater eval` writes one runnable A/B
+script per finding, with both model ids filled in. The user supplies a
+JSONL of real prompts and their own keys, runs it outside the scanner,
+and reads an agreement percentage against the tripwire. Done when a
+generated script exists for every fixture finding and names exactly the
+models its finding names.
+
+**v1.0.** All of the above, plus release binaries for macOS, Linux, and
+Windows and a CI setup snippet in this README. Tagged only when the
+dogfood workflow is green and the full suite passes with networking
+disabled.
 
 ### Scope for v1
 
