@@ -1,0 +1,12 @@
+# Embeddings priced at the top of the tier when the same provider sells
+# a standard tier that usually retrieves just as well.
+id: pricey-embeddings
+kind: finding
+confidence: high
+when:
+  archetype: [embedding]
+  min_input_per_mtok: 0.10
+candidate:
+  strategy: cheapest_embedding
+  note: same provider at the standard embedding tier
+tripwire: If retrieval quality drops on your eval set, stay put

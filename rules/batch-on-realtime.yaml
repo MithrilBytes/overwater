@@ -1,0 +1,15 @@
+# A cron shaped job paying realtime prices. The major providers sell the
+# same models at half price on their batch endpoints for exactly this
+# kind of work.
+id: batch-on-realtime
+kind: finding
+confidence: medium
+when:
+  batch_context: true
+  batch_api: false
+  archetype_not: [embedding]
+candidate:
+  strategy: price_multiplier
+  multiplier: 0.5
+  note: through the batch endpoint at half price
+tripwire: If results are needed in under an hour, stay put

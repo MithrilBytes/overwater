@@ -1,0 +1,13 @@
+# A frontier model pointed at a structured extraction or classification
+# shape. These task classes are where cheaper tiers hold up best.
+id: frontier-extraction
+kind: finding
+confidence: high
+when:
+  archetype: [extraction, classification]
+  tier: [frontier]
+candidate:
+  strategy: tier_downgrade
+  tier: small
+  note: same capability tier for this task class
+tripwire: If eval agreement drops below 97%, stay put

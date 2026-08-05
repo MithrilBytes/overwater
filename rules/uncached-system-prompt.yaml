@@ -1,0 +1,16 @@
+# A large system prompt resent on every call with no cache_control.
+# Attaches as a flag to the finding at the same call site. Scoped to
+# providers where caching is explicit; automatic caching providers are
+# excluded on purpose.
+id: uncached-system-prompt
+kind: flag
+confidence: high
+when:
+  provider: [anthropic]
+  min_system_tokens: 1024
+  cache_control: false
+flag: No prompt caching on a {system_tokens}-token repeated system prompt
+candidate:
+  strategy: none
+  note: same model with cache_control on the system prompt
+tripwire: None; caching changes cost, not output

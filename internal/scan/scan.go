@@ -68,6 +68,13 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 		report.SDKs = append(report.SDKs, scanManifest(f.path, f.data)...)
 		for _, site := range findModelRefs(f.path, f.data, names) {
 			site.Shape = extractShape(f.data, site.Line)
+			tier := ""
+			if site.Known {
+				tier = names[site.Ref].Tier
+			}
+			content := string(f.data)
+			winStart, winEnd := windowBounds(content, site.Line)
+			site.Archetype = classifyArchetype(site.Shape, content[winStart:winEnd], tier)
 			report.Sites = append(report.Sites, site)
 		}
 	}

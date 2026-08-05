@@ -1,0 +1,13 @@
+# A reference to a model the provider has deprecated or retired. This is
+# a correctness finding first and a cost finding second; the catalog
+# carries the shutoff date.
+id: deprecated-model
+kind: finding
+confidence: high
+when:
+  deprecated: true
+candidate:
+  strategy: successor
+  note: current replacement in the same tier
+tripwire: None; there is no configuration in which a retired model id keeps working
+flag: Unavailable after {deprecated_date}; a correctness bug, not just a cost one

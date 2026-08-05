@@ -1,0 +1,15 @@
+# A readable call site with no max_tokens: worst case spend has no
+# ceiling. Only fires when the shape was readable, because absence and
+# unreadable are different claims.
+id: unbounded-max-tokens
+kind: finding
+confidence: medium
+when:
+  shape_readable: true
+  max_tokens_present: false
+  archetype_not: [embedding]
+candidate:
+  strategy: none
+  note: same model with a max_tokens cap; cost unchanged until a response runs long
+tripwire: None; a cap only fires when a response tries to exceed it
+flag: No max_tokens set; worst case spend is unbounded

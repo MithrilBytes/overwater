@@ -1,0 +1,10 @@
+# Cost model assumptions. Every number the engine uses lives in these
+# YAML files, not in code. Findings label results as estimates, and
+# calls_per_month is the default behind the --volume flag.
+volume:
+  calls_per_month: 10000
+tokens:
+  chars_per_token: 4
+  default_input: 500
+  default_output: 400
+  embedding_input: 10000

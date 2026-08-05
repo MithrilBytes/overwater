@@ -27,14 +27,7 @@ var (
 
 func extractShape(data []byte, line int) Shape {
 	content := string(data)
-	starts := lineStarts(content)
-	startLine := max(0, line-1-windowLines)
-	endLine := min(len(starts), line+windowLines)
-	winStart := starts[startLine]
-	winEnd := len(content)
-	if endLine < len(starts) {
-		winEnd = starts[endLine]
-	}
+	winStart, winEnd := windowBounds(content, line)
 	window := content[winStart:winEnd]
 
 	var s Shape
@@ -61,6 +54,20 @@ func extractShape(data []byte, line int) Shape {
 	s.Readable = reCallish.MatchString(window) ||
 		s.Temperature != nil || s.MaxTokens != nil || s.JSONSchema || s.Streaming
 	return s
+}
+
+// windowBounds returns the byte range of the detection window around a
+// one based line number.
+func windowBounds(content string, line int) (int, int) {
+	starts := lineStarts(content)
+	startLine := max(0, line-1-windowLines)
+	endLine := min(len(starts), line+windowLines)
+	winStart := starts[startLine]
+	winEnd := len(content)
+	if endLine < len(starts) {
+		winEnd = starts[endLine]
+	}
+	return winStart, winEnd
 }
 
 func lineStarts(s string) []int {
