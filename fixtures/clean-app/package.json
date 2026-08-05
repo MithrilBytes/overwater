@@ -1,0 +1,7 @@
+{
+  "name": "clean-app",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.60.0"
+  }
+}

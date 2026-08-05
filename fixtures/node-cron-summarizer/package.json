@@ -1,0 +1,8 @@
+{
+  "name": "node-cron-summarizer",
+  "private": true,
+  "dependencies": {
+    "node-cron": "^3.0.0",
+    "openai": "^4.70.0"
+  }
+}
