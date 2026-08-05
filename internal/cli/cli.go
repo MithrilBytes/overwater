@@ -12,6 +12,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/MithrilBytes/overwater/catalog"
+	"github.com/MithrilBytes/overwater/internal/render"
+	"github.com/MithrilBytes/overwater/internal/scan"
+	"github.com/MithrilBytes/overwater/rules"
 )
 
 const (
@@ -69,9 +72,68 @@ func printUsage(w io.Writer) {
 	fmt.Fprint(w, "\n")
 }
 
-func runScan(_ []string, _, stderr io.Writer) int {
-	fmt.Fprintln(stderr, "overwater: scan is not implemented yet")
-	return ExitError
+// runScan is the advisor: it prints findings and exits 0 whenever the
+// scan itself succeeds. The failure policy that turns findings into a
+// nonzero exit arrives with the baseline ratchet.
+func runScan(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	jsonOut := fs.Bool("json", false, "emit findings as JSON instead of text")
+	modelsMD := fs.Bool("models-md", false, "write MODELS.md into the scanned repo")
+	volume := fs.Int("volume", 0, "estimated calls per month per call site")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if fs.NArg() > 1 {
+		fmt.Fprintln(stderr, "overwater: scan expects at most one path")
+		return ExitError
+	}
+	root := "."
+	if fs.NArg() == 1 {
+		root = fs.Arg(0)
+	}
+	cat, err := catalog.Embedded()
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	engine, err := rules.Load()
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	if *volume > 0 {
+		engine.Est.Volume.CallsPerMonth = *volume
+	}
+	report, err := scan.Analyze(root, cat)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	findings := engine.Evaluate(report, cat)
+	meta := render.Meta{
+		CatalogVersion: cat.Version,
+		CallsPerMonth:  engine.Est.Volume.CallsPerMonth,
+	}
+	if *jsonOut {
+		out, err := render.JSON(findings, meta)
+		if err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		stdout.Write(out)
+	} else {
+		render.Terminal(stdout, findings, meta)
+	}
+	if *modelsMD {
+		path := filepath.Join(root, "MODELS.md")
+		if err := os.WriteFile(path, render.ModelsMD(findings, meta), 0o644); err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "wrote %s\n", path)
+	}
+	return ExitClean
 }
 
 func runEval(_ []string, _, stderr io.Writer) int {

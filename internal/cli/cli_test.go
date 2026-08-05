@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,8 +22,8 @@ func TestRun(t *testing.T) {
 		{"short help flag", []string{"-h"}, ExitClean, "Usage:", ""},
 		{"long help flag", []string{"--help"}, ExitClean, "Usage:", ""},
 		{"unknown command", []string{"water"}, ExitError, "", `unknown command "water"`},
-		{"scan stub", []string{"scan"}, ExitError, "", "scan is not implemented yet"},
 		{"eval stub", []string{"eval"}, ExitError, "", "eval is not implemented yet"},
+		{"scan with two paths", []string{"scan", "a", "b"}, ExitError, "", "at most one path"},
 		{"catalog without subcommand", []string{"catalog"}, ExitError, "", "Subcommands:"},
 		{"catalog unknown subcommand", []string{"catalog", "nuke"}, ExitError, "", `unknown subcommand "nuke"`},
 		{"catalog show", []string{"catalog", "show"}, ExitClean, "claude-haiku-4-5", ""},
@@ -53,6 +54,93 @@ func checkStream(t *testing.T, label, got, want string) {
 	}
 	if !strings.Contains(got, want) {
 		t.Errorf("%s = %q, want it to contain %q", label, got, want)
+	}
+}
+
+func fixturePath(name string) string {
+	return filepath.Join("..", "..", "fixtures", name)
+}
+
+func TestScanCleanAppPrintsNullVerdict(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"scan", fixturePath("clean-app")}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Keep the models you have.") {
+		t.Errorf("stdout = %q, want the null verdict", stdout.String())
+	}
+}
+
+func TestScanFirehosePrintsFindings(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"scan", fixturePath("ts-chat-firehose")}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	for _, want := range []string{
+		"Call site: app/api/chat/route.ts:7",
+		"claude-haiku-4-5, same capability tier for this task class, ~$27/mo",
+		"No prompt caching on a 1,191-token repeated system prompt",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout is missing %q:\n%s", want, stdout.String())
+		}
+	}
+}
+
+func TestScanJSONWithVolumeOverride(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"scan", "-json", "-volume", "20000", fixturePath("py-extraction")}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	var report struct {
+		CallsPerMonth int `json:"calls_per_month"`
+		Findings      []struct {
+			Rule       string `json:"rule"`
+			MonthlyUSD int    `json:"monthly_usd"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatalf("bad JSON: %v\n%s", err, stdout.String())
+	}
+	if report.CallsPerMonth != 20000 {
+		t.Errorf("calls_per_month = %d, want 20000", report.CallsPerMonth)
+	}
+	if len(report.Findings) != 1 || report.Findings[0].Rule != "frontier-extraction" {
+		t.Fatalf("findings = %+v", report.Findings)
+	}
+	if report.Findings[0].MonthlyUSD != 252 {
+		t.Errorf("monthly_usd = %d, want 252 at doubled volume", report.Findings[0].MonthlyUSD)
+	}
+}
+
+func TestScanWritesModelsMD(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"scan", "-models-md", dir}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "MODELS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "# Overwater verdict") ||
+		!strings.Contains(string(data), "Keep the models you have.") {
+		t.Errorf("MODELS.md = %q", data)
+	}
+}
+
+func TestScanMissingRepoFails(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"scan", filepath.Join("does", "not", "exist")}, &stdout, &stderr)
+	if code != ExitError {
+		t.Fatalf("exit code = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(stderr.String(), "scan") {
+		t.Errorf("stderr = %q, want a scan error", stderr.String())
 	}
 }
 
