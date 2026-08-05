@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -51,6 +53,33 @@ func checkStream(t *testing.T, label, got, want string) {
 	}
 	if !strings.Contains(got, want) {
 		t.Errorf("%s = %q, want it to contain %q", label, got, want)
+	}
+}
+
+func TestCatalogBuildWritesOutput(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte("2026-01-01\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := "id: test-model\nprovider: testco\ninput_per_mtok: 1\noutput_per_mtok: 2\ncontext_window: 1000\ntier: mid\nreleased: \"2025-01-01\"\nsource: https://example.com/pricing\n"
+	if err := os.WriteFile(filepath.Join(dir, "models", "test-model.yaml"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "catalog.json")
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"catalog", "build", "-dir", dir, "-o", out}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"test-model"`) {
+		t.Errorf("catalog.json is missing the entry: %s", data)
 	}
 }
 
