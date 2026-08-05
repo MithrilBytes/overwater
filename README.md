@@ -13,6 +13,25 @@ and the only network request it can ever make is fetching the public model
 catalog. A catalog snapshot ships inside the binary, so it also works fully
 offline.
 
+## Install
+
+```bash
+go install github.com/MithrilBytes/overwater/cmd/overwater@latest
+```
+
+## Usage
+
+```bash
+overwater scan path/to/repo
+```
+
+The scan prints one verdict block per finding, or the null verdict when
+nothing clears the bar. `--json` emits the same findings for machines,
+`--models-md` writes MODELS.md into the scanned repo, and `--volume`
+overrides the default estimate of 10,000 calls per month per call site.
+Scanning always exits 0 unless the run itself fails; the failure policy
+for CI arrives with the baseline ratchet.
+
 ## How it judges a call site
 
 Four detection layers feed a rules engine:
@@ -54,9 +73,10 @@ Working today:
   `goldens/`. The goldens are the spec.
 - All four detection layers and the rules engine, exercised end to end by
   the test suite against every fixture.
-
-`overwater scan` still exits 2 on purpose. It wires up when the renderers
-land, and the renderers must reproduce the goldens byte for byte.
+- `overwater scan` with all three renderers (terminal, MODELS.md, and
+  `--json`) driven by one shared findings object. The golden harness
+  proves the MODELS.md renderer reproduces each fixture's golden byte
+  for byte.
 
 ### Timeline
 
@@ -67,13 +87,13 @@ land, and the renderers must reproduce the goldens byte for byte.
 | 3 | Fixture repos and golden verdicts | done |
 | 4 | Detection layers 1 to 3 | done |
 | 5 | Archetype classifier and rules engine | done |
-| 6 | Renderers (terminal, MODELS.md, --json) and the golden harness | next |
-| 7 | CI guard: exit codes, baseline ratchet, --fail-on | planned |
+| 6 | Renderers (terminal, MODELS.md, --json) and the golden harness | done |
+| 7 | CI guard: exit codes, baseline ratchet, --fail-on | next |
 | 8 | Composite GitHub Action and dogfood workflow | planned |
 | 9 | Catalog fetch with local cache, stale warning, --offline | planned |
 | 10 | eval subcommand generating A/B scripts per finding | planned |
 
-Steps 1 through 5 landed 2026-08-05.
+Steps 1 through 6 landed 2026-08-05.
 
 ### Scope for v1
 
