@@ -1,0 +1,10 @@
+id: claude-sonnet-4-5
+provider: anthropic
+aliases:
+  - claude-sonnet-4-5-20250929
+input_per_mtok: 3.00
+output_per_mtok: 15.00
+context_window: 200000
+tier: mid
+released: "2025-09-29"
+source: https://platform.claude.com/docs/en/pricing

@@ -4,8 +4,14 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"text/tabwriter"
+
+	"github.com/MithrilBytes/overwater/catalog"
 )
 
 const (
@@ -73,7 +79,77 @@ func runEval(_ []string, _, stderr io.Writer) int {
 	return ExitError
 }
 
-func runCatalog(_ []string, _, stderr io.Writer) int {
-	fmt.Fprintln(stderr, "overwater: catalog is not implemented yet")
+func runCatalog(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		printCatalogUsage(stderr)
+		return ExitError
+	}
+	switch args[0] {
+	case "build":
+		return runCatalogBuild(args[1:], stdout, stderr)
+	case "show":
+		return runCatalogShow(stdout, stderr)
+	case "help", "-h", "--help":
+		printCatalogUsage(stdout)
+		return ExitClean
+	}
+	fmt.Fprintf(stderr, "overwater catalog: unknown subcommand %q\n", args[0])
+	printCatalogUsage(stderr)
 	return ExitError
+}
+
+func printCatalogUsage(w io.Writer) {
+	fmt.Fprint(w, "Work with the model catalog.\n\nUsage:\n\n  overwater catalog <subcommand> [flags]\n\nSubcommands:\n\n")
+	fmt.Fprint(w, "  build    validate the YAML entries and write catalog.json\n")
+	fmt.Fprint(w, "  show     print the models in the embedded catalog\n\n")
+}
+
+func runCatalogBuild(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("catalog build", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dir := fs.String("dir", "catalog", "catalog source directory")
+	out := fs.String("o", "", "output path (default <dir>/catalog.json)")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	c, err := catalog.LoadDir(*dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	b, err := c.JSON()
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	path := *out
+	if path == "" {
+		path = filepath.Join(*dir, "catalog.json")
+	}
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(stdout, "wrote %s: %d models, prices as of %s\n", path, len(c.Models), c.Version)
+	return ExitClean
+}
+
+func runCatalogShow(stdout, stderr io.Writer) int {
+	c, err := catalog.Embedded()
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(stdout, "catalog %s: %d models\n\n", c.Version, len(c.Models))
+	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tPROVIDER\tTIER\tIN $/MTOK\tOUT $/MTOK\tSTATUS")
+	for _, m := range c.Models {
+		status := "active"
+		if m.Deprecated != "" {
+			status = "deprecated " + m.Deprecated
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%.2f\t%.2f\t%s\n", m.ID, m.Provider, m.Tier, m.InputPerMtok, m.OutputPerMtok, status)
+	}
+	w.Flush()
+	return ExitClean
 }

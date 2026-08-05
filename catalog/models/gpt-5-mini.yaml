@@ -1,0 +1,10 @@
+id: gpt-5-mini
+provider: openai
+aliases:
+  - gpt-5-mini-2025-08-07
+input_per_mtok: 0.25
+output_per_mtok: 2.00
+context_window: 400000
+tier: mid
+released: "2025-08-07"
+source: https://platform.openai.com/docs/pricing

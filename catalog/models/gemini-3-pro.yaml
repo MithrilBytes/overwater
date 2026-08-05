@@ -1,0 +1,10 @@
+id: gemini-3-pro
+provider: google
+aliases:
+  - gemini-3-pro-preview
+input_per_mtok: 2.00
+output_per_mtok: 12.00
+context_window: 1000000
+tier: frontier
+released: "2025-11-18"
+source: https://ai.google.dev/gemini-api/docs/pricing

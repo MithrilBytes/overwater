@@ -1,0 +1,10 @@
+id: gpt-5-nano
+provider: openai
+aliases:
+  - gpt-5-nano-2025-08-07
+input_per_mtok: 0.05
+output_per_mtok: 0.40
+context_window: 400000
+tier: small
+released: "2025-08-07"
+source: https://platform.openai.com/docs/pricing

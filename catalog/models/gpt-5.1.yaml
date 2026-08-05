@@ -1,0 +1,10 @@
+id: gpt-5.1
+provider: openai
+aliases:
+  - gpt-5.1-2025-11-13
+input_per_mtok: 1.25
+output_per_mtok: 10.00
+context_window: 400000
+tier: frontier
+released: "2025-11-13"
+source: https://platform.openai.com/docs/pricing

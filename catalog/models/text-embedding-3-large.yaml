@@ -1,0 +1,8 @@
+id: text-embedding-3-large
+provider: openai
+input_per_mtok: 0.13
+output_per_mtok: 0
+context_window: 8191
+tier: embedding
+released: "2024-01-25"
+source: https://platform.openai.com/docs/pricing

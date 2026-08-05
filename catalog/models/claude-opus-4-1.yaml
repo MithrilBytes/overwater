@@ -1,0 +1,11 @@
+id: claude-opus-4-1
+provider: anthropic
+aliases:
+  - claude-opus-4-1-20250805
+input_per_mtok: 15.00
+output_per_mtok: 75.00
+context_window: 200000
+tier: frontier
+released: "2025-08-05"
+deprecated: "2026-08-05"
+source: https://platform.claude.com/docs/en/about-claude/models/overview

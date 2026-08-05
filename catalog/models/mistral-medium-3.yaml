@@ -1,0 +1,10 @@
+id: mistral-medium-3
+provider: mistral
+aliases:
+  - mistral-medium-latest
+input_per_mtok: 0.40
+output_per_mtok: 2.00
+context_window: 131072
+tier: mid
+released: "2025-05-07"
+source: https://mistral.ai/pricing

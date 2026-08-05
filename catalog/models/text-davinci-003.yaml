@@ -1,0 +1,9 @@
+id: text-davinci-003
+provider: openai
+input_per_mtok: 20.00
+output_per_mtok: 20.00
+context_window: 4097
+tier: mid
+released: "2022-11-28"
+deprecated: "2024-01-04"
+source: https://platform.openai.com/docs/deprecations

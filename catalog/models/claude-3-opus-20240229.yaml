@@ -1,0 +1,11 @@
+id: claude-3-opus-20240229
+provider: anthropic
+aliases:
+  - claude-3-opus-latest
+input_per_mtok: 15.00
+output_per_mtok: 75.00
+context_window: 200000
+tier: frontier
+released: "2024-02-29"
+deprecated: "2026-01-05"
+source: https://platform.claude.com/docs/en/about-claude/models/overview

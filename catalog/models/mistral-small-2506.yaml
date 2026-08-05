@@ -1,0 +1,10 @@
+id: mistral-small-2506
+provider: mistral
+aliases:
+  - mistral-small-latest
+input_per_mtok: 0.10
+output_per_mtok: 0.30
+context_window: 131072
+tier: small
+released: "2025-06-20"
+source: https://mistral.ai/pricing

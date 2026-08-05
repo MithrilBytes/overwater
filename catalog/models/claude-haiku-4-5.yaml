@@ -1,0 +1,10 @@
+id: claude-haiku-4-5
+provider: anthropic
+aliases:
+  - claude-haiku-4-5-20251001
+input_per_mtok: 1.00
+output_per_mtok: 5.00
+context_window: 200000
+tier: small
+released: "2025-10-01"
+source: https://platform.claude.com/docs/en/pricing

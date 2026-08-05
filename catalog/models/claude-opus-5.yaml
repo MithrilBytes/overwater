@@ -1,0 +1,8 @@
+id: claude-opus-5
+provider: anthropic
+input_per_mtok: 5.00
+output_per_mtok: 25.00
+context_window: 1000000
+tier: frontier
+released: "2026-06-01"
+source: https://platform.claude.com/docs/en/pricing

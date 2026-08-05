@@ -21,7 +21,10 @@ func TestRun(t *testing.T) {
 		{"unknown command", []string{"water"}, ExitError, "", `unknown command "water"`},
 		{"scan stub", []string{"scan"}, ExitError, "", "scan is not implemented yet"},
 		{"eval stub", []string{"eval"}, ExitError, "", "eval is not implemented yet"},
-		{"catalog stub", []string{"catalog"}, ExitError, "", "catalog is not implemented yet"},
+		{"catalog without subcommand", []string{"catalog"}, ExitError, "", "Subcommands:"},
+		{"catalog unknown subcommand", []string{"catalog", "nuke"}, ExitError, "", `unknown subcommand "nuke"`},
+		{"catalog show", []string{"catalog", "show"}, ExitClean, "claude-haiku-4-5", ""},
+		{"catalog build with a bad dir", []string{"catalog", "build", "-dir", "does-not-exist"}, ExitError, "", "read catalog version"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
