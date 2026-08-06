@@ -1,0 +1,51 @@
+name: price-watch
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: fetch litellm prices
+        run: |
+          curl -fsSL -o /tmp/litellm.json \
+            https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+      - name: diff and apply
+        run: go run ./cmd/overwater catalog diff -write /tmp/litellm.json | tee /tmp/diff.txt
+      - name: open pr when prices moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "prices match litellm" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch="price-watch/$(date +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add catalog/
+          git commit -m "chore: update catalog prices from litellm"
+          git push -f origin "$branch"
+          {
+            echo "Detected by the nightly diff against LiteLLM's pricing file."
+            echo "Verify each change against the provider source URL before merging."
+            echo
+            echo '```'
+            cat /tmp/diff.txt
+            echo '```'
+          } > /tmp/body.md
+          gh pr create --title "chore: update catalog prices from litellm" \
+            --body-file /tmp/body.md --head "$branch" \
+            || echo "could not open a PR; check that Actions may create pull requests" >> "$GITHUB_STEP_SUMMARY"
