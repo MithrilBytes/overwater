@@ -23,9 +23,7 @@ served as a static file straight from this repository:
 That file is the entire endpoint: no server, no database. `overwater
 catalog refresh` pulls it into a local cache, and the scanner prefers
 the cache only when it is newer than the embedded snapshot. A GitHub
-Pages mirror of the same bytes deploys on merge once Pages is enabled
-for the repo (Settings, then Pages, then Source: GitHub Actions); until
-then the publish workflow skips with a notice.
+Pages mirror of the same bytes deploys on merge.
 
 ## What belongs in the catalog
 
