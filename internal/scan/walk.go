@@ -78,6 +78,7 @@ var skipFiles = map[string]bool{
 	// Our own artifacts name model ids; scanning them would make the
 	// tool flag its own output.
 	".overwater.json": true,
+	".overwater.yaml": true,
 	"MODELS.md":       true,
 }
 

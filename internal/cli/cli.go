@@ -149,13 +149,16 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	meta := p.meta
 	var findings []rules.Finding
+	var overBudgets []string
 	for _, r := range roots {
-		rf, err := p.scanRoot(r, only)
+		rf, overBudget, err := p.scanRoot(r, only, *volume)
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			return ExitError
+		}
+		if overBudget != "" {
+			overBudgets = append(overBudgets, overBudget)
 		}
 		if multi {
 			// Prefix with the root's base name so merged findings stay
@@ -169,6 +172,9 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		}
 		findings = append(findings, rf...)
 	}
+	// Read after the roots loop so a config supplied volume shows in the
+	// rendered header.
+	meta := p.meta
 	switch {
 	case *jsonOut:
 		out, err := render.JSON(findings, meta)
@@ -221,7 +227,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		// One root has one HEAD; a merged multi root baseline records none.
 		shaRoot = roots[0]
 	}
-	return guardExit(findings, guardOpts{
+	code := guardExit(findings, guardOpts{
 		root:         shaRoot,
 		baselinePath: *baselinePath,
 		update:       *updateBaseline,
@@ -230,6 +236,15 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		maxAgeDays:   *maxAge,
 		scanned:      only,
 	}, stderr)
+	// A blown budget is a findings failure, never an operational error,
+	// and never masks one.
+	for _, line := range overBudgets {
+		fmt.Fprintln(stderr, line)
+		if code == ExitClean {
+			code = ExitFindings
+		}
+	}
+	return code
 }
 
 // defaultBaselinePath applies the conventional baseline location when
@@ -332,23 +347,65 @@ func newPipeline(volume int, stderr io.Writer) (*pipeline, error) {
 	}, nil
 }
 
-// scanRoot runs the scanner and rules over one root. A non nil only set
-// restricts the scan to those root relative files.
-func (p *pipeline) scanRoot(root string, only map[string]bool) ([]rules.Finding, error) {
-	report, err := scan.AnalyzeOnly(root, p.cat, only)
+// applyRepoConfig folds the root's .overwater.yaml into the shared
+// engine. The flag beats the config, and the config beats the estimate
+// default. With several roots each config applies as its root is
+// scanned, last one winning the shared knobs; budgets are judged per
+// root. Returns the root's budget_monthly_usd, zero when unset.
+func (p *pipeline) applyRepoConfig(root string, flagVolume int) (float64, error) {
+	cfg, err := loadRepoConfig(root)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return p.engine.Evaluate(report, p.cat), nil
+	if cfg == nil {
+		return 0, nil
+	}
+	if flagVolume == 0 && cfg.Volume > 0 {
+		p.engine.Est.Volume.CallsPerMonth = cfg.Volume
+		p.meta.CallsPerMonth = cfg.Volume
+	}
+	p.engine.Disable(cfg.Disable)
+	for ruleID, fields := range cfg.Thresholds {
+		for field, value := range fields {
+			if err := p.engine.SetThreshold(ruleID, field, value); err != nil {
+				return 0, fmt.Errorf("%s: %v", configName, err)
+			}
+		}
+	}
+	return cfg.BudgetMonthlyUSD, nil
 }
 
-// analyzeRepo keeps the one root pipeline shape eval uses.
+// scanRoot runs the scanner and rules over one root under that root's
+// own config. A non nil only set restricts the scan to those root
+// relative files. overBudget is one line naming total and budget when
+// the config's budget_monthly_usd is exceeded, empty otherwise.
+func (p *pipeline) scanRoot(root string, only map[string]bool, flagVolume int) ([]rules.Finding, string, error) {
+	budget, err := p.applyRepoConfig(root, flagVolume)
+	if err != nil {
+		return nil, "", err
+	}
+	report, err := scan.AnalyzeOnly(root, p.cat, only)
+	if err != nil {
+		return nil, "", err
+	}
+	findings := p.engine.Evaluate(report, p.cat)
+	overBudget := ""
+	if budget > 0 {
+		if total := p.engine.TotalMonthlyUSD(report, p.cat); total > budget {
+			overBudget = fmt.Sprintf("estimated ~$%.0f/mo across all known call sites exceeds budget_monthly_usd %g", total, budget)
+		}
+	}
+	return findings, overBudget, nil
+}
+
+// analyzeRepo keeps the one root pipeline shape eval uses. A blown
+// budget is a guard concern; eval ignores it.
 func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, render.Meta, error) {
 	p, err := newPipeline(volume, stderr)
 	if err != nil {
 		return nil, nil, render.Meta{}, err
 	}
-	findings, err := p.scanRoot(root, nil)
+	findings, _, err := p.scanRoot(root, nil, volume)
 	if err != nil {
 		return nil, nil, render.Meta{}, err
 	}

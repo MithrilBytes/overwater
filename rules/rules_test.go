@@ -426,6 +426,63 @@ func TestImageDetailHighIgnoresChat(t *testing.T) {
 	}
 }
 
+func TestDisableRemovesRules(t *testing.T) {
+	engine, cat := loadEngine(t)
+	engine.Disable([]string{"deprecated-model", "not-a-rule"})
+	report := &scan.Report{Sites: []scan.Site{
+		site("text-davinci-003", scan.ArchetypeSummarization, scan.Shape{}),
+	}}
+	if got := engine.Evaluate(report, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings with deprecated-model disabled", got)
+	}
+}
+
+func TestSetThresholdOverridesWhen(t *testing.T) {
+	engine, cat := loadEngine(t)
+	if err := engine.SetThreshold("retry-amplification", "min_retries", 6); err != nil {
+		t.Fatal(err)
+	}
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-opus-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(5)}),
+	}}
+	if got := engine.Evaluate(report, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings below the raised threshold", got)
+	}
+	report = &scan.Report{Sites: []scan.Site{
+		site("claude-opus-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(6)}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "retry-amplification" {
+		t.Errorf("got %+v, want the rule to fire at the raised threshold", got)
+	}
+}
+
+func TestSetThresholdRejectsUnknownRuleOrField(t *testing.T) {
+	engine, _ := loadEngine(t)
+	if err := engine.SetThreshold("retry-amplification", "min_carrots", 1); err == nil {
+		t.Error("want an error for an unknown threshold field")
+	}
+	if err := engine.SetThreshold("no-such-rule", "min_retries", 1); err == nil {
+		t.Error("want an error for an unknown rule id")
+	}
+}
+
+func TestTotalMonthlyUSDSumsKnownSites(t *testing.T) {
+	engine, cat := loadEngine(t)
+	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	b := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	ignored := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	ignored.Ignored = true
+	unknown := scan.Site{File: "x.ts", Line: 1, Ref: "mystery-9000"}
+	total := engine.TotalMonthlyUSD(&scan.Report{Sites: []scan.Site{a, b, ignored, unknown}}, cat)
+	// Each sonnet site: (500 input at $3 + 300 output at $15) per Mtok
+	// at 10,000 calls is $60/mo. Ignored sites still spend; unknown
+	// strings cannot be priced.
+	if total != 180 {
+		t.Errorf("total = %g, want 180", total)
+	}
+}
+
 func TestDuplicateCallSitesFlagEverySiteAfterTheFirst(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})

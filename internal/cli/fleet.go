@@ -47,11 +47,14 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 	}
 	scanned, failed, totalFindings, totalUSD := 0, 0, 0, 0
 	for _, repo := range repos {
-		findings, err := p.scanRoot(repo, nil)
+		findings, overBudget, err := p.scanRoot(repo, nil, 0)
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			failed++
 			continue
+		}
+		if overBudget != "" {
+			fmt.Fprintf(stderr, "%s: %s\n", repo, overBudget)
 		}
 		usd := 0
 		for _, f := range findings {

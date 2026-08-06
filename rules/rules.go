@@ -175,6 +175,68 @@ func (r Rule) validate() error {
 	return nil
 }
 
+// Disable removes the named rules from the engine. Removing a rule
+// that does not exist is a no-op, so configs survive rule renames.
+func (e *Engine) Disable(ids []string) {
+	drop := map[string]bool{}
+	for _, id := range ids {
+		drop[id] = true
+	}
+	kept := e.Rules[:0]
+	for _, r := range e.Rules {
+		if !drop[r.ID] {
+			kept = append(kept, r)
+		}
+	}
+	e.Rules = kept
+}
+
+// SetThreshold overrides one numeric When field on the named rule.
+// Unknown rules and fields are errors: a tolerated typo would silently
+// scan with the wrong threshold.
+func (e *Engine) SetThreshold(ruleID, field string, value float64) error {
+	for i := range e.Rules {
+		if e.Rules[i].ID != ruleID {
+			continue
+		}
+		w := &e.Rules[i].When
+		switch field {
+		case "min_system_tokens":
+			w.MinSystemTokens = int(value)
+		case "min_input_per_mtok":
+			w.MinInputPerMtok = value
+		case "min_retries":
+			w.MinRetries = int(value)
+		case "min_duplicate_sites":
+			w.MinDuplicateSites = int(value)
+		case "temperature_above":
+			v := value
+			w.TemperatureAbove = &v
+		default:
+			return fmt.Errorf("rule %s has no numeric threshold %q", ruleID, field)
+		}
+		return nil
+	}
+	return fmt.Errorf("no rule %q to set a threshold on", ruleID)
+}
+
+// TotalMonthlyUSD sums the estimated monthly spend of every known call
+// site at its own model, for the repo budget check. Ignore pragmas
+// silence findings, not spend, so ignored sites still count.
+func (e *Engine) TotalMonthlyUSD(report *scan.Report, cat *catalog.Catalog) float64 {
+	names := cat.Names()
+	var total float64
+	for _, site := range report.Sites {
+		if !site.Known {
+			continue
+		}
+		if m := names[site.Ref]; m != nil {
+			total += e.monthlyUSD(m, site)
+		}
+	}
+	return total
+}
+
 // dupKey groups call sites for the duplicate predicate: same content
 // hash and same model is the same call written twice.
 type dupKey struct{ hash, model string }

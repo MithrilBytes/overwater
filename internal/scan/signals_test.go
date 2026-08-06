@@ -144,6 +144,18 @@ func TestImageDetailHighInsideContentPart(t *testing.T) {
 	}
 }
 
+// The walker must skip the repo's own .overwater.yaml the same way it
+// skips .overwater.json: config may name model ids and rule ids
+// without becoming call sites.
+func TestWalkSkipsOverwaterConfig(t *testing.T) {
+	r := analyzeTemp(t, map[string]string{
+		".overwater.yaml": "disable: [deprecated-model]\n# migrating off gpt-5.1\n",
+	})
+	if len(r.Sites) != 0 {
+		t.Errorf("got %d sites from .overwater.yaml, want 0: %+v", len(r.Sites), r.Sites)
+	}
+}
+
 func TestImageDetailLowStaysFalse(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"ocr.ts": `async function ocrReceipt(url: string) {
   return client.chat.completions.create({
