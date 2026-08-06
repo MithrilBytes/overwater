@@ -137,13 +137,15 @@ Four detection layers feed a rules engine:
    files, and config. Unknown model-looking strings are reported at low
    confidence instead of ignored.
 3. Call-site shape: temperature, max_tokens, schemas, tools, streaming,
-   system prompt size, cache_control. Signals are read from the call's
-   own bracket-balanced extent over comment- and prose-masked source, so
-   a neighboring call cannot bleed its parameters in and a prompt that
-   merely mentions temperature cannot fake one. System prompts and
-   schemas referenced by name are resolved in the same file or one
-   import hop away. When the shape is unreadable, the scanner says so
-   instead of guessing.
+   system prompt size, cache_control. TypeScript and JavaScript call
+   sites are parsed structurally: callee chain plus the properties of
+   the object that names the model, one level into config wrappers.
+   Other languages read the call's bracket-balanced extent over comment-
+   and prose-masked source, so a neighboring call cannot bleed its
+   parameters in and a prompt that merely mentions temperature cannot
+   fake one. System prompts and schemas referenced by name are resolved
+   in the same file or one import hop away. When the shape is
+   unreadable, the scanner says so instead of guessing.
 4. Archetype: extraction, classification, summarization, chat, agentic
    loop, or embedding, scored from weighted evidence: the enclosing
    function name counts most, then the resolved prompt text and schema
@@ -193,8 +195,13 @@ Working today:
   when asked to refresh.
 - `overwater eval`: one generated A/B script per finding, run by you
   with your own keys, never by the scanner.
-- The GitHub Action, pinned to a release binary by checksum and
-  dogfooded in this repo against the firehose and clean-app fixtures.
+- The GitHub Action, pinned to a release binary by checksum, dogfooded
+  in this repo against the firehose and clean-app fixtures, with opt-in
+  PR comments.
+- Structural parsing for TypeScript call sites; a labeled corpus pins
+  classifier accuracy (currently 13/14) with a floor in tests.
+- A nightly price-watch that diffs the catalog against LiteLLM and
+  opens a PR when prices move.
 
 ### v1.5
 
@@ -206,6 +213,18 @@ Current release line. On top of the ten v1 build steps:
   when prices move
 - opt-in PR comments in the Action
 - labeled corpus with a classifier accuracy floor enforced in tests
+
+### Next
+
+Rough order, no promises:
+
+- structural parsing for Python, same pure Go approach
+- grow the corpus past fifty cases and raise the accuracy floor
+- eval templates for google, mistral, and cohere
+- volume hints: read real call volume from a file instead of the
+  10,000 per month default
+- price-watch coverage for context windows and deprecation dates, not
+  just prices
 
 Never: hosted service, telemetry, model calls from the scanner.
 
