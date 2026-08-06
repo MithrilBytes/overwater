@@ -7,16 +7,24 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
+	"time"
 
 	"github.com/MithrilBytes/overwater/catalog"
 	"github.com/MithrilBytes/overwater/internal/baseline"
+	"github.com/MithrilBytes/overwater/internal/evalgen"
 	"github.com/MithrilBytes/overwater/internal/render"
 	"github.com/MithrilBytes/overwater/internal/scan"
 	"github.com/MithrilBytes/overwater/rules"
 )
+
+// httpClient is the only way any command reaches the network, and only
+// the catalog fetch ever uses it. Tests swap the transport to prove
+// exactly that.
+var httpClient = &http.Client{Timeout: 15 * time.Second}
 
 const (
 	// ExitClean means the run finished and nothing violates the failure policy.
@@ -85,6 +93,8 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	baselinePath := fs.String("baseline", "", "baseline file for the ratchet")
 	updateBaseline := fs.Bool("update-baseline", false, "record this scan's findings as the baseline")
 	failOn := fs.String("fail-on", "new", "failure policy: new, any, or none")
+	refresh := fs.Bool("refresh", false, "fetch the published catalog before scanning")
+	offline := fs.Bool("offline", false, "forbid all network activity")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
@@ -106,28 +116,19 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	if fs.NArg() == 1 {
 		root = fs.Arg(0)
 	}
-	cat, err := catalog.Embedded()
+	if *refresh {
+		if *offline {
+			fmt.Fprintln(stderr, "offline: skipping catalog refresh")
+		} else if fetched, raw, err := catalog.Fetch(httpClient, catalog.DefaultURL); err != nil {
+			fmt.Fprintf(stderr, "catalog refresh failed: %v; scanning with local prices\n", err)
+		} else if _, err := catalog.WriteCache(raw); err != nil {
+			fmt.Fprintf(stderr, "could not cache catalog %s: %v\n", fetched.Version, err)
+		}
+	}
+	_, findings, meta, err := analyzeRepo(root, *volume, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
-	}
-	engine, err := rules.Load()
-	if err != nil {
-		fmt.Fprintf(stderr, "overwater: %v\n", err)
-		return ExitError
-	}
-	if *volume > 0 {
-		engine.Est.Volume.CallsPerMonth = *volume
-	}
-	report, err := scan.Analyze(root, cat)
-	if err != nil {
-		fmt.Fprintf(stderr, "overwater: %v\n", err)
-		return ExitError
-	}
-	findings := engine.Evaluate(report, cat)
-	meta := render.Meta{
-		CatalogVersion: cat.Version,
-		CallsPerMonth:  engine.Est.Volume.CallsPerMonth,
 	}
 	if *jsonOut {
 		out, err := render.JSON(findings, meta)
@@ -148,6 +149,39 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "wrote %s\n", path)
 	}
 	return guardExit(findings, *baselinePath, *updateBaseline, *failOn, failOnSet, stderr)
+}
+
+// analyzeRepo runs the shared pipeline for scan and eval: pick the
+// effective catalog (embedded or a newer cache, zero network), load the
+// rules, scan, evaluate. Advisory notes such as a bad cache or stale
+// prices go to stderr; stdout belongs to the renderers.
+func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, render.Meta, error) {
+	cat, note, err := catalog.Effective()
+	if err != nil {
+		return nil, nil, render.Meta{}, err
+	}
+	if note != "" {
+		fmt.Fprintln(stderr, note)
+	}
+	if warn := catalog.Stale(cat, time.Now()); warn != "" {
+		fmt.Fprintln(stderr, warn)
+	}
+	engine, err := rules.Load()
+	if err != nil {
+		return nil, nil, render.Meta{}, err
+	}
+	if volume > 0 {
+		engine.Est.Volume.CallsPerMonth = volume
+	}
+	report, err := scan.Analyze(root, cat)
+	if err != nil {
+		return nil, nil, render.Meta{}, err
+	}
+	meta := render.Meta{
+		CatalogVersion: cat.Version,
+		CallsPerMonth:  engine.Est.Volume.CallsPerMonth,
+	}
+	return cat, engine.Evaluate(report, cat), meta, nil
 }
 
 // guardExit applies the failure policy. Recording a baseline never
@@ -204,9 +238,49 @@ func guardExit(findings []rules.Finding, baselinePath string, update bool, failO
 	return ExitClean
 }
 
-func runEval(_ []string, _, stderr io.Writer) int {
-	fmt.Fprintln(stderr, "overwater: eval is not implemented yet")
-	return ExitError
+// runEval generates one A/B eval script per finding that nominates a
+// different model. The user supplies prompts and keys and runs the
+// scripts themselves; the scanner never does.
+func runEval(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("eval", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	outDir := fs.String("o", "overwater-evals", "directory for generated scripts")
+	volume := fs.Int("volume", 0, "estimated calls per month per call site")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if fs.NArg() > 1 {
+		fmt.Fprintln(stderr, "overwater: eval expects at most one path")
+		return ExitError
+	}
+	root := "."
+	if fs.NArg() == 1 {
+		root = fs.Arg(0)
+	}
+	cat, findings, _, err := analyzeRepo(root, *volume, stderr)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	if len(findings) == 0 {
+		fmt.Fprintf(stdout, "%s Nothing to eval.\n", render.KeepVerdict)
+		return ExitClean
+	}
+	written, skipped, err := evalgen.Generate(findings, cat, *outDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	for _, path := range written {
+		fmt.Fprintf(stdout, "wrote %s\n", path)
+	}
+	for _, note := range skipped {
+		fmt.Fprintf(stderr, "skipped %s\n", note)
+	}
+	if len(written) == 0 {
+		fmt.Fprintln(stdout, "no findings nominate a different model, so there is nothing to eval")
+	}
+	return ExitClean
 }
 
 func runCatalog(args []string, stdout, stderr io.Writer) int {
@@ -219,6 +293,8 @@ func runCatalog(args []string, stdout, stderr io.Writer) int {
 		return runCatalogBuild(args[1:], stdout, stderr)
 	case "show":
 		return runCatalogShow(stdout, stderr)
+	case "refresh":
+		return runCatalogRefresh(args[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		printCatalogUsage(stdout)
 		return ExitClean
@@ -230,8 +306,35 @@ func runCatalog(args []string, stdout, stderr io.Writer) int {
 
 func printCatalogUsage(w io.Writer) {
 	fmt.Fprint(w, "Work with the model catalog.\n\nUsage:\n\n  overwater catalog <subcommand> [flags]\n\nSubcommands:\n\n")
-	fmt.Fprint(w, "  build    validate the YAML entries and write catalog.json\n")
-	fmt.Fprint(w, "  show     print the models in the embedded catalog\n\n")
+	fmt.Fprint(w, "  build      validate the YAML entries and write catalog.json\n")
+	fmt.Fprint(w, "  refresh    fetch the published catalog into the local cache\n")
+	fmt.Fprint(w, "  show       print the models in the effective catalog\n\n")
+}
+
+func runCatalogRefresh(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("catalog refresh", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	url := fs.String("url", catalog.DefaultURL, "catalog URL")
+	offline := fs.Bool("offline", false, "forbid all network activity")
+	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	if *offline {
+		fmt.Fprintln(stderr, "overwater: refresh is a network operation and --offline forbids it")
+		return ExitError
+	}
+	c, raw, err := catalog.Fetch(httpClient, *url)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	path, err := catalog.WriteCache(raw)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(stdout, "cached catalog %s: %d models (%s)\n", c.Version, len(c.Models), path)
+	return ExitClean
 }
 
 func runCatalogBuild(args []string, stdout, stderr io.Writer) int {
@@ -265,10 +368,13 @@ func runCatalogBuild(args []string, stdout, stderr io.Writer) int {
 }
 
 func runCatalogShow(stdout, stderr io.Writer) int {
-	c, err := catalog.Embedded()
+	c, note, err := catalog.Effective()
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
+	}
+	if note != "" {
+		fmt.Fprintln(stderr, note)
 	}
 	fmt.Fprintf(stdout, "catalog %s: %d models\n\n", c.Version, len(c.Models))
 	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
