@@ -1,0 +1,10 @@
+id: command-r-08-2024
+provider: cohere
+aliases:
+  - command-r
+input_per_mtok: 0.15
+output_per_mtok: 0.60
+context_window: 128000
+tier: mid
+released: "2024-08-30"
+source: https://cohere.com/pricing

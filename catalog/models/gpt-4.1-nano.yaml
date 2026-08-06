@@ -1,0 +1,10 @@
+id: gpt-4.1-nano
+provider: openai
+aliases:
+  - gpt-4.1-nano-2025-04-14
+input_per_mtok: 0.10
+output_per_mtok: 0.40
+context_window: 1047576
+tier: small
+released: "2025-04-14"
+source: https://platform.openai.com/docs/pricing

@@ -1,0 +1,12 @@
+id: claude-3-5-sonnet-20241022
+provider: anthropic
+aliases:
+  - claude-3-5-sonnet-latest
+  - claude-3-5-sonnet-20240620
+input_per_mtok: 3.00
+output_per_mtok: 15.00
+context_window: 200000
+tier: mid
+released: "2024-10-22"
+deprecated: "2025-10-28"
+source: https://platform.claude.com/docs/en/about-claude/models/overview

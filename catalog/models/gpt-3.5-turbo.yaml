@@ -1,0 +1,10 @@
+id: gpt-3.5-turbo
+provider: openai
+aliases:
+  - gpt-3.5-turbo-0125
+input_per_mtok: 0.50
+output_per_mtok: 1.50
+context_window: 16385
+tier: small
+released: "2023-03-01"
+source: https://platform.openai.com/docs/pricing

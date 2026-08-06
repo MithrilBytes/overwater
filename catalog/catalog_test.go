@@ -27,8 +27,8 @@ func TestEmbeddedBreadth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(c.Models); n < 15 || n > 20 {
-		t.Fatalf("seed catalog has %d models, want 15 to 20", n)
+	if n := len(c.Models); n < 20 {
+		t.Fatalf("catalog has %d models, want at least the original 20 seeds", n)
 	}
 	providers := map[string]bool{}
 	tiers := map[string]bool{}
@@ -40,8 +40,8 @@ func TestEmbeddedBreadth(t *testing.T) {
 			deprecated++
 		}
 	}
-	if len(providers) < 4 {
-		t.Errorf("seed catalog spans %d providers, want at least 4", len(providers))
+	if len(providers) < 5 {
+		t.Errorf("catalog spans %d providers, want at least 5", len(providers))
 	}
 	for _, tier := range Tiers {
 		if !tiers[tier] {
@@ -49,7 +49,7 @@ func TestEmbeddedBreadth(t *testing.T) {
 		}
 	}
 	if deprecated == 0 {
-		t.Error("seed catalog needs at least one deprecated entry for the deprecated-model rule")
+		t.Error("catalog needs at least one deprecated entry for the deprecated-model rule")
 	}
 }
 

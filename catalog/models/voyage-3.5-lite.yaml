@@ -1,0 +1,8 @@
+id: voyage-3.5-lite
+provider: voyage
+input_per_mtok: 0.02
+output_per_mtok: 0
+context_window: 32000
+tier: embedding
+released: "2025-05-20"
+source: https://docs.voyageai.com/docs/pricing

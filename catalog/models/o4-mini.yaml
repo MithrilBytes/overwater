@@ -1,0 +1,10 @@
+id: o4-mini
+provider: openai
+aliases:
+  - o4-mini-2025-04-16
+input_per_mtok: 1.10
+output_per_mtok: 4.40
+context_window: 200000
+tier: mid
+released: "2025-04-16"
+source: https://platform.openai.com/docs/pricing

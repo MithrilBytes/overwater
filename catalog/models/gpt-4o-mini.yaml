@@ -1,0 +1,10 @@
+id: gpt-4o-mini
+provider: openai
+aliases:
+  - gpt-4o-mini-2024-07-18
+input_per_mtok: 0.15
+output_per_mtok: 0.60
+context_window: 128000
+tier: small
+released: "2024-07-18"
+source: https://platform.openai.com/docs/pricing

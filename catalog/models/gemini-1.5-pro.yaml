@@ -1,0 +1,9 @@
+id: gemini-1.5-pro
+provider: google
+input_per_mtok: 1.25
+output_per_mtok: 5.00
+context_window: 2097152
+tier: frontier
+released: "2024-05-24"
+deprecated: "2025-09-24"
+source: https://ai.google.dev/gemini-api/docs/pricing

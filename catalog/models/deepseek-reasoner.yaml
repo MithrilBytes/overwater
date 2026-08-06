@@ -1,0 +1,8 @@
+id: deepseek-reasoner
+provider: deepseek
+input_per_mtok: 0.28
+output_per_mtok: 0.42
+context_window: 131072
+tier: frontier
+released: "2025-01-20"
+source: https://api-docs.deepseek.com/quick_start/pricing

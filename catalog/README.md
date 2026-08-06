@@ -17,3 +17,17 @@ CI rejects the change if `catalog.json` is out of sync with the entries.
 
 The emitted `catalog.json` is embedded into the binary at build time and
 published as a static file, so the scanner never needs a server.
+
+## What belongs in the catalog
+
+Models people actually reference in code, priced by the provider's own
+API, with a source URL that backs the numbers. Deprecated and retired
+ids belong here too: they are what the deprecated-model rule detects,
+and the deprecation date is the finding.
+
+Open weight models served by many hosts (the Llama family, for example)
+are deliberately absent, because a price there belongs to the host, not
+the model. An entry for a specific hosted offering with its own pricing
+page is welcome; a made-up consensus price is not. Unknown model strings
+are still reported by the scanner at low confidence, so absence from the
+catalog never means silence.

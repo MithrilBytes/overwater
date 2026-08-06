@@ -1,0 +1,10 @@
+id: command-a-03-2025
+provider: cohere
+aliases:
+  - command-a
+input_per_mtok: 2.50
+output_per_mtok: 10.00
+context_window: 256000
+tier: frontier
+released: "2025-03-13"
+source: https://cohere.com/pricing

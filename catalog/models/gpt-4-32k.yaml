@@ -1,0 +1,9 @@
+id: gpt-4-32k
+provider: openai
+input_per_mtok: 60.00
+output_per_mtok: 120.00
+context_window: 32768
+tier: frontier
+released: "2023-03-14"
+deprecated: "2025-06-06"
+source: https://platform.openai.com/docs/deprecations

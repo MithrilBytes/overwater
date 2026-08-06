@@ -1,0 +1,8 @@
+id: deepseek-chat
+provider: deepseek
+input_per_mtok: 0.28
+output_per_mtok: 0.42
+context_window: 131072
+tier: mid
+released: "2024-12-26"
+source: https://api-docs.deepseek.com/quick_start/pricing

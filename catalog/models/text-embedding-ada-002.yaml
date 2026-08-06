@@ -1,0 +1,8 @@
+id: text-embedding-ada-002
+provider: openai
+input_per_mtok: 0.10
+output_per_mtok: 0
+context_window: 8191
+tier: embedding
+released: "2022-12-15"
+source: https://platform.openai.com/docs/pricing

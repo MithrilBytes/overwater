@@ -1,0 +1,8 @@
+id: voyage-code-3
+provider: voyage
+input_per_mtok: 0.18
+output_per_mtok: 0
+context_window: 32000
+tier: embedding
+released: "2024-12-04"
+source: https://docs.voyageai.com/docs/pricing

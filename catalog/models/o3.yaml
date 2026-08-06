@@ -1,0 +1,10 @@
+id: o3
+provider: openai
+aliases:
+  - o3-2025-04-16
+input_per_mtok: 2.00
+output_per_mtok: 8.00
+context_window: 200000
+tier: frontier
+released: "2025-04-16"
+source: https://platform.openai.com/docs/pricing

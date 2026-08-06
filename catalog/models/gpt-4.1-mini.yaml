@@ -1,0 +1,10 @@
+id: gpt-4.1-mini
+provider: openai
+aliases:
+  - gpt-4.1-mini-2025-04-14
+input_per_mtok: 0.40
+output_per_mtok: 1.60
+context_window: 1047576
+tier: mid
+released: "2025-04-14"
+source: https://platform.openai.com/docs/pricing

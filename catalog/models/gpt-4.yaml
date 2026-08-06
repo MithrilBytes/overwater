@@ -1,0 +1,10 @@
+id: gpt-4
+provider: openai
+aliases:
+  - gpt-4-0613
+input_per_mtok: 30.00
+output_per_mtok: 60.00
+context_window: 8192
+tier: frontier
+released: "2023-03-14"
+source: https://platform.openai.com/docs/pricing

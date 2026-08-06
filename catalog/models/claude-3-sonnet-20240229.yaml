@@ -1,0 +1,9 @@
+id: claude-3-sonnet-20240229
+provider: anthropic
+input_per_mtok: 3.00
+output_per_mtok: 15.00
+context_window: 200000
+tier: mid
+released: "2024-02-29"
+deprecated: "2025-07-21"
+source: https://platform.claude.com/docs/en/about-claude/models/overview

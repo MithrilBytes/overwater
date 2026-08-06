@@ -1,0 +1,8 @@
+id: grok-3
+provider: xai
+input_per_mtok: 3.00
+output_per_mtok: 15.00
+context_window: 131072
+tier: frontier
+released: "2025-02-19"
+source: https://docs.x.ai/docs/models

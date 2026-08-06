@@ -2,6 +2,60 @@
   "version": "2026-08-05",
   "models": [
     {
+      "id": "claude-3-5-haiku-20241022",
+      "provider": "anthropic",
+      "aliases": [
+        "claude-3-5-haiku-latest"
+      ],
+      "input_per_mtok": 0.8,
+      "output_per_mtok": 4,
+      "context_window": 200000,
+      "tier": "small",
+      "released": "2024-10-22",
+      "deprecated": "2026-02-19",
+      "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
+      "id": "claude-3-5-sonnet-20241022",
+      "provider": "anthropic",
+      "aliases": [
+        "claude-3-5-sonnet-latest",
+        "claude-3-5-sonnet-20240620"
+      ],
+      "input_per_mtok": 3,
+      "output_per_mtok": 15,
+      "context_window": 200000,
+      "tier": "mid",
+      "released": "2024-10-22",
+      "deprecated": "2025-10-28",
+      "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
+      "id": "claude-3-7-sonnet-20250219",
+      "provider": "anthropic",
+      "aliases": [
+        "claude-3-7-sonnet-latest"
+      ],
+      "input_per_mtok": 3,
+      "output_per_mtok": 15,
+      "context_window": 200000,
+      "tier": "mid",
+      "released": "2025-02-19",
+      "deprecated": "2026-02-19",
+      "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
+      "id": "claude-3-haiku-20240307",
+      "provider": "anthropic",
+      "input_per_mtok": 0.25,
+      "output_per_mtok": 1.25,
+      "context_window": 200000,
+      "tier": "small",
+      "released": "2024-03-07",
+      "deprecated": "2026-04-19",
+      "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
       "id": "claude-3-opus-20240229",
       "provider": "anthropic",
       "aliases": [
@@ -13,6 +67,17 @@
       "tier": "frontier",
       "released": "2024-02-29",
       "deprecated": "2026-01-05",
+      "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
+      "id": "claude-3-sonnet-20240229",
+      "provider": "anthropic",
+      "input_per_mtok": 3,
+      "output_per_mtok": 15,
+      "context_window": 200000,
+      "tier": "mid",
+      "released": "2024-02-29",
+      "deprecated": "2025-07-21",
       "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
     },
     {
@@ -39,6 +104,20 @@
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
+      "id": "claude-opus-4-0",
+      "provider": "anthropic",
+      "aliases": [
+        "claude-opus-4-20250514"
+      ],
+      "input_per_mtok": 15,
+      "output_per_mtok": 75,
+      "context_window": 200000,
+      "tier": "frontier",
+      "released": "2025-05-14",
+      "deprecated": "2026-06-15",
+      "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
+    },
+    {
       "id": "claude-opus-4-1",
       "provider": "anthropic",
       "aliases": [
@@ -53,6 +132,49 @@
       "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
     },
     {
+      "id": "claude-opus-4-5",
+      "provider": "anthropic",
+      "aliases": [
+        "claude-opus-4-5-20251101"
+      ],
+      "input_per_mtok": 5,
+      "output_per_mtok": 25,
+      "context_window": 200000,
+      "tier": "frontier",
+      "released": "2025-11-01",
+      "source": "https://platform.claude.com/docs/en/pricing"
+    },
+    {
+      "id": "claude-opus-4-6",
+      "provider": "anthropic",
+      "input_per_mtok": 5,
+      "output_per_mtok": 25,
+      "context_window": 1000000,
+      "tier": "frontier",
+      "released": "2025-12-15",
+      "source": "https://platform.claude.com/docs/en/pricing"
+    },
+    {
+      "id": "claude-opus-4-7",
+      "provider": "anthropic",
+      "input_per_mtok": 5,
+      "output_per_mtok": 25,
+      "context_window": 1000000,
+      "tier": "frontier",
+      "released": "2026-02-15",
+      "source": "https://platform.claude.com/docs/en/pricing"
+    },
+    {
+      "id": "claude-opus-4-8",
+      "provider": "anthropic",
+      "input_per_mtok": 5,
+      "output_per_mtok": 25,
+      "context_window": 1000000,
+      "tier": "frontier",
+      "released": "2026-04-15",
+      "source": "https://platform.claude.com/docs/en/pricing"
+    },
+    {
       "id": "claude-opus-5",
       "provider": "anthropic",
       "input_per_mtok": 5,
@@ -61,6 +183,20 @@
       "tier": "frontier",
       "released": "2026-06-01",
       "source": "https://platform.claude.com/docs/en/pricing"
+    },
+    {
+      "id": "claude-sonnet-4-0",
+      "provider": "anthropic",
+      "aliases": [
+        "claude-sonnet-4-20250514"
+      ],
+      "input_per_mtok": 3,
+      "output_per_mtok": 15,
+      "context_window": 200000,
+      "tier": "mid",
+      "released": "2025-05-14",
+      "deprecated": "2026-06-15",
+      "source": "https://platform.claude.com/docs/en/about-claude/models/overview"
     },
     {
       "id": "claude-sonnet-4-5",
@@ -76,6 +212,16 @@
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
+      "id": "claude-sonnet-4-6",
+      "provider": "anthropic",
+      "input_per_mtok": 3,
+      "output_per_mtok": 15,
+      "context_window": 1000000,
+      "tier": "mid",
+      "released": "2026-02-15",
+      "source": "https://platform.claude.com/docs/en/pricing"
+    },
+    {
       "id": "claude-sonnet-5",
       "provider": "anthropic",
       "input_per_mtok": 3,
@@ -84,6 +230,162 @@
       "tier": "mid",
       "released": "2026-05-01",
       "source": "https://platform.claude.com/docs/en/pricing"
+    },
+    {
+      "id": "codestral-2501",
+      "provider": "mistral",
+      "aliases": [
+        "codestral-latest"
+      ],
+      "input_per_mtok": 0.3,
+      "output_per_mtok": 0.9,
+      "context_window": 262144,
+      "tier": "mid",
+      "released": "2025-01-13",
+      "source": "https://mistral.ai/pricing"
+    },
+    {
+      "id": "command-a-03-2025",
+      "provider": "cohere",
+      "aliases": [
+        "command-a"
+      ],
+      "input_per_mtok": 2.5,
+      "output_per_mtok": 10,
+      "context_window": 256000,
+      "tier": "frontier",
+      "released": "2025-03-13",
+      "source": "https://cohere.com/pricing"
+    },
+    {
+      "id": "command-r-08-2024",
+      "provider": "cohere",
+      "aliases": [
+        "command-r"
+      ],
+      "input_per_mtok": 0.15,
+      "output_per_mtok": 0.6,
+      "context_window": 128000,
+      "tier": "mid",
+      "released": "2024-08-30",
+      "source": "https://cohere.com/pricing"
+    },
+    {
+      "id": "command-r-plus-08-2024",
+      "provider": "cohere",
+      "aliases": [
+        "command-r-plus"
+      ],
+      "input_per_mtok": 2.5,
+      "output_per_mtok": 10,
+      "context_window": 128000,
+      "tier": "mid",
+      "released": "2024-08-30",
+      "source": "https://cohere.com/pricing"
+    },
+    {
+      "id": "command-r7b-12-2024",
+      "provider": "cohere",
+      "aliases": [
+        "command-r7b"
+      ],
+      "input_per_mtok": 0.0375,
+      "output_per_mtok": 0.15,
+      "context_window": 128000,
+      "tier": "small",
+      "released": "2024-12-13",
+      "source": "https://cohere.com/pricing"
+    },
+    {
+      "id": "deepseek-chat",
+      "provider": "deepseek",
+      "input_per_mtok": 0.28,
+      "output_per_mtok": 0.42,
+      "context_window": 131072,
+      "tier": "mid",
+      "released": "2024-12-26",
+      "source": "https://api-docs.deepseek.com/quick_start/pricing"
+    },
+    {
+      "id": "deepseek-reasoner",
+      "provider": "deepseek",
+      "input_per_mtok": 0.28,
+      "output_per_mtok": 0.42,
+      "context_window": 131072,
+      "tier": "frontier",
+      "released": "2025-01-20",
+      "source": "https://api-docs.deepseek.com/quick_start/pricing"
+    },
+    {
+      "id": "embed-english-v3.0",
+      "provider": "cohere",
+      "input_per_mtok": 0.1,
+      "output_per_mtok": 0,
+      "context_window": 512,
+      "tier": "embedding",
+      "released": "2023-11-02",
+      "source": "https://cohere.com/pricing"
+    },
+    {
+      "id": "embed-v4.0",
+      "provider": "cohere",
+      "aliases": [
+        "embed-v4"
+      ],
+      "input_per_mtok": 0.12,
+      "output_per_mtok": 0,
+      "context_window": 128000,
+      "tier": "embedding",
+      "released": "2025-04-15",
+      "source": "https://cohere.com/pricing"
+    },
+    {
+      "id": "gemini-1.5-flash",
+      "provider": "google",
+      "input_per_mtok": 0.075,
+      "output_per_mtok": 0.3,
+      "context_window": 1048576,
+      "tier": "mid",
+      "released": "2024-05-24",
+      "deprecated": "2025-09-24",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "id": "gemini-1.5-pro",
+      "provider": "google",
+      "input_per_mtok": 1.25,
+      "output_per_mtok": 5,
+      "context_window": 2097152,
+      "tier": "frontier",
+      "released": "2024-05-24",
+      "deprecated": "2025-09-24",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "id": "gemini-2.0-flash",
+      "provider": "google",
+      "aliases": [
+        "gemini-2.0-flash-001"
+      ],
+      "input_per_mtok": 0.1,
+      "output_per_mtok": 0.4,
+      "context_window": 1048576,
+      "tier": "mid",
+      "released": "2025-02-05",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "id": "gemini-2.0-flash-lite",
+      "provider": "google",
+      "aliases": [
+        "gemini-2.0-flash-lite-001"
+      ],
+      "input_per_mtok": 0.075,
+      "output_per_mtok": 0.3,
+      "context_window": 1048576,
+      "tier": "small",
+      "released": "2025-02-25",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing"
     },
     {
       "id": "gemini-2.5-flash",
@@ -103,6 +405,19 @@
       "context_window": 1048576,
       "tier": "small",
       "released": "2025-07-22",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "provider": "google",
+      "aliases": [
+        "gemini-2.5-pro-preview-06-05"
+      ],
+      "input_per_mtok": 1.25,
+      "output_per_mtok": 10,
+      "context_window": 1048576,
+      "tier": "frontier",
+      "released": "2025-06-17",
       "source": "https://ai.google.dev/gemini-api/docs/pricing"
     },
     {
@@ -127,6 +442,146 @@
       "tier": "embedding",
       "released": "2025-07-14",
       "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "id": "gpt-3.5-turbo",
+      "provider": "openai",
+      "aliases": [
+        "gpt-3.5-turbo-0125"
+      ],
+      "input_per_mtok": 0.5,
+      "output_per_mtok": 1.5,
+      "context_window": 16385,
+      "tier": "small",
+      "released": "2023-03-01",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-4",
+      "provider": "openai",
+      "aliases": [
+        "gpt-4-0613"
+      ],
+      "input_per_mtok": 30,
+      "output_per_mtok": 60,
+      "context_window": 8192,
+      "tier": "frontier",
+      "released": "2023-03-14",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-4-32k",
+      "provider": "openai",
+      "input_per_mtok": 60,
+      "output_per_mtok": 120,
+      "context_window": 32768,
+      "tier": "frontier",
+      "released": "2023-03-14",
+      "deprecated": "2025-06-06",
+      "source": "https://platform.openai.com/docs/deprecations"
+    },
+    {
+      "id": "gpt-4-turbo",
+      "provider": "openai",
+      "aliases": [
+        "gpt-4-turbo-2024-04-09"
+      ],
+      "input_per_mtok": 10,
+      "output_per_mtok": 30,
+      "context_window": 128000,
+      "tier": "frontier",
+      "released": "2023-11-06",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-4.1",
+      "provider": "openai",
+      "aliases": [
+        "gpt-4.1-2025-04-14"
+      ],
+      "input_per_mtok": 2,
+      "output_per_mtok": 8,
+      "context_window": 1047576,
+      "tier": "mid",
+      "released": "2025-04-14",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-4.1-mini",
+      "provider": "openai",
+      "aliases": [
+        "gpt-4.1-mini-2025-04-14"
+      ],
+      "input_per_mtok": 0.4,
+      "output_per_mtok": 1.6,
+      "context_window": 1047576,
+      "tier": "mid",
+      "released": "2025-04-14",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-4.1-nano",
+      "provider": "openai",
+      "aliases": [
+        "gpt-4.1-nano-2025-04-14"
+      ],
+      "input_per_mtok": 0.1,
+      "output_per_mtok": 0.4,
+      "context_window": 1047576,
+      "tier": "small",
+      "released": "2025-04-14",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-4.5-preview",
+      "provider": "openai",
+      "input_per_mtok": 75,
+      "output_per_mtok": 150,
+      "context_window": 128000,
+      "tier": "frontier",
+      "released": "2025-02-27",
+      "deprecated": "2025-07-14",
+      "source": "https://platform.openai.com/docs/deprecations"
+    },
+    {
+      "id": "gpt-4o",
+      "provider": "openai",
+      "aliases": [
+        "gpt-4o-2024-08-06",
+        "gpt-4o-2024-11-20"
+      ],
+      "input_per_mtok": 2.5,
+      "output_per_mtok": 10,
+      "context_window": 128000,
+      "tier": "mid",
+      "released": "2024-05-13",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-4o-mini",
+      "provider": "openai",
+      "aliases": [
+        "gpt-4o-mini-2024-07-18"
+      ],
+      "input_per_mtok": 0.15,
+      "output_per_mtok": 0.6,
+      "context_window": 128000,
+      "tier": "small",
+      "released": "2024-07-18",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "gpt-5",
+      "provider": "openai",
+      "aliases": [
+        "gpt-5-2025-08-07"
+      ],
+      "input_per_mtok": 1.25,
+      "output_per_mtok": 10,
+      "context_window": 400000,
+      "tier": "frontier",
+      "released": "2025-08-07",
+      "source": "https://platform.openai.com/docs/pricing"
     },
     {
       "id": "gpt-5-mini",
@@ -168,6 +623,101 @@
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
+      "id": "grok-3",
+      "provider": "xai",
+      "input_per_mtok": 3,
+      "output_per_mtok": 15,
+      "context_window": 131072,
+      "tier": "frontier",
+      "released": "2025-02-19",
+      "source": "https://docs.x.ai/docs/models"
+    },
+    {
+      "id": "grok-3-mini",
+      "provider": "xai",
+      "input_per_mtok": 0.3,
+      "output_per_mtok": 0.5,
+      "context_window": 131072,
+      "tier": "small",
+      "released": "2025-02-19",
+      "source": "https://docs.x.ai/docs/models"
+    },
+    {
+      "id": "grok-4",
+      "provider": "xai",
+      "aliases": [
+        "grok-4-0709"
+      ],
+      "input_per_mtok": 3,
+      "output_per_mtok": 15,
+      "context_window": 256000,
+      "tier": "frontier",
+      "released": "2025-07-09",
+      "source": "https://docs.x.ai/docs/models"
+    },
+    {
+      "id": "grok-4-fast",
+      "provider": "xai",
+      "aliases": [
+        "grok-4-fast-non-reasoning"
+      ],
+      "input_per_mtok": 0.2,
+      "output_per_mtok": 0.5,
+      "context_window": 2000000,
+      "tier": "mid",
+      "released": "2025-09-19",
+      "source": "https://docs.x.ai/docs/models"
+    },
+    {
+      "id": "magistral-medium-2506",
+      "provider": "mistral",
+      "aliases": [
+        "magistral-medium-latest"
+      ],
+      "input_per_mtok": 2,
+      "output_per_mtok": 5,
+      "context_window": 40960,
+      "tier": "mid",
+      "released": "2025-06-10",
+      "source": "https://mistral.ai/pricing"
+    },
+    {
+      "id": "ministral-8b-2410",
+      "provider": "mistral",
+      "aliases": [
+        "ministral-8b-latest"
+      ],
+      "input_per_mtok": 0.1,
+      "output_per_mtok": 0.1,
+      "context_window": 131072,
+      "tier": "small",
+      "released": "2024-10-16",
+      "source": "https://mistral.ai/pricing"
+    },
+    {
+      "id": "mistral-embed",
+      "provider": "mistral",
+      "input_per_mtok": 0.1,
+      "output_per_mtok": 0,
+      "context_window": 8192,
+      "tier": "embedding",
+      "released": "2023-12-11",
+      "source": "https://mistral.ai/pricing"
+    },
+    {
+      "id": "mistral-large-2411",
+      "provider": "mistral",
+      "aliases": [
+        "mistral-large-latest"
+      ],
+      "input_per_mtok": 2,
+      "output_per_mtok": 6,
+      "context_window": 131072,
+      "tier": "frontier",
+      "released": "2024-11-18",
+      "source": "https://mistral.ai/pricing"
+    },
+    {
       "id": "mistral-medium-3",
       "provider": "mistral",
       "aliases": [
@@ -192,6 +742,84 @@
       "tier": "small",
       "released": "2025-06-20",
       "source": "https://mistral.ai/pricing"
+    },
+    {
+      "id": "nova-lite",
+      "provider": "amazon",
+      "aliases": [
+        "amazon.nova-lite-v1:0"
+      ],
+      "input_per_mtok": 0.06,
+      "output_per_mtok": 0.24,
+      "context_window": 300000,
+      "tier": "small",
+      "released": "2024-12-03",
+      "source": "https://aws.amazon.com/bedrock/pricing/"
+    },
+    {
+      "id": "nova-micro",
+      "provider": "amazon",
+      "aliases": [
+        "amazon.nova-micro-v1:0"
+      ],
+      "input_per_mtok": 0.035,
+      "output_per_mtok": 0.14,
+      "context_window": 128000,
+      "tier": "small",
+      "released": "2024-12-03",
+      "source": "https://aws.amazon.com/bedrock/pricing/"
+    },
+    {
+      "id": "nova-pro",
+      "provider": "amazon",
+      "aliases": [
+        "amazon.nova-pro-v1:0"
+      ],
+      "input_per_mtok": 0.8,
+      "output_per_mtok": 3.2,
+      "context_window": 300000,
+      "tier": "mid",
+      "released": "2024-12-03",
+      "source": "https://aws.amazon.com/bedrock/pricing/"
+    },
+    {
+      "id": "o3",
+      "provider": "openai",
+      "aliases": [
+        "o3-2025-04-16"
+      ],
+      "input_per_mtok": 2,
+      "output_per_mtok": 8,
+      "context_window": 200000,
+      "tier": "frontier",
+      "released": "2025-04-16",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "o3-mini",
+      "provider": "openai",
+      "aliases": [
+        "o3-mini-2025-01-31"
+      ],
+      "input_per_mtok": 1.1,
+      "output_per_mtok": 4.4,
+      "context_window": 200000,
+      "tier": "mid",
+      "released": "2025-01-31",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "o4-mini",
+      "provider": "openai",
+      "aliases": [
+        "o4-mini-2025-04-16"
+      ],
+      "input_per_mtok": 1.1,
+      "output_per_mtok": 4.4,
+      "context_window": 200000,
+      "tier": "mid",
+      "released": "2025-04-16",
+      "source": "https://platform.openai.com/docs/pricing"
     },
     {
       "id": "text-davinci-003",
@@ -225,6 +853,26 @@
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
+      "id": "text-embedding-ada-002",
+      "provider": "openai",
+      "input_per_mtok": 0.1,
+      "output_per_mtok": 0,
+      "context_window": 8191,
+      "tier": "embedding",
+      "released": "2022-12-15",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "voyage-3-large",
+      "provider": "voyage",
+      "input_per_mtok": 0.18,
+      "output_per_mtok": 0,
+      "context_window": 32000,
+      "tier": "embedding",
+      "released": "2025-01-07",
+      "source": "https://docs.voyageai.com/docs/pricing"
+    },
+    {
       "id": "voyage-3.5",
       "provider": "voyage",
       "input_per_mtok": 0.06,
@@ -232,6 +880,26 @@
       "context_window": 32000,
       "tier": "embedding",
       "released": "2025-05-20",
+      "source": "https://docs.voyageai.com/docs/pricing"
+    },
+    {
+      "id": "voyage-3.5-lite",
+      "provider": "voyage",
+      "input_per_mtok": 0.02,
+      "output_per_mtok": 0,
+      "context_window": 32000,
+      "tier": "embedding",
+      "released": "2025-05-20",
+      "source": "https://docs.voyageai.com/docs/pricing"
+    },
+    {
+      "id": "voyage-code-3",
+      "provider": "voyage",
+      "input_per_mtok": 0.18,
+      "output_per_mtok": 0,
+      "context_window": 32000,
+      "tier": "embedding",
+      "released": "2024-12-04",
       "source": "https://docs.voyageai.com/docs/pricing"
     }
   ]

@@ -1,0 +1,10 @@
+id: ministral-8b-2410
+provider: mistral
+aliases:
+  - ministral-8b-latest
+input_per_mtok: 0.10
+output_per_mtok: 0.10
+context_window: 131072
+tier: small
+released: "2024-10-16"
+source: https://mistral.ai/pricing

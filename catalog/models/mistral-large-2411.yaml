@@ -1,0 +1,10 @@
+id: mistral-large-2411
+provider: mistral
+aliases:
+  - mistral-large-latest
+input_per_mtok: 2.00
+output_per_mtok: 6.00
+context_window: 131072
+tier: frontier
+released: "2024-11-18"
+source: https://mistral.ai/pricing

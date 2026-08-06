@@ -1,0 +1,11 @@
+id: claude-3-5-haiku-20241022
+provider: anthropic
+aliases:
+  - claude-3-5-haiku-latest
+input_per_mtok: 0.80
+output_per_mtok: 4.00
+context_window: 200000
+tier: small
+released: "2024-10-22"
+deprecated: "2026-02-19"
+source: https://platform.claude.com/docs/en/about-claude/models/overview

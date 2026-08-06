@@ -1,0 +1,10 @@
+id: nova-lite
+provider: amazon
+aliases:
+  - amazon.nova-lite-v1:0
+input_per_mtok: 0.06
+output_per_mtok: 0.24
+context_window: 300000
+tier: small
+released: "2024-12-03"
+source: https://aws.amazon.com/bedrock/pricing/

@@ -1,0 +1,8 @@
+id: mistral-embed
+provider: mistral
+input_per_mtok: 0.10
+output_per_mtok: 0
+context_window: 8192
+tier: embedding
+released: "2023-12-11"
+source: https://mistral.ai/pricing

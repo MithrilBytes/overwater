@@ -1,0 +1,8 @@
+id: embed-english-v3.0
+provider: cohere
+input_per_mtok: 0.10
+output_per_mtok: 0
+context_window: 512
+tier: embedding
+released: "2023-11-02"
+source: https://cohere.com/pricing

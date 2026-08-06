@@ -1,0 +1,10 @@
+id: nova-micro
+provider: amazon
+aliases:
+  - amazon.nova-micro-v1:0
+input_per_mtok: 0.035
+output_per_mtok: 0.14
+context_window: 128000
+tier: small
+released: "2024-12-03"
+source: https://aws.amazon.com/bedrock/pricing/

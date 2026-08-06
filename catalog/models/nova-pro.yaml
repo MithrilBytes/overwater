@@ -1,0 +1,10 @@
+id: nova-pro
+provider: amazon
+aliases:
+  - amazon.nova-pro-v1:0
+input_per_mtok: 0.80
+output_per_mtok: 3.20
+context_window: 300000
+tier: mid
+released: "2024-12-03"
+source: https://aws.amazon.com/bedrock/pricing/

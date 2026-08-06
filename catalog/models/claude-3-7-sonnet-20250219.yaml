@@ -1,0 +1,11 @@
+id: claude-3-7-sonnet-20250219
+provider: anthropic
+aliases:
+  - claude-3-7-sonnet-latest
+input_per_mtok: 3.00
+output_per_mtok: 15.00
+context_window: 200000
+tier: mid
+released: "2025-02-19"
+deprecated: "2026-02-19"
+source: https://platform.claude.com/docs/en/about-claude/models/overview

@@ -1,0 +1,10 @@
+id: command-r7b-12-2024
+provider: cohere
+aliases:
+  - command-r7b
+input_per_mtok: 0.0375
+output_per_mtok: 0.15
+context_window: 128000
+tier: small
+released: "2024-12-13"
+source: https://cohere.com/pricing

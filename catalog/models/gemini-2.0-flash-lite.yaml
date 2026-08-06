@@ -1,0 +1,10 @@
+id: gemini-2.0-flash-lite
+provider: google
+aliases:
+  - gemini-2.0-flash-lite-001
+input_per_mtok: 0.075
+output_per_mtok: 0.30
+context_window: 1048576
+tier: small
+released: "2025-02-25"
+source: https://ai.google.dev/gemini-api/docs/pricing

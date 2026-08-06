@@ -1,0 +1,10 @@
+id: codestral-2501
+provider: mistral
+aliases:
+  - codestral-latest
+input_per_mtok: 0.30
+output_per_mtok: 0.90
+context_window: 262144
+tier: mid
+released: "2025-01-13"
+source: https://mistral.ai/pricing

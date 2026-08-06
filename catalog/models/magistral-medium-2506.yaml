@@ -1,0 +1,10 @@
+id: magistral-medium-2506
+provider: mistral
+aliases:
+  - magistral-medium-latest
+input_per_mtok: 2.00
+output_per_mtok: 5.00
+context_window: 40960
+tier: mid
+released: "2025-06-10"
+source: https://mistral.ai/pricing

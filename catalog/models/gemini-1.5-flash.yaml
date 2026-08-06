@@ -1,0 +1,9 @@
+id: gemini-1.5-flash
+provider: google
+input_per_mtok: 0.075
+output_per_mtok: 0.30
+context_window: 1048576
+tier: mid
+released: "2024-05-24"
+deprecated: "2025-09-24"
+source: https://ai.google.dev/gemini-api/docs/pricing

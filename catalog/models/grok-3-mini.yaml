@@ -1,0 +1,8 @@
+id: grok-3-mini
+provider: xai
+input_per_mtok: 0.30
+output_per_mtok: 0.50
+context_window: 131072
+tier: small
+released: "2025-02-19"
+source: https://docs.x.ai/docs/models
