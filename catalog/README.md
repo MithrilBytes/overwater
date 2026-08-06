@@ -16,7 +16,13 @@ and commit the YAML change together with the regenerated `catalog.json`.
 CI rejects the change if `catalog.json` is out of sync with the entries.
 
 The emitted `catalog.json` is embedded into the binary at build time and
-published as a static file, so the scanner never needs a server.
+published to GitHub Pages on merge, at
+
+    https://mithrilbytes.github.io/overwater/catalog.json
+
+That static file is the entire endpoint: no server, no database.
+`overwater catalog refresh` pulls it into a local cache, and the scanner
+prefers the cache only when it is newer than the embedded snapshot.
 
 ## What belongs in the catalog
 
