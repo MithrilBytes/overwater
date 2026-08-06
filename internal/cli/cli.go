@@ -9,7 +9,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -93,6 +95,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	baselinePath := fs.String("baseline", "", "baseline file for the ratchet")
 	updateBaseline := fs.Bool("update-baseline", false, "record this scan's findings as the baseline")
 	maxAge := fs.Int("max-baseline-age-days", 0, "nag when a matched baseline entry is older than this many days (0 disables)")
+	incremental := fs.Bool("incremental", false, "scan only files changed since the baseline's recorded commit")
 	failOn := fs.String("fail-on", "new", "failure policy: new, any, or none")
 	refresh := fs.Bool("refresh", false, "fetch the published catalog before scanning")
 	offline := fs.Bool("offline", false, "forbid all network activity")
@@ -129,7 +132,11 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "could not cache catalog %s: %v\n", fetched.Version, err)
 		}
 	}
-	_, findings, meta, err := analyzeRepo(root, *volume, stderr)
+	var only map[string]bool
+	if *incremental {
+		only = incrementalSet(root, defaultBaselinePath(*baselinePath), stderr)
+	}
+	_, findings, meta, err := analyzeRepo(root, *volume, only, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
@@ -169,14 +176,87 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stderr, "wrote %s\n", path)
 	}
-	return guardExit(findings, *baselinePath, *updateBaseline, *failOn, failOnSet, *maxAge, stderr)
+	return guardExit(findings, guardOpts{
+		root:         root,
+		baselinePath: *baselinePath,
+		update:       *updateBaseline,
+		failOn:       *failOn,
+		failOnSet:    failOnSet,
+		maxAgeDays:   *maxAge,
+		scanned:      only,
+	}, stderr)
+}
+
+// defaultBaselinePath applies the conventional baseline location when
+// the flag is unset.
+func defaultBaselinePath(path string) string {
+	if path == "" {
+		return ".overwater.json"
+	}
+	return path
+}
+
+// gitHead returns the commit sha of the repository containing root, or
+// "" when git or a repository is absent. Baselines record it so
+// --incremental knows what to diff against. Local git only, no network.
+func gitHead(root string) string {
+	if root == "" {
+		return ""
+	}
+	out, err := exec.Command("git", "-C", root, "rev-parse", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// gitChangedFiles lists the files changed since sha plus untracked
+// files, relative to root. Any git failure is returned so the caller
+// can fall back to a full scan.
+func gitChangedFiles(root, sha string) (map[string]bool, error) {
+	diff, err := exec.Command("git", "-C", root, "diff", "--relative", "--name-only", sha).Output()
+	if err != nil {
+		return nil, fmt.Errorf("git diff: %w", err)
+	}
+	untracked, err := exec.Command("git", "-C", root, "ls-files", "--others", "--exclude-standard").Output()
+	if err != nil {
+		return nil, fmt.Errorf("git ls-files: %w", err)
+	}
+	only := map[string]bool{}
+	for _, line := range strings.Split(string(diff)+string(untracked), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			only[line] = true
+		}
+	}
+	return only, nil
+}
+
+// incrementalSet resolves --incremental into the set of files to scan.
+// A nil result means full scan; the reason is already on stderr.
+func incrementalSet(root, baselinePath string, stderr io.Writer) map[string]bool {
+	bl, err := baseline.Load(baselinePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "incremental: %v; scanning everything\n", err)
+		return nil
+	}
+	if bl.Commit == "" {
+		fmt.Fprintln(stderr, "incremental: baseline has no commit recorded; scanning everything")
+		return nil
+	}
+	only, err := gitChangedFiles(root, bl.Commit)
+	if err != nil {
+		fmt.Fprintf(stderr, "incremental: %v; scanning everything\n", err)
+		return nil
+	}
+	return only
 }
 
 // analyzeRepo runs the shared pipeline for scan and eval: pick the
 // effective catalog (embedded or a newer cache, zero network), load the
-// rules, scan, evaluate. Advisory notes such as a bad cache or stale
+// rules, scan, evaluate. A non nil only set restricts the scan to those
+// root relative files. Advisory notes such as a bad cache or stale
 // prices go to stderr; stdout belongs to the renderers.
-func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, render.Meta, error) {
+func analyzeRepo(root string, volume int, only map[string]bool, stderr io.Writer) (*catalog.Catalog, []rules.Finding, render.Meta, error) {
 	cat, note, err := catalog.Effective()
 	if err != nil {
 		return nil, nil, render.Meta{}, err
@@ -194,7 +274,7 @@ func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, [
 	if volume > 0 {
 		engine.Est.Volume.CallsPerMonth = volume
 	}
-	report, err := scan.Analyze(root, cat)
+	report, err := scan.AnalyzeOnly(root, cat, only)
 	if err != nil {
 		return nil, nil, render.Meta{}, err
 	}
@@ -205,24 +285,39 @@ func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, [
 	return cat, engine.Evaluate(report, cat), meta, nil
 }
 
+// guardOpts carries everything guardExit needs beyond the findings.
+type guardOpts struct {
+	root         string // scanned root, for the baseline commit sha; "" skips it
+	baselinePath string
+	update       bool
+	failOn       string
+	failOnSet    bool
+	maxAgeDays   int
+	scanned      map[string]bool // non nil when the scan was incremental
+}
+
 // guardExit applies the failure policy. Recording a baseline never
 // fails; findings fail only when the policy says so; and anything wrong
 // with the baseline itself is an operational error, exit 2, never 1.
 // Aged baseline entries nag on stderr and never move the exit code.
-func guardExit(findings []rules.Finding, baselinePath string, update bool, failOn string, failOnSet bool, maxAgeDays int, stderr io.Writer) int {
-	if update {
-		path := baselinePath
-		if path == "" {
-			path = ".overwater.json"
+func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
+	if o.update {
+		path := defaultBaselinePath(o.baselinePath)
+		entries := baseline.Entries(findings)
+		if o.scanned != nil {
+			// A partial scan keeps the entries it never looked at.
+			if old, err := baseline.Load(path); err == nil {
+				entries = append(entries, baseline.Outside(old, o.scanned)...)
+			}
 		}
-		if err := baseline.Write(path, findings); err != nil {
+		if err := baseline.Write(path, entries, gitHead(o.root)); err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			return ExitError
 		}
-		fmt.Fprintf(stderr, "wrote %s: %d findings baselined\n", path, len(findings))
+		fmt.Fprintf(stderr, "wrote %s: %d findings baselined\n", path, len(entries))
 		return ExitClean
 	}
-	switch failOn {
+	switch o.failOn {
 	case "none":
 		return ExitClean
 	case "any":
@@ -233,33 +328,33 @@ func guardExit(findings []rules.Finding, baselinePath string, update bool, failO
 		return ExitClean
 	}
 	// fail-on new
-	if baselinePath == "" {
-		if failOnSet {
+	if o.baselinePath == "" {
+		if o.failOnSet {
 			fmt.Fprintln(stderr, "overwater: --fail-on new needs --baseline; run once with --update-baseline to record one")
 			return ExitError
 		}
 		// Advisor mode: no baseline, no explicit policy, no failure.
 		return ExitClean
 	}
-	bl, err := baseline.Load(baselinePath)
+	bl, err := baseline.Load(o.baselinePath)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	for _, a := range baseline.AgedMatches(findings, bl, time.Now(), maxAgeDays) {
+	for _, a := range baseline.AgedMatches(findings, bl, time.Now(), o.maxAgeDays) {
 		fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
-			a.Entry.Rule, a.Entry.File, a.Days, maxAgeDays)
+			a.Entry.Rule, a.Entry.File, a.Days, o.maxAgeDays)
 	}
 	fresh := baseline.NewFindings(findings, bl)
 	if len(fresh) > 0 {
-		fmt.Fprintf(stderr, "%d findings, %d new against %s\n", len(findings), len(fresh), baselinePath)
+		fmt.Fprintf(stderr, "%d findings, %d new against %s\n", len(findings), len(fresh), o.baselinePath)
 		for _, f := range fresh {
 			fmt.Fprintf(stderr, "  new: %s at %s:%d\n", f.RuleID, f.File, f.Line)
 		}
 		return ExitFindings
 	}
 	if len(findings) > 0 {
-		fmt.Fprintf(stderr, "%d findings, all baselined in %s\n", len(findings), baselinePath)
+		fmt.Fprintf(stderr, "%d findings, all baselined in %s\n", len(findings), o.baselinePath)
 	}
 	return ExitClean
 }
@@ -284,7 +379,7 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	if fs.NArg() == 1 {
 		root = fs.Arg(0)
 	}
-	cat, findings, _, err := analyzeRepo(root, *volume, stderr)
+	cat, findings, _, err := analyzeRepo(root, *volume, nil, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError

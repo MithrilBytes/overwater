@@ -37,7 +37,11 @@ type Entry struct {
 
 // File is the on disk baseline.
 type File struct {
-	Version  int     `json:"version"`
+	Version int `json:"version"`
+	// Commit is the scanned root's git HEAD when the baseline was
+	// recorded, empty outside a repository. Incremental scans diff
+	// against it.
+	Commit   string  `json:"commit,omitempty"`
 	Findings []Entry `json:"findings"`
 }
 
@@ -48,10 +52,9 @@ func Fingerprint(f rules.Finding) string {
 	return hex.EncodeToString(h[:])[:16]
 }
 
-// Write records the findings as the new baseline, which inherently
-// prunes anything fixed since the last record. Every entry is stamped
-// with today's date, so re-recording is an explicit re-acknowledgment.
-func Write(path string, findings []rules.Finding) error {
+// Entries converts findings into baseline entries stamped with today's
+// date, so re-recording an entry is an explicit re-acknowledgment.
+func Entries(findings []rules.Finding) []Entry {
 	today := time.Now().Format(dateFormat)
 	entries := make([]Entry, 0, len(findings))
 	for _, f := range findings {
@@ -63,13 +66,35 @@ func Write(path string, findings []rules.Finding) error {
 			Recorded:    today,
 		})
 	}
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].Fingerprint != entries[j].Fingerprint {
-			return entries[i].Fingerprint < entries[j].Fingerprint
+	return entries
+}
+
+// Outside returns the entries recorded for files absent from scanned,
+// keeping their original dates. An incremental update merges them in so
+// a partial scan cannot prune what it never looked at.
+func Outside(bl *File, scanned map[string]bool) []Entry {
+	var out []Entry
+	for _, e := range bl.Findings {
+		if !scanned[e.File] {
+			out = append(out, e)
 		}
-		return entries[i].Rule < entries[j].Rule
+	}
+	return out
+}
+
+// Write records the entries as the new baseline; a full scan's entries
+// inherently prune anything fixed since the last record. Commit is the
+// scanned root's git HEAD, empty outside a repository.
+func Write(path string, entries []Entry, commit string) error {
+	sorted := make([]Entry, len(entries))
+	copy(sorted, entries)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Fingerprint != sorted[j].Fingerprint {
+			return sorted[i].Fingerprint < sorted[j].Fingerprint
+		}
+		return sorted[i].Rule < sorted[j].Rule
 	})
-	b, err := json.MarshalIndent(File{Version: version, Findings: entries}, "", "  ")
+	b, err := json.MarshalIndent(File{Version: version, Commit: commit, Findings: sorted}, "", "  ")
 	if err != nil {
 		return err
 	}

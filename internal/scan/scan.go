@@ -72,7 +72,14 @@ type Report struct {
 
 // Analyze runs layers 1 through 3 over the repository at root.
 func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
-	files, err := walk(root)
+	return AnalyzeOnly(root, cat, nil)
+}
+
+// AnalyzeOnly is Analyze restricted to the files named in only (slash
+// separated, root relative); nil scans everything the walker visits.
+// Incremental callers pass the set git reports changed.
+func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Report, error) {
+	files, err := walk(root, only)
 	if err != nil {
 		return nil, fmt.Errorf("scan %s: %w", root, err)
 	}

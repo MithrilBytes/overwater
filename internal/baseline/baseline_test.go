@@ -41,7 +41,7 @@ func TestFingerprintIgnoresLineButNotContent(t *testing.T) {
 
 func TestWriteThenLoadRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bl.json")
-	if err := Write(path, []rules.Finding{finding("r", "f.ts", "aaaa")}); err != nil {
+	if err := Write(path, Entries([]rules.Finding{finding("r", "f.ts", "aaaa")}), "abc123"); err != nil {
 		t.Fatal(err)
 	}
 	bl, err := Load(path)
@@ -50,6 +50,20 @@ func TestWriteThenLoadRoundTrips(t *testing.T) {
 	}
 	if len(bl.Findings) != 1 || bl.Findings[0].Rule != "r" {
 		t.Fatalf("round trip = %+v", bl.Findings)
+	}
+	if bl.Commit != "abc123" {
+		t.Errorf("commit = %q, want abc123", bl.Commit)
+	}
+}
+
+func TestOutsideKeepsUnscannedEntries(t *testing.T) {
+	bl := &File{Version: version, Findings: []Entry{
+		{Fingerprint: "aa", File: "scanned.js", Recorded: "2026-01-01"},
+		{Fingerprint: "bb", File: "kept.js", Recorded: "2026-01-01"},
+	}}
+	out := Outside(bl, map[string]bool{"scanned.js": true})
+	if len(out) != 1 || out[0].File != "kept.js" || out[0].Recorded != "2026-01-01" {
+		t.Fatalf("Outside = %+v, want only kept.js with its original date", out)
 	}
 }
 
@@ -81,7 +95,7 @@ func TestLoadAcceptsVersionOneAsUndated(t *testing.T) {
 func TestWriteStampsRecordedToday(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bl.json")
 	before := time.Now().Format("2006-01-02")
-	if err := Write(path, []rules.Finding{finding("r", "f.ts", "aaaa")}); err != nil {
+	if err := Write(path, Entries([]rules.Finding{finding("r", "f.ts", "aaaa")}), ""); err != nil {
 		t.Fatal(err)
 	}
 	after := time.Now().Format("2006-01-02")

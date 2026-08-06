@@ -83,7 +83,10 @@ var skipFiles = map[string]bool{
 
 const maxFileSize = 512 * 1024
 
-func walk(root string) ([]file, error) {
+// walk lists the scannable files under root. A non nil only set
+// restricts the result to the named root relative paths, which is how
+// incremental scans skip unchanged files without reading them.
+func walk(root string, only map[string]bool) ([]file, error) {
 	var files []file
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -96,6 +99,14 @@ func walk(root string) ([]file, error) {
 			return nil
 		}
 		if skipFiles[d.Name()] {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		if only != nil && !only[rel] {
 			return nil
 		}
 		info, err := d.Info()
@@ -112,11 +123,7 @@ func walk(root string) ([]file, error) {
 		if strings.HasSuffix(d.Name(), ".ipynb") {
 			data = notebookToPython(data)
 		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		files = append(files, file{path: filepath.ToSlash(rel), data: data})
+		files = append(files, file{path: rel, data: data})
 		return nil
 	})
 	return files, err
