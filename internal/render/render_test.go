@@ -73,6 +73,18 @@ func TestJSONFindingsAlwaysAnArray(t *testing.T) {
 	}
 }
 
+func TestJSONCarriesCandidateModel(t *testing.T) {
+	f := sampleFinding()
+	f.CandidateModel = "claude-haiku-4-5"
+	out, err := JSON([]rules.Finding{f}, Meta{CatalogVersion: "2026-08-05", CallsPerMonth: 10000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), `"candidate_model": "claude-haiku-4-5"`) {
+		t.Errorf("JSON = %s, want the candidate model as its own field", out)
+	}
+}
+
 func TestCommaFormatting(t *testing.T) {
 	cases := map[int]string{0: "0", 999: "999", 1000: "1,000", 10000: "10,000", 1234567: "1,234,567"}
 	for n, want := range cases {

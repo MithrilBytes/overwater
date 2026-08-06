@@ -59,17 +59,18 @@ func ModelsMD(findings []rules.Finding, meta Meta) []byte {
 // an array, never null.
 func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
 	type jsonFinding struct {
-		Rule       string   `json:"rule"`
-		Confidence string   `json:"confidence"`
-		File       string   `json:"file"`
-		Line       int      `json:"line"`
-		Archetype  string   `json:"archetype"`
-		Evidence   string   `json:"evidence,omitempty"`
-		Model      string   `json:"model"`
-		MonthlyUSD int      `json:"monthly_usd"`
-		Candidate  string   `json:"candidate"`
-		Tripwire   string   `json:"tripwire"`
-		Flags      []string `json:"flags,omitempty"`
+		Rule           string   `json:"rule"`
+		Confidence     string   `json:"confidence"`
+		File           string   `json:"file"`
+		Line           int      `json:"line"`
+		Archetype      string   `json:"archetype"`
+		Evidence       string   `json:"evidence,omitempty"`
+		Model          string   `json:"model"`
+		MonthlyUSD     int      `json:"monthly_usd"`
+		Candidate      string   `json:"candidate"`
+		CandidateModel string   `json:"candidate_model,omitempty"`
+		Tripwire       string   `json:"tripwire"`
+		Flags          []string `json:"flags,omitempty"`
 	}
 	report := struct {
 		CatalogVersion string        `json:"catalog_version"`
@@ -82,17 +83,18 @@ func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
 	}
 	for _, f := range findings {
 		report.Findings = append(report.Findings, jsonFinding{
-			Rule:       f.RuleID,
-			Confidence: f.Confidence,
-			File:       f.File,
-			Line:       f.Line,
-			Archetype:  f.Archetype,
-			Evidence:   f.Evidence,
-			Model:      f.Model,
-			MonthlyUSD: f.MonthlyUSD,
-			Candidate:  f.CandidateText,
-			Tripwire:   f.Tripwire,
-			Flags:      f.Flags,
+			Rule:           f.RuleID,
+			Confidence:     f.Confidence,
+			File:           f.File,
+			Line:           f.Line,
+			Archetype:      f.Archetype,
+			Evidence:       f.Evidence,
+			Model:          f.Model,
+			MonthlyUSD:     f.MonthlyUSD,
+			Candidate:      f.CandidateText,
+			CandidateModel: f.CandidateModel,
+			Tripwire:       f.Tripwire,
+			Flags:          f.Flags,
 		})
 	}
 	out, err := json.MarshalIndent(report, "", "  ")

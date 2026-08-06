@@ -49,6 +49,7 @@ type command struct {
 // commands is the router table. Order here is the order printed in usage.
 var commands = []command{
 	{"scan", "report overwatered LLM call sites in a repository", runScan},
+	{"diff", "compare two scan --json reports", runDiff},
 	{"eval", "generate A/B eval scripts for scan findings", runEval},
 	{"catalog", "show or refresh the model catalog", runCatalog},
 }
