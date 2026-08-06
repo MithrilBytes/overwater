@@ -13,14 +13,27 @@ const (
 	ArchetypeSummarization  = "summarization"
 	ArchetypeAgentic        = "agentic"
 	ArchetypeChat           = "chat"
+	ArchetypeTranslation    = "translation"
+	ArchetypeReranking      = "reranking"
+	ArchetypeModeration     = "moderation"
+	ArchetypeTranscription  = "transcription"
+	ArchetypeVision         = "vision"
+	ArchetypeCodegen        = "codegen"
 	ArchetypeUnknown        = "unknown"
 )
 
-// archetypePriority breaks score ties deterministically.
+// archetypePriority breaks score ties deterministically; the narrower
+// task classes come before the broad ones.
 var archetypePriority = []string{
+	ArchetypeModeration,
+	ArchetypeReranking,
+	ArchetypeTranslation,
+	ArchetypeTranscription,
+	ArchetypeVision,
 	ArchetypeClassification,
 	ArchetypeExtraction,
 	ArchetypeSummarization,
+	ArchetypeCodegen,
 	ArchetypeAgentic,
 	ArchetypeChat,
 }
@@ -37,8 +50,8 @@ type family struct {
 
 var families = []family{
 	{ArchetypeClassification,
-		[]string{"classif", "categor", "triage", "sentiment", "moderat"},
-		[]string{"classif", "categor", "triage", "sentiment", "moderat"}},
+		[]string{"classif", "categor", "triage", "sentiment"},
+		[]string{"classif", "categor", "triage", "sentiment"}},
 	{ArchetypeExtraction,
 		[]string{"extract", "parse", "invoice", "receipt"},
 		[]string{"extract", "parse", "invoice", "receipt"}},
@@ -48,6 +61,40 @@ var families = []family{
 	{ArchetypeChat,
 		[]string{"chat"},
 		[]string{"chat", "conversation", "assistant"}},
+	{ArchetypeTranslation,
+		[]string{"translat", "localiz"},
+		[]string{"translat", "target language"}},
+	{ArchetypeReranking,
+		[]string{"rerank"},
+		[]string{"rerank", "order by relevance", "most relevant"}},
+	{ArchetypeModeration,
+		[]string{"moderat", "safety_gate", "content_filter"},
+		[]string{"moderat", "allow or block", "policy violation"}},
+	{ArchetypeTranscription,
+		[]string{"transcri", "whisper", "speech_to_text"},
+		[]string{"transcri", "word for word", "verbatim"}},
+	{ArchetypeVision,
+		[]string{"vision", "ocr", "screenshot"},
+		[]string{"ocr", "in the image", "in this image"}},
+	{ArchetypeCodegen,
+		[]string{"codegen", "write_code", "generate_code", "writecode", "generatecode", "autocomplete"},
+		[]string{"write code", "generate code", "unit test", "sql"}},
+}
+
+// Callee level signals for the narrow archetypes: an endpoint name is
+// stronger evidence than any keyword.
+var calleeSignals = []struct {
+	marker    string
+	archetype string
+}{
+	{"moderations", ArchetypeModeration},
+	{"transcription", ArchetypeTranscription},
+	{"transcribe", ArchetypeTranscription},
+	{".rerank", ArchetypeReranking},
+	{"fim.complete", ArchetypeCodegen},
+	{"image_url", ArchetypeVision},
+	{"inline_data", ArchetypeVision},
+	{"inlinedata", ArchetypeVision},
 }
 
 // Signal weights: the enclosing function name is the strongest single
@@ -67,7 +114,9 @@ var rePragma = regexp.MustCompile(`overwater:archetype=([a-z]+)`)
 func validArchetype(s string) bool {
 	switch s {
 	case ArchetypeEmbedding, ArchetypeClassification, ArchetypeExtraction,
-		ArchetypeSummarization, ArchetypeAgentic, ArchetypeChat:
+		ArchetypeSummarization, ArchetypeAgentic, ArchetypeChat,
+		ArchetypeTranslation, ArchetypeReranking, ArchetypeModeration,
+		ArchetypeTranscription, ArchetypeVision, ArchetypeCodegen:
 		return true
 	}
 	return false
@@ -113,6 +162,14 @@ func (a *analyzer) classify(p string, shape Shape, regionStart, regionEnd, hit i
 		if prompt != "" && containsAny(prompt, fam.promptWords) {
 			scores[fam.archetype] += weightPrompt
 		}
+	}
+	for _, sig := range calleeSignals {
+		if strings.Contains(code, sig.marker) {
+			scores[sig.archetype] += 4
+		}
+	}
+	if shape.ImageDetailHigh {
+		scores[ArchetypeVision] += 2
 	}
 	if shape.SchemaEnumOnly {
 		scores[ArchetypeClassification] += 4

@@ -56,6 +56,10 @@ type Site struct {
 	Archetype           string // filled by the classifier, layer 4
 	ArchetypeConfidence string // high, medium, or low; pragmas pin high
 	Hash                string // content hash of the call site, stable across line drift
+	Ignored             bool   // overwater:ignore pragma
+	VolumeOverride      int    // overwater:volume pragma, calls per month
+	ViaConfig           string // set when the model arrived via config tracing
+	NearbyStrings       []string
 	Shape               Shape
 }
 
@@ -87,9 +91,12 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 			}
 			hit := hitOffset(string(f.data), site.Line, site.Col)
 			site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, regionStart, regionEnd, hit, tier)
+			site.Ignored, site.VolumeOverride = a.pragmas(f.path, regionStart, regionEnd)
+			site.NearbyStrings = a.nearbyStrings(f.path, regionStart, regionEnd)
 			report.Sites = append(report.Sites, site)
 		}
 	}
+	a.traceConfigModels(report, names)
 	sort.Slice(report.Sites, func(i, j int) bool {
 		a, b := report.Sites[i], report.Sites[j]
 		if a.File != b.File {

@@ -164,7 +164,7 @@ func (r Rule) validate() error {
 func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 	var findings []Finding
 	for _, site := range report.Sites {
-		if !site.Known {
+		if !site.Known || site.Ignored {
 			continue
 		}
 		model := cat.ByName(site.Ref)
@@ -342,7 +342,11 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site) float64 {
 		}
 	}
 	perCall := (float64(in)*m.InputPerMtok + float64(out)*m.OutputPerMtok) / 1e6
-	return perCall * float64(e.Est.Volume.CallsPerMonth)
+	calls := e.Est.Volume.CallsPerMonth
+	if site.VolumeOverride > 0 {
+		calls = site.VolumeOverride
+	}
+	return perCall * float64(calls)
 }
 
 func (e *Engine) systemTokens(site scan.Site) int {

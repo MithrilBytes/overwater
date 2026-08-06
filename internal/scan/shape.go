@@ -41,10 +41,15 @@ var (
 type analyzer struct {
 	byPath map[string]string
 	masks  map[string]masked
+	spans  map[string][]span
 }
 
 func newAnalyzer(files []file) *analyzer {
-	a := &analyzer{byPath: make(map[string]string, len(files)), masks: map[string]masked{}}
+	a := &analyzer{
+		byPath: make(map[string]string, len(files)),
+		masks:  map[string]masked{},
+		spans:  map[string][]span{},
+	}
 	for _, f := range files {
 		a.byPath[f.path] = string(f.data)
 	}
