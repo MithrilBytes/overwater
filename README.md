@@ -195,46 +195,31 @@ Working today:
 
 ### Toward v1.0
 
-All ten build order steps are in; the Action, the catalog refresh, and
-the eval generator landed last. What stands between v0.1.x and a v1.0
-tag is soak, not code: let the dogfood workflow and the published
-catalog run for a while, cut releases as prices move, and fix whatever
-real repos teach us. The tag criteria have not changed: dogfood green,
-tests green with the network off, and release binaries for macOS,
-Linux, and Windows.
+All ten build steps are done. Before tagging v1.0: let the dogfood
+workflow and the published catalog run for a while, scan some real
+repos, fix what breaks. Criteria: dogfood green, tests pass offline,
+binaries for macOS, Linux, and Windows.
 
 ### After v1
 
-Nothing here is a commitment. It is the list we would work from, in
-roughly this order:
+Rough order, no promises:
 
-- Replace the layer 3 regex heuristics with tree-sitter, one language
-  at a time, TypeScript first. The golden harness is what makes that
-  swap safe to do incrementally: if output changes by a byte, a test
-  says so.
-- A scheduled job that diffs our catalog against LiteLLM's community
-  pricing file and opens a PR when a provider moves a price. A pricing
-  catalog is only worth having while somebody keeps it honest.
-- PR comments from the Action, once the step summary has earned trust.
-- An accuracy corpus for the classifier: snapshots of real repos with
-  hand labeled call sites, so classifier changes ship with precision
-  numbers instead of anecdotes.
+- swap the layer 3 regexes for tree-sitter, TypeScript first
+- nightly job that diffs the catalog against LiteLLM and PRs price changes
+- PR comments in the Action
+- labeled corpus of real repos to measure classifier accuracy
 
-Three things stay off this list in every version: a hosted service,
-telemetry, and the scanner calling a model. Code stays on the machine
-that runs it.
+Never: hosted service, telemetry, model calls from the scanner.
 
 ### Scope for v1
 
-In: the advisor scan, the CI guard with its baseline ratchet so legacy
-repos adopt it without a clean-up project first, the public versioned
-catalog, and generated A/B eval scripts you run with your own keys.
+In: the scan, the CI guard with its baseline ratchet, the public
+catalog, generated eval scripts.
 
-Out for v1: PR comment mode, the scheduled price-diff job, a built-in
-eval runner, tree-sitter or any real parsing, editor plugins, and
-Homebrew packaging. Most of that reappears on the After v1 list above.
-Hosted services, telemetry, and scanner-side model calls do not; those
-are refusals, not deferrals.
+Out for v1: PR comments, the price-diff job, a built-in eval runner,
+real parsing, editor plugins, Homebrew. Most of that is After v1.
+Hosted services, telemetry, and model calls from the scanner are out
+for good.
 
 ## Exit codes
 
