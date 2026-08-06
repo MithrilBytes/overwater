@@ -27,6 +27,8 @@ jobs:
       - run: go test ./...
       - name: analyze benchmark
         run: go test -run '^$' -bench BenchmarkAnalyze -benchtime 2x ./internal/scan/
+      - name: smoke suite
+        run: bash scripts/smoke.sh
       - name: cross compile
         run: |
           for target in linux/amd64 darwin/arm64 windows/amd64; do
