@@ -90,6 +90,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	jsonOut := fs.Bool("json", false, "emit findings as JSON instead of text")
+	sarifPath := fs.String("sarif", "", "write findings as SARIF 2.1.0 to this path")
 	modelsMD := fs.Bool("models-md", false, "write MODELS.md into the scanned repo")
 	volume := fs.Int("volume", 0, "estimated calls per month per call site")
 	baselinePath := fs.String("baseline", "", "baseline file for the ratchet")
@@ -167,6 +168,18 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 			return ExitError
 		}
 		fmt.Fprintf(stderr, "wrote %s\n", *csvOut)
+	}
+	if *sarifPath != "" {
+		out, err := render.SARIF(findings, meta)
+		if err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		if err := os.WriteFile(*sarifPath, out, 0o644); err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "wrote %s\n", *sarifPath)
 	}
 	if *modelsMD {
 		path := filepath.Join(root, "MODELS.md")

@@ -116,6 +116,50 @@ func TestScanJSONWithVolumeOverride(t *testing.T) {
 	}
 }
 
+func TestScanWritesSARIF(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "findings.sarif")
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"scan", "-sarif", out, fixturePath("ts-chat-firehose")}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit code = %d, stderr = %q", code, stderr.String())
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Runs []struct {
+			Results []struct {
+				RuleID    string `json:"ruleId"`
+				Locations []struct {
+					PhysicalLocation struct {
+						ArtifactLocation struct {
+							URI string `json:"uri"`
+						} `json:"artifactLocation"`
+					} `json:"physicalLocation"`
+				} `json:"locations"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("SARIF is not valid JSON: %v", err)
+	}
+	if len(doc.Runs) != 1 || len(doc.Runs[0].Results) == 0 {
+		t.Fatalf("SARIF runs = %+v, want one run with results", doc.Runs)
+	}
+	found := false
+	for _, r := range doc.Runs[0].Results {
+		if r.RuleID == "unbounded-max-tokens" &&
+			len(r.Locations) == 1 &&
+			r.Locations[0].PhysicalLocation.ArtifactLocation.URI == "app/api/chat/route.ts" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("SARIF is missing the unbounded-max-tokens result at app/api/chat/route.ts:\n%s", raw)
+	}
+}
+
 func TestScanWritesModelsMD(t *testing.T) {
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer
