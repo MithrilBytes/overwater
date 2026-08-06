@@ -1,0 +1,32 @@
+name: dogfood
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  firehose-must-fail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: scan
+        continue-on-error: true
+        uses: ./
+        with:
+          path: fixtures/ts-chat-firehose
+          fail-on: any
+      - name: the firehose fixture must exit 1
+        run: test "${{ steps.scan.outcome }}" = "failure"
+
+  clean-app-must-pass:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          path: fixtures/clean-app
+          fail-on: any

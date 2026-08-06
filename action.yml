@@ -1,0 +1,83 @@
+name: overwater
+description: >-
+  Fail builds that introduce new LLM overwatering. Reads code, transmits
+  nothing, needs no secrets.
+
+inputs:
+  path:
+    description: Repository path to scan
+    required: false
+    default: "."
+  baseline:
+    description: Baseline file for the ratchet; empty scans without one
+    required: false
+    default: ""
+  fail-on:
+    description: "Failure policy: new, any, or none"
+    required: false
+    default: new
+
+runs:
+  using: composite
+  steps:
+    - name: fetch pinned overwater binary
+      shell: bash
+      # The version and checksums below pin one release. Bump them
+      # together when cutting a new one; the sha values come from that
+      # release's SHA256SUMS.
+      run: |
+        set -euo pipefail
+        version="v0.1.0"
+        case "${RUNNER_OS}_${RUNNER_ARCH}" in
+          Linux_X64)     bin="overwater_linux_amd64"       sha="f39c1f138dba0c9eef74fa1902fc940ff8810086a375745a1eb83551ce8efb3a" ;;
+          Linux_ARM64)   bin="overwater_linux_arm64"       sha="d9f7722cd441b4170c61bf189d9647ca014f804375680e2e90761aa02ceaca73" ;;
+          macOS_X64)     bin="overwater_darwin_amd64"      sha="7c2619fd625432e6e5369af8aa7285966fb512de4114e0868cbdb86660e3928b" ;;
+          macOS_ARM64)   bin="overwater_darwin_arm64"      sha="c1623877d1424c9f8a0ffff4e70ef203fbd42be6d172fc7da3d7b26882a65a8f" ;;
+          Windows_X64)   bin="overwater_windows_amd64.exe" sha="f62bd92035007d6551896417e18105e0462556c43778192fcd0fb98d4de227c0" ;;
+          *)
+            echo "unsupported runner: ${RUNNER_OS}/${RUNNER_ARCH}" >&2
+            exit 2
+            ;;
+        esac
+        dest="${RUNNER_TEMP}/overwater"
+        if [ "$RUNNER_OS" = "Windows" ]; then dest="${dest}.exe"; fi
+        curl -fsSL -o "$dest" "https://github.com/MithrilBytes/overwater/releases/download/${version}/${bin}"
+        if command -v sha256sum > /dev/null; then
+          echo "${sha}  ${dest}" | sha256sum -c -
+        else
+          echo "${sha}  ${dest}" | shasum -a 256 -c -
+        fi
+        chmod +x "$dest"
+        echo "OVERWATER_BIN=$dest" >> "$GITHUB_ENV"
+
+    - name: scan
+      shell: bash
+      run: |
+        set -uo pipefail
+        args=(scan --fail-on "${{ inputs.fail-on }}")
+        if [ -n "${{ inputs.baseline }}" ]; then
+          args+=(--baseline "${{ inputs.baseline }}")
+        fi
+        args+=("${{ inputs.path }}")
+        out="${RUNNER_TEMP}/overwater-out.txt"
+        errout="${RUNNER_TEMP}/overwater-err.txt"
+        set +e
+        "$OVERWATER_BIN" "${args[@]}" > "$out" 2> "$errout"
+        code=$?
+        set -e
+        cat "$out"
+        cat "$errout" >&2
+        {
+          echo "## overwater"
+          echo
+          echo '```'
+          cat "$out"
+          echo '```'
+          if [ -s "$errout" ]; then
+            echo
+            echo '```'
+            cat "$errout"
+            echo '```'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit "$code"
