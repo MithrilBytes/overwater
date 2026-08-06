@@ -61,10 +61,13 @@ permission only.
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: MithrilBytes/overwater@v0.1.1
+- uses: MithrilBytes/overwater@v1.5.1
   with:
     baseline: .overwater.json
 ```
+
+Add `pr-comment: true` to get the verdict as a sticky comment on pull
+requests; that needs `pull-requests: write` in the calling workflow.
 
 Two more subcommands round out the tool. `overwater eval` writes one
 runnable A/B script per finding that nominates a different model; you
@@ -193,21 +196,16 @@ Working today:
 - The GitHub Action, pinned to a release binary by checksum and
   dogfooded in this repo against the firehose and clean-app fixtures.
 
-### Toward v1.0
+### v1.5
 
-All ten build steps are done. Before tagging v1.0: let the dogfood
-workflow and the published catalog run for a while, scan some real
-repos, fix what breaks. Criteria: dogfood green, tests pass offline,
-binaries for macOS, Linux, and Windows.
+Current release line. On top of the ten v1 build steps:
 
-### After v1
-
-Rough order, no promises:
-
-- swap the layer 3 regexes for tree-sitter, TypeScript first
-- nightly job that diffs the catalog against LiteLLM and PRs price changes
-- PR comments in the Action
-- labeled corpus of real repos to measure classifier accuracy
+- structural parsing for TypeScript call sites, pure Go (tree-sitter
+  needs cgo and would break the static release binaries)
+- nightly price-watch job: diff the catalog against LiteLLM, open a PR
+  when prices move
+- opt-in PR comments in the Action
+- labeled corpus with a classifier accuracy floor enforced in tests
 
 Never: hosted service, telemetry, model calls from the scanner.
 
@@ -216,10 +214,10 @@ Never: hosted service, telemetry, model calls from the scanner.
 In: the scan, the CI guard with its baseline ratchet, the public
 catalog, generated eval scripts.
 
-Out for v1: PR comments, the price-diff job, a built-in eval runner,
-real parsing, editor plugins, Homebrew. Most of that is After v1.
-Hosted services, telemetry, and model calls from the scanner are out
-for good.
+Was out for v1, shipped in v1.5: PR comments, the price-diff job, real
+parsing for TypeScript. Still out: a built-in eval runner, editor
+plugins, Homebrew. Hosted services, telemetry, and model calls from
+the scanner are out for good.
 
 ## Exit codes
 
