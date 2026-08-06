@@ -34,11 +34,16 @@ func (a *analyzer) pragmas(p string, regionStart, regionEnd int) (bool, int) {
 }
 
 func (a *analyzer) spansFor(p string) []span {
-	if s, ok := a.spans[p]; ok {
+	a.mu.Lock()
+	s, ok := a.spans[p]
+	a.mu.Unlock()
+	if ok {
 		return s
 	}
-	s := scanSpans(a.byPath[p], familyFor(p))
+	s = scanSpans(a.byPath[p], familyFor(p))
+	a.mu.Lock()
 	a.spans[p] = s
+	a.mu.Unlock()
 	return s
 }
 

@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // windowLines bounds the fallback window used when no call extent can
@@ -40,8 +41,11 @@ var (
 // caches the masked view of each file.
 type analyzer struct {
 	byPath map[string]string
-	masks  map[string]masked
-	spans  map[string][]span
+	// mu guards the lazy caches below; byPath is complete before any
+	// worker starts and is then read only.
+	mu    sync.Mutex
+	masks map[string]masked
+	spans map[string][]span
 }
 
 func newAnalyzer(files []file) *analyzer {
@@ -57,11 +61,18 @@ func newAnalyzer(files []file) *analyzer {
 }
 
 func (a *analyzer) masked(p string) masked {
+	a.mu.Lock()
 	m, ok := a.masks[p]
-	if !ok {
-		m = maskFile(p, a.byPath[p])
-		a.masks[p] = m
+	a.mu.Unlock()
+	if ok {
+		return m
 	}
+	// Computed outside the lock; a rare duplicate computation when two
+	// workers cross into the same file beats serializing all masking.
+	m = maskFile(p, a.byPath[p])
+	a.mu.Lock()
+	a.masks[p] = m
+	a.mu.Unlock()
 	return m
 }
 

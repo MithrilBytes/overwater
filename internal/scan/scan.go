@@ -5,7 +5,9 @@ package scan
 
 import (
 	"fmt"
+	"runtime"
 	"sort"
+	"sync"
 
 	"github.com/MithrilBytes/overwater/catalog"
 )
@@ -86,22 +88,54 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 	report := &Report{Root: root}
 	names := cat.Names()
 	a := newAnalyzer(files)
-	for _, f := range files {
-		report.SDKs = append(report.SDKs, scanManifest(f.path, f.data)...)
-		for _, site := range findModelRefs(f.path, f.data, names) {
-			regionStart, regionEnd, extStart, hasExtent := a.regionFor(f.path, site.Line, site.Col)
-			site.Shape = a.extractShape(f.path, regionStart, regionEnd, extStart, hasExtent)
-			site.Hash = a.siteHash(f.path, site.Line, regionStart, regionEnd, hasExtent)
-			tier := ""
-			if site.Known {
-				tier = names[site.Ref].Tier
+
+	// Files are independent until the merge, so analyze them across the
+	// machine's cores. Results land in walk order slots, keeping output
+	// deterministic regardless of which worker finishes first.
+	type fileResult struct {
+		sdks  []SDK
+		sites []Site
+	}
+	results := make([]fileResult, len(files))
+	workers := min(runtime.GOMAXPROCS(0), len(files))
+	if workers < 1 {
+		workers = 1
+	}
+	work := make(chan int)
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range work {
+				f := files[i]
+				r := &results[i]
+				r.sdks = scanManifest(f.path, f.data)
+				for _, site := range findModelRefs(f.path, f.data, names) {
+					regionStart, regionEnd, extStart, hasExtent := a.regionFor(f.path, site.Line, site.Col)
+					site.Shape = a.extractShape(f.path, regionStart, regionEnd, extStart, hasExtent)
+					site.Hash = a.siteHash(f.path, site.Line, regionStart, regionEnd, hasExtent)
+					tier := ""
+					if site.Known {
+						tier = names[site.Ref].Tier
+					}
+					hit := hitOffset(string(f.data), site.Line, site.Col)
+					site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, regionStart, regionEnd, hit, tier)
+					site.Ignored, site.VolumeOverride = a.pragmas(f.path, regionStart, regionEnd)
+					site.NearbyStrings = a.nearbyStrings(f.path, regionStart, regionEnd)
+					r.sites = append(r.sites, site)
+				}
 			}
-			hit := hitOffset(string(f.data), site.Line, site.Col)
-			site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, regionStart, regionEnd, hit, tier)
-			site.Ignored, site.VolumeOverride = a.pragmas(f.path, regionStart, regionEnd)
-			site.NearbyStrings = a.nearbyStrings(f.path, regionStart, regionEnd)
-			report.Sites = append(report.Sites, site)
-		}
+		}()
+	}
+	for i := range files {
+		work <- i
+	}
+	close(work)
+	wg.Wait()
+	for _, r := range results {
+		report.SDKs = append(report.SDKs, r.sdks...)
+		report.Sites = append(report.Sites, r.sites...)
 	}
 	a.traceConfigModels(report, names)
 	sort.Slice(report.Sites, func(i, j int) bool {
