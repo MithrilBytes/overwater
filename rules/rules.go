@@ -273,9 +273,11 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 	return f
 }
 
-// nominate picks the cheapest active model from the same provider in the
-// target tier and renders the candidate clause. When the catalog has no
-// such model, the finding says so instead of guessing.
+// nominate picks the provider's newest active model in the target tier
+// and renders the candidate clause. Newest, not cheapest: once the
+// catalog carries history, cheapest would nominate stale bargains
+// instead of the lane's current occupant. When the catalog has no such
+// model, the finding says so instead of guessing.
 func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, note string, site scan.Site) string {
 	var best *catalog.Model
 	for i := range cat.Models {
@@ -283,8 +285,7 @@ func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, no
 		if m.Provider != current.Provider || m.Tier != tier || m.ID == current.ID || m.Deprecated != "" {
 			continue
 		}
-		if best == nil || pricePoint(m) < pricePoint(best) ||
-			(pricePoint(m) == pricePoint(best) && m.ID < best.ID) {
+		if best == nil || newer(m, best) {
 			best = m
 		}
 	}
@@ -293,6 +294,18 @@ func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, no
 	}
 	cost := round(e.monthlyUSD(best, site))
 	return fmt.Sprintf("%s, %s, ~$%d/mo", best.ID, note, cost)
+}
+
+// newer ranks candidates: later release first, then lower price, then id
+// for a stable order.
+func newer(a, b *catalog.Model) bool {
+	if a.Released != b.Released {
+		return a.Released > b.Released
+	}
+	if pricePoint(a) != pricePoint(b) {
+		return pricePoint(a) < pricePoint(b)
+	}
+	return a.ID < b.ID
 }
 
 func pricePoint(m *catalog.Model) float64 {
