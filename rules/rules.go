@@ -91,8 +91,12 @@ type Finding struct {
 	Model         string
 	MonthlyUSD    int
 	CandidateText string // the full clause rendered after "Candidate:"
-	Tripwire      string
-	Flags         []string
+	// CandidateModel is the nominated model id when the candidate is a
+	// different model, empty for same model or shape only candidates.
+	// The eval generator keys off it.
+	CandidateModel string
+	Tripwire       string
+	Flags          []string
 }
 
 // Engine evaluates the loaded rules against a scan report.
@@ -275,11 +279,11 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 		cost := round(current * r.Candidate.Multiplier)
 		f.CandidateText = fmt.Sprintf("%s %s, ~$%d/mo", m.ID, r.Candidate.Note, cost)
 	case "tier_downgrade":
-		f.CandidateText = e.nominate(cat, m, r.Candidate.Tier, r.Candidate.Note, site)
+		f.CandidateText, f.CandidateModel = e.nominate(cat, m, r.Candidate.Tier, r.Candidate.Note, site)
 	case "successor":
-		f.CandidateText = e.nominate(cat, m, m.Tier, r.Candidate.Note, site)
+		f.CandidateText, f.CandidateModel = e.nominate(cat, m, m.Tier, r.Candidate.Note, site)
 	case "cheapest_embedding":
-		f.CandidateText = e.nominate(cat, m, "embedding", r.Candidate.Note, site)
+		f.CandidateText, f.CandidateModel = e.nominate(cat, m, "embedding", r.Candidate.Note, site)
 	}
 	return f
 }
@@ -289,7 +293,7 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 // catalog carries history, cheapest would nominate stale bargains
 // instead of the lane's current occupant. When the catalog has no such
 // model, the finding says so instead of guessing.
-func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, note string, site scan.Site) string {
+func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, note string, site scan.Site) (string, string) {
 	var best *catalog.Model
 	for i := range cat.Models {
 		m := &cat.Models[i]
@@ -301,10 +305,10 @@ func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, no
 		}
 	}
 	if best == nil {
-		return fmt.Sprintf("no active %s tier model from %s in the catalog", tier, current.Provider)
+		return fmt.Sprintf("no active %s tier model from %s in the catalog", tier, current.Provider), ""
 	}
 	cost := round(e.monthlyUSD(best, site))
-	return fmt.Sprintf("%s, %s, ~$%d/mo", best.ID, note, cost)
+	return fmt.Sprintf("%s, %s, ~$%d/mo", best.ID, note, cost), best.ID
 }
 
 // newer ranks candidates: later release first, then lower price, then id
