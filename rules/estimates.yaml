@@ -8,3 +8,8 @@ tokens:
   default_input: 500
   default_output: 400
   embedding_input: 10000
+# Steady state prompt caching: the fraction of calls that read the
+# cached system prompt rather than write it. 1.0 means the write cost
+# amortizes to nothing at estimate volumes.
+cache:
+  steady_state_read_fraction: 1.0

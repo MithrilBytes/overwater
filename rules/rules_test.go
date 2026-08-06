@@ -199,11 +199,38 @@ func TestFlagWithNoHostFindingBecomesAFinding(t *testing.T) {
 	if len(got) != 1 || got[0].RuleID != "uncached-system-prompt" {
 		t.Fatalf("got %+v, want one uncached-system-prompt finding", got)
 	}
-	if got[0].CandidateText != "same model with cache_control on the system prompt" {
+	// claude-sonnet-5 publishes cache rates, so the candidate carries the
+	// steady state price: 500 input tokens at $3, 2,000 system tokens at
+	// the $0.30 read rate, 400 output tokens at $15, at 10,000 calls.
+	if got[0].CandidateText != "same model with cache_control on the system prompt, ~$81/mo" {
 		t.Errorf("candidate = %q", got[0].CandidateText)
 	}
 	if len(got[0].Flags) != 1 || got[0].Flags[0] != "No prompt caching on a 2,000-token repeated system prompt" {
 		t.Errorf("flags = %v", got[0].Flags)
+	}
+}
+
+// A model without published cache rates keeps the unpriced wording; a
+// made up number would be worse than none.
+func TestUncachedSystemPromptWithoutCacheRatesStaysUnpriced(t *testing.T) {
+	engine, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat := &catalog.Catalog{Version: "2026-01-01", Models: []catalog.Model{{
+		ID: "claude-legacy-1", Provider: "anthropic",
+		InputPerMtok: 3, OutputPerMtok: 15, ContextWindow: 200000,
+		Tier: "mid", Released: "2024-01-01",
+	}}}
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-legacy-1", scan.ArchetypeChat, scan.Shape{SystemPromptChars: 8000}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "uncached-system-prompt" {
+		t.Fatalf("got %+v, want one uncached-system-prompt finding", got)
+	}
+	if got[0].CandidateText != "same model with cache_control on the system prompt" {
+		t.Errorf("candidate = %q, want the unpriced wording", got[0].CandidateText)
 	}
 }
 

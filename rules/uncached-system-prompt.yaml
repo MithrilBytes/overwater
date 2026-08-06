@@ -11,6 +11,6 @@ when:
   cache_control: false
 flag: No prompt caching on a {system_tokens}-token repeated system prompt
 candidate:
-  strategy: none
+  strategy: cached_system_prompt
   note: same model with cache_control on the system prompt
 tripwire: None; caching changes cost, not output

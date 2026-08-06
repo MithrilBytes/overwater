@@ -33,6 +33,9 @@ type Estimates struct {
 		DefaultOutput  int `yaml:"default_output"`
 		EmbeddingInput int `yaml:"embedding_input"`
 	} `yaml:"tokens"`
+	Cache struct {
+		SteadyStateReadFraction float64 `yaml:"steady_state_read_fraction"`
+	} `yaml:"cache"`
 }
 
 // When is the predicate side of a rule. Absent fields do not constrain.
@@ -67,7 +70,7 @@ type Candidate struct {
 
 var candidateStrategies = map[string]bool{
 	"none": true, "price_multiplier": true, "tier_downgrade": true,
-	"successor": true, "cheapest_embedding": true,
+	"successor": true, "cheapest_embedding": true, "cached_system_prompt": true,
 }
 
 // Rule is one data file. Kind finding produces a verdict block of its
@@ -142,6 +145,9 @@ func Load() (*Engine, error) {
 	}
 	if e.Est.Volume.CallsPerMonth <= 0 || e.Est.Tokens.CharsPerToken <= 0 {
 		return nil, fmt.Errorf("estimates.yaml is missing volume or token assumptions")
+	}
+	if f := e.Est.Cache.SteadyStateReadFraction; f <= 0 || f > 1 {
+		return nil, fmt.Errorf("estimates.yaml cache.steady_state_read_fraction must be in (0, 1]")
 	}
 	return e, nil
 }
@@ -299,6 +305,13 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 	switch r.Candidate.Strategy {
 	case "none":
 		f.CandidateText = r.Candidate.Note
+	case "cached_system_prompt":
+		// Priced only when the catalog knows the model's cache rates;
+		// otherwise the nomination stays a shape suggestion.
+		f.CandidateText = r.Candidate.Note
+		if m.CacheReadPerMtok > 0 {
+			f.CandidateText = fmt.Sprintf("%s, ~$%d/mo", r.Candidate.Note, round(e.cachedMonthlyUSD(m, site)))
+		}
 	case "price_multiplier":
 		cost := round(current * r.Candidate.Multiplier)
 		f.CandidateText = fmt.Sprintf("%s %s, ~$%d/mo", m.ID, r.Candidate.Note, cost)
@@ -366,11 +379,35 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site) float64 {
 		}
 	}
 	perCall := (float64(in)*m.InputPerMtok + float64(out)*m.OutputPerMtok) / 1e6
-	calls := e.Est.Volume.CallsPerMonth
-	if site.VolumeOverride > 0 {
-		calls = site.VolumeOverride
+	return perCall * float64(e.callsPerMonth(site))
+}
+
+// cachedMonthlyUSD prices the same call with the system prompt served
+// from the provider cache: the steady state fraction of system tokens
+// at the cache read rate, the rest at the write rate, everything else
+// unchanged. Callers gate on the model actually publishing cache rates.
+func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site) float64 {
+	t := e.Est.Tokens
+	sys := float64(e.systemTokens(site))
+	out := t.DefaultOutput
+	if site.Shape.MaxTokens != nil && *site.Shape.MaxTokens < out {
+		out = *site.Shape.MaxTokens
 	}
-	return perCall * float64(calls)
+	read := sys * e.Est.Cache.SteadyStateReadFraction
+	write := sys - read
+	perCall := (float64(t.DefaultInput)*m.InputPerMtok +
+		read*m.CacheReadPerMtok + write*m.CacheWritePerMtok +
+		float64(out)*m.OutputPerMtok) / 1e6
+	return perCall * float64(e.callsPerMonth(site))
+}
+
+// callsPerMonth is the effective volume for one site: a volume pragma
+// wins over the estimate default.
+func (e *Engine) callsPerMonth(site scan.Site) int {
+	if site.VolumeOverride > 0 {
+		return site.VolumeOverride
+	}
+	return e.Est.Volume.CallsPerMonth
 }
 
 func (e *Engine) systemTokens(site scan.Site) int {
