@@ -26,10 +26,13 @@ type Shape struct {
 	Temperature       *float64
 	MaxTokens         *int
 	JSONSchema        bool
+	SchemaEnumOnly    bool
+	SchemaMultiField  bool
 	Tools             bool
 	ForcedTool        bool
 	Streaming         bool
 	SystemPromptChars int
+	SystemPromptText  string
 	CacheControl      bool
 	EmbeddingCall     bool
 	BatchContext      bool
@@ -40,13 +43,15 @@ type Shape struct {
 // layers could see about it. Unknown model looking strings are reported
 // with Known false rather than dropped.
 type Site struct {
-	File      string // slash separated, relative to the repo root
-	Line      int
-	Ref       string // the string as written in the source
-	ModelID   string // catalog id, empty when unknown
-	Known     bool
-	Archetype string // filled by the classifier, layer 4
-	Shape     Shape
+	File                string // slash separated, relative to the repo root
+	Line                int
+	Col                 int    // byte offset of the reference in its line
+	Ref                 string // the string as written in the source
+	ModelID             string // catalog id, empty when unknown
+	Known               bool
+	Archetype           string // filled by the classifier, layer 4
+	ArchetypeConfidence string // high, medium, or low; pragmas pin high
+	Shape               Shape
 }
 
 // Report is the scanner's output for one repository.
@@ -64,17 +69,18 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 	}
 	report := &Report{Root: root}
 	names := cat.Names()
+	a := newAnalyzer(files)
 	for _, f := range files {
 		report.SDKs = append(report.SDKs, scanManifest(f.path, f.data)...)
 		for _, site := range findModelRefs(f.path, f.data, names) {
-			site.Shape = extractShape(f.data, site.Line)
+			regionStart, regionEnd, _ := a.regionFor(f.path, site.Line, site.Col)
+			site.Shape = a.extractShape(f.path, regionStart, regionEnd)
 			tier := ""
 			if site.Known {
 				tier = names[site.Ref].Tier
 			}
-			content := string(f.data)
-			winStart, winEnd := windowBounds(content, site.Line)
-			site.Archetype = classifyArchetype(site.Shape, content[winStart:winEnd], tier)
+			hit := hitOffset(string(f.data), site.Line, site.Col)
+			site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, regionStart, regionEnd, hit, tier)
 			report.Sites = append(report.Sites, site)
 		}
 	}

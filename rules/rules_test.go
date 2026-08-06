@@ -192,3 +192,27 @@ func TestFlagWithNoHostFindingBecomesAFinding(t *testing.T) {
 }
 
 func intPtr(v int) *int { return &v }
+
+// A rule that leans on the archetype inherits the classifier's doubt.
+func TestLowConfidenceArchetypeDemotesFinding(t *testing.T) {
+	engine, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := catalog.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := &scan.Report{Sites: []scan.Site{{
+		File: "app.ts", Line: 9, Ref: "claude-opus-5", ModelID: "claude-opus-5",
+		Known: true, Archetype: scan.ArchetypeClassification, ArchetypeConfidence: "low",
+		Shape: scan.Shape{Readable: true, MaxTokens: intPtr(200)},
+	}}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "frontier-extraction" {
+		t.Fatalf("got %+v, want one frontier-extraction finding", got)
+	}
+	if got[0].Confidence != "medium" {
+		t.Errorf("confidence = %s, want medium after demotion from high", got[0].Confidence)
+	}
+}

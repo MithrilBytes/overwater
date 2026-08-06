@@ -243,9 +243,16 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model) bool {
 
 func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.Catalog) Finding {
 	current := e.monthlyUSD(m, site)
+	confidence := r.Confidence
+	// A rule that leans on the archetype inherits the classifier's
+	// doubt: a low confidence classification demotes the finding one
+	// notch instead of presenting a guess as certainty.
+	if (len(r.When.Archetype) > 0 || len(r.When.ArchetypeNot) > 0) && site.ArchetypeConfidence == "low" {
+		confidence = demote(confidence)
+	}
 	f := Finding{
 		RuleID:     r.ID,
-		Confidence: r.Confidence,
+		Confidence: confidence,
 		File:       site.File,
 		Line:       site.Line,
 		Archetype:  site.Archetype,
@@ -381,6 +388,15 @@ func comma(n int) string {
 		b.WriteString(s[i : i+3])
 	}
 	return b.String()
+}
+
+func demote(confidence string) string {
+	switch confidence {
+	case "high":
+		return "medium"
+	default:
+		return "low"
+	}
 }
 
 func round(x float64) int {

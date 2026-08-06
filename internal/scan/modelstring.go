@@ -77,6 +77,7 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 				sites = append(sites, Site{
 					File:    relPath,
 					Line:    lineNo + 1,
+					Col:     start,
 					Ref:     key,
 					ModelID: names[key].ID,
 					Known:   true,
@@ -91,6 +92,7 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 			sites = append(sites, Site{
 				File:  relPath,
 				Line:  lineNo + 1,
+				Col:   loc[0],
 				Ref:   ref,
 				Known: false,
 			})
