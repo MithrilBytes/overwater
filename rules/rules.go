@@ -37,22 +37,24 @@ type Estimates struct {
 
 // When is the predicate side of a rule. Absent fields do not constrain.
 type When struct {
-	Archetype        []string `yaml:"archetype"`
-	ArchetypeNot     []string `yaml:"archetype_not"`
-	Tier             []string `yaml:"tier"`
-	Provider         []string `yaml:"provider"`
-	Deprecated       *bool    `yaml:"deprecated"`
-	BatchContext     *bool    `yaml:"batch_context"`
-	BatchAPI         *bool    `yaml:"batch_api"`
-	ShapeReadable    *bool    `yaml:"shape_readable"`
-	MaxTokensPresent *bool    `yaml:"max_tokens_present"`
-	CacheControl     *bool    `yaml:"cache_control"`
-	MinSystemTokens  int      `yaml:"min_system_tokens"`
-	MinInputPerMtok  float64  `yaml:"min_input_per_mtok"`
-	Effort           []string `yaml:"effort"`
-	MinRetries       int      `yaml:"min_retries"`
-	TemperatureAbove *float64 `yaml:"temperature_above"`
-	ImageDetailHigh  *bool    `yaml:"image_detail_high"`
+	Archetype         []string `yaml:"archetype"`
+	ArchetypeNot      []string `yaml:"archetype_not"`
+	Tier              []string `yaml:"tier"`
+	Provider          []string `yaml:"provider"`
+	Deprecated        *bool    `yaml:"deprecated"`
+	BatchContext      *bool    `yaml:"batch_context"`
+	BatchAPI          *bool    `yaml:"batch_api"`
+	ShapeReadable     *bool    `yaml:"shape_readable"`
+	MaxTokensPresent  *bool    `yaml:"max_tokens_present"`
+	CacheControl      *bool    `yaml:"cache_control"`
+	MinSystemTokens   int      `yaml:"min_system_tokens"`
+	MinInputPerMtok   float64  `yaml:"min_input_per_mtok"`
+	Effort            []string `yaml:"effort"`
+	MinRetries        int      `yaml:"min_retries"`
+	TemperatureAbove  *float64 `yaml:"temperature_above"`
+	ImageDetailHigh   *bool    `yaml:"image_detail_high"`
+	ModelCapability   string   `yaml:"model_capability"`
+	DimensionsPresent *bool    `yaml:"dimensions_present"`
 }
 
 // Candidate describes how a rule nominates an alternative.
@@ -259,6 +261,12 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model) bool {
 		return false
 	}
 	if w.ImageDetailHigh != nil && site.Shape.ImageDetailHigh != *w.ImageDetailHigh {
+		return false
+	}
+	if w.ModelCapability != "" && !m.HasCapability(w.ModelCapability) {
+		return false
+	}
+	if w.DimensionsPresent != nil && (site.Shape.Dimensions != nil) != *w.DimensionsPresent {
 		return false
 	}
 	return true

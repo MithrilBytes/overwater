@@ -1,0 +1,15 @@
+# An embedding model that supports the dimensions parameter, called
+# without one. Full width vectors cost more to store and search at
+# every hop downstream, and most indexes never need the full width.
+id: uncapped-embedding-dimensions
+kind: flag
+confidence: medium
+when:
+  archetype: [embedding]
+  model_capability: dimensions
+  dimensions_present: false
+candidate:
+  strategy: none
+  note: same model with a dimensions parameter sized to the index
+tripwire: If retrieval quality drops at the smaller width, stay put
+flag: No dimensions parameter on a model that supports one; vectors ship at full width

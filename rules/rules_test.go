@@ -41,8 +41,8 @@ func TestLoadRulesAndEstimates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Rules) != 10 {
-		t.Errorf("loaded %d rules, want the 10 shipped", len(e.Rules))
+	if len(e.Rules) != 11 {
+		t.Errorf("loaded %d rules, want the 11 shipped", len(e.Rules))
 	}
 	if e.Est.Volume.CallsPerMonth != 10000 {
 		t.Errorf("calls_per_month = %d, want 10000", e.Est.Volume.CallsPerMonth)
@@ -160,6 +160,7 @@ func TestEvaluateRagFrontierEmbeddings(t *testing.T) {
 			CandidateText:  "text-embedding-3-small, same provider at the standard embedding tier, ~$2/mo",
 			CandidateModel: "text-embedding-3-small",
 			Tripwire:       "If retrieval quality drops on your eval set, stay put",
+			Flags:          []string{"No dimensions parameter on a model that supports one; vectors ship at full width"},
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -342,6 +343,42 @@ func TestImageDetailHighOnVisionAndExtraction(t *testing.T) {
 	}
 	if got[0].Confidence != "low" {
 		t.Errorf("confidence = %s, want low", got[0].Confidence)
+	}
+}
+
+func TestUncappedEmbeddingDimensionsFlags(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("text-embedding-3-large", scan.ArchetypeEmbedding, scan.Shape{}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "pricey-embeddings" {
+		t.Fatalf("got %+v, want the pricey-embeddings finding to host the flag", got)
+	}
+	want := "No dimensions parameter on a model that supports one; vectors ship at full width"
+	if len(got[0].Flags) != 1 || got[0].Flags[0] != want {
+		t.Errorf("flags = %v, want %q", got[0].Flags, want)
+	}
+}
+
+func TestCappedOrIncapableEmbeddingsStayQuiet(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		// Dimensions set: the flag stays away even though the model
+		// supports the parameter.
+		site("text-embedding-3-large", scan.ArchetypeEmbedding, scan.Shape{Dimensions: intPtr(512)}),
+		// No dimensions capability at all: nothing to cap.
+		site("mistral-embed", scan.ArchetypeEmbedding, scan.Shape{}),
+	}}
+	for _, f := range engine.Evaluate(report, cat) {
+		if f.RuleID == "uncapped-embedding-dimensions" {
+			t.Errorf("unexpected uncapped-embedding-dimensions at %s:%d", f.File, f.Line)
+		}
+		for _, flag := range f.Flags {
+			if flag == "No dimensions parameter on a model that supports one; vectors ship at full width" {
+				t.Errorf("unexpected dimensions flag on %s", f.RuleID)
+			}
+		}
 	}
 }
 
