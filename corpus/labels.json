@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {"file": "vercel_chat.ts", "archetype": "chat"},
+    {"file": "vercel_classify.ts", "archetype": "classification"},
+    {"file": "invoice_extract.py", "archetype": "extraction"},
+    {"file": "meeting_recap.py", "archetype": "summarization"},
+    {"file": "tool_agent.ts", "archetype": "agentic"},
+    {"file": "embed_ingest.js", "archetype": "embedding"},
+    {"file": "gemini_intent.ts", "archetype": "classification"},
+    {"file": "misleading_comment.ts", "archetype": "chat"},
+    {"file": "prompt_states_task.py", "archetype": "summarization"},
+    {"file": "categorize_langchain.py", "archetype": "classification"},
+    {"file": "legacy_digest.js", "archetype": "summarization"},
+    {"file": "support_reply.ts", "archetype": "chat"},
+    {"file": "receipts_zod.ts", "archetype": "extraction"},
+    {"file": "env_config.yaml", "archetype": "unknown"}
+  ]
+}
