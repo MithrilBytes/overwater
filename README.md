@@ -19,6 +19,9 @@ offline.
 go install github.com/MithrilBytes/overwater/cmd/overwater@latest
 ```
 
+Or take a release binary: every release ships static builds for macOS,
+Linux, and Windows, plus a SHA256SUMS file to verify them against.
+
 ## Usage
 
 ```bash
@@ -51,6 +54,26 @@ just above the call:
 // overwater:archetype=summarization
 const result = await generateText({ ... });
 ```
+
+In CI, the published action wraps all of this: pinned release binary,
+checksum verified, findings in the job summary, no secrets, read
+permission only.
+
+```yaml
+- uses: actions/checkout@v4
+- uses: MithrilBytes/overwater@v0.1.1
+  with:
+    baseline: .overwater.json
+```
+
+Two more subcommands round out the tool. `overwater eval` writes one
+runnable A/B script per finding that nominates a different model; you
+bring a JSONL of real prompts and your own keys, and the script reports
+agreement for you to judge against the tripwire. `overwater catalog
+refresh` fetches the published catalog into a local cache, `scan
+--refresh` does the same before scanning, and `--offline` forbids all
+network activity. The default is still zero network: the embedded
+snapshot and the cache carry the prices.
 
 ## Example
 
@@ -162,34 +185,23 @@ Working today:
 - The baseline ratchet: `--baseline`, `--update-baseline`, and
   `--fail-on` turn the scan into a CI guard that fails on new
   overwatering without punishing what a repo already had.
+- Catalog refresh with a local cache and `--offline`. A transport test
+  proves the scanner makes zero requests by default and exactly one
+  when asked to refresh.
+- `overwater eval`: one generated A/B script per finding, run by you
+  with your own keys, never by the scanner.
+- The GitHub Action, pinned to a release binary by checksum and
+  dogfooded in this repo against the firehose and clean-app fixtures.
 
 ### Toward v1.0
 
-Steps 1 through 7 are done: scaffold, catalog, fixtures and goldens, the
-detection layers, the rules engine, renderers with the golden harness,
-and the baseline ratchet. Three pieces left before a v1.0 tag.
-
-The GitHub Action. A composite `action.yml` that pulls a pinned release
-binary, checks its sha256, runs the scan, and writes the findings table
-into the step summary. No secrets, read permission only. Blocked on
-cutting a first release, since pinning by checksum needs an artifact to
-pin. We dogfood it in this repo: ts-chat-firehose has to exit 1 and
-clean-app has to exit 0, or the workflow is lying to us.
-
-Catalog refresh. Fetch the published catalog.json over HTTPS, cache it
-locally, and warn when prices have gone stale instead of failing. The
-`--offline` flag forbids all network. The test for this installs a
-transport that counts requests, because "the scanner does not phone
-home" should be enforced by a test, not a promise.
-
-overwater eval. Writes one runnable A/B script per finding with both
-model ids filled in. You bring a JSONL of real prompts and your own
-keys; the script reports agreement between the current model and the
-candidate, and the finding's tripwire already told you what number
-means stay put.
-
-Tag criteria: dogfood workflow green, tests pass with the network off,
-release binaries for macOS, Linux, and Windows.
+All ten build order steps are in; the Action, the catalog refresh, and
+the eval generator landed last. What stands between v0.1.x and a v1.0
+tag is soak, not code: let the dogfood workflow and the published
+catalog run for a while, cut releases as prices move, and fix whatever
+real repos teach us. The tag criteria have not changed: dogfood green,
+tests green with the network off, and release binaries for macOS,
+Linux, and Windows.
 
 ### After v1
 
