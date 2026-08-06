@@ -22,7 +22,7 @@ func TestRun(t *testing.T) {
 		{"short help flag", []string{"-h"}, ExitClean, "Usage:", ""},
 		{"long help flag", []string{"--help"}, ExitClean, "Usage:", ""},
 		{"unknown command", []string{"water"}, ExitError, "", `unknown command "water"`},
-		{"scan with two paths", []string{"scan", "a", "b"}, ExitError, "", "at most one path"},
+		{"scan with a missing root", []string{"scan", "a", "b"}, ExitError, "", "scan a"},
 		{"eval with two paths", []string{"eval", "a", "b"}, ExitError, "", "at most one path"},
 		{"catalog without subcommand", []string{"catalog"}, ExitError, "", "Subcommands:"},
 		{"catalog unknown subcommand", []string{"catalog", "nuke"}, ExitError, "", `unknown subcommand "nuke"`},

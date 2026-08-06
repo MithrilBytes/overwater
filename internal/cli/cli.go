@@ -117,13 +117,14 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: unknown --fail-on %q, want new, any, or none\n", *failOn)
 		return ExitError
 	}
-	if fs.NArg() > 1 {
-		fmt.Fprintln(stderr, "overwater: scan expects at most one path")
-		return ExitError
+	roots := fs.Args()
+	if len(roots) == 0 {
+		roots = []string{"."}
 	}
-	root := "."
-	if fs.NArg() == 1 {
-		root = fs.Arg(0)
+	multi := len(roots) > 1
+	if multi && *modelsMD {
+		fmt.Fprintln(stderr, "overwater: --models-md needs a single root")
+		return ExitError
 	}
 	if *refresh {
 		if *offline {
@@ -136,12 +137,36 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	}
 	var only map[string]bool
 	if *incremental {
-		only = incrementalSet(root, defaultBaselinePath(*baselinePath), stderr)
+		if multi {
+			fmt.Fprintln(stderr, "incremental: multiple roots; scanning everything")
+		} else {
+			only = incrementalSet(roots[0], defaultBaselinePath(*baselinePath), stderr)
+		}
 	}
-	_, findings, meta, err := analyzeRepo(root, *volume, only, stderr)
+	p, err := newPipeline(*volume, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
+	}
+	meta := p.meta
+	var findings []rules.Finding
+	for _, r := range roots {
+		rf, err := p.scanRoot(r, only)
+		if err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		if multi {
+			// Prefix with the root's base name so merged findings stay
+			// attributable; a single root keeps today's byte identical
+			// output.
+			prefix := filepath.Base(filepath.Clean(r)) + "/"
+			for i := range rf {
+				rf[i].File = prefix + rf[i].File
+			}
+			fmt.Fprintf(stderr, "%s: %d findings\n", r, len(rf))
+		}
+		findings = append(findings, rf...)
 	}
 	switch {
 	case *jsonOut:
@@ -183,15 +208,20 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "wrote %s\n", *sarifPath)
 	}
 	if *modelsMD {
-		path := filepath.Join(root, "MODELS.md")
+		path := filepath.Join(roots[0], "MODELS.md")
 		if err := os.WriteFile(path, render.ModelsMD(findings, meta), 0o644); err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			return ExitError
 		}
 		fmt.Fprintf(stderr, "wrote %s\n", path)
 	}
+	shaRoot := ""
+	if !multi {
+		// One root has one HEAD; a merged multi root baseline records none.
+		shaRoot = roots[0]
+	}
 	return guardExit(findings, guardOpts{
-		root:         root,
+		root:         shaRoot,
 		baselinePath: *baselinePath,
 		update:       *updateBaseline,
 		failOn:       *failOn,
@@ -265,15 +295,21 @@ func incrementalSet(root, baselinePath string, stderr io.Writer) map[string]bool
 	return only
 }
 
-// analyzeRepo runs the shared pipeline for scan and eval: pick the
-// effective catalog (embedded or a newer cache, zero network), load the
-// rules, scan, evaluate. A non nil only set restricts the scan to those
-// root relative files. Advisory notes such as a bad cache or stale
-// prices go to stderr; stdout belongs to the renderers.
-func analyzeRepo(root string, volume int, only map[string]bool, stderr io.Writer) (*catalog.Catalog, []rules.Finding, render.Meta, error) {
+// pipeline is the loaded catalog and rules shared by every root in one
+// invocation, so multi root scans price and judge consistently.
+type pipeline struct {
+	cat    *catalog.Catalog
+	engine *rules.Engine
+	meta   render.Meta
+}
+
+// newPipeline picks the effective catalog (embedded or a newer cache,
+// zero network) and loads the rules. Advisory notes such as a bad cache
+// or stale prices go to stderr; stdout belongs to the renderers.
+func newPipeline(volume int, stderr io.Writer) (*pipeline, error) {
 	cat, note, err := catalog.Effective()
 	if err != nil {
-		return nil, nil, render.Meta{}, err
+		return nil, err
 	}
 	if note != "" {
 		fmt.Fprintln(stderr, note)
@@ -283,20 +319,39 @@ func analyzeRepo(root string, volume int, only map[string]bool, stderr io.Writer
 	}
 	engine, err := rules.Load()
 	if err != nil {
-		return nil, nil, render.Meta{}, err
+		return nil, err
 	}
 	if volume > 0 {
 		engine.Est.Volume.CallsPerMonth = volume
 	}
-	report, err := scan.AnalyzeOnly(root, cat, only)
+	return &pipeline{
+		cat:    cat,
+		engine: engine,
+		meta:   render.Meta{CatalogVersion: cat.Version, CallsPerMonth: engine.Est.Volume.CallsPerMonth},
+	}, nil
+}
+
+// scanRoot runs the scanner and rules over one root. A non nil only set
+// restricts the scan to those root relative files.
+func (p *pipeline) scanRoot(root string, only map[string]bool) ([]rules.Finding, error) {
+	report, err := scan.AnalyzeOnly(root, p.cat, only)
+	if err != nil {
+		return nil, err
+	}
+	return p.engine.Evaluate(report, p.cat), nil
+}
+
+// analyzeRepo keeps the one root pipeline shape eval uses.
+func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, render.Meta, error) {
+	p, err := newPipeline(volume, stderr)
 	if err != nil {
 		return nil, nil, render.Meta{}, err
 	}
-	meta := render.Meta{
-		CatalogVersion: cat.Version,
-		CallsPerMonth:  engine.Est.Volume.CallsPerMonth,
+	findings, err := p.scanRoot(root, nil)
+	if err != nil {
+		return nil, nil, render.Meta{}, err
 	}
-	return cat, engine.Evaluate(report, cat), meta, nil
+	return p.cat, findings, p.meta, nil
 }
 
 // guardOpts carries everything guardExit needs beyond the findings.
@@ -393,7 +448,7 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	if fs.NArg() == 1 {
 		root = fs.Arg(0)
 	}
-	cat, findings, _, err := analyzeRepo(root, *volume, nil, stderr)
+	cat, findings, _, err := analyzeRepo(root, *volume, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
