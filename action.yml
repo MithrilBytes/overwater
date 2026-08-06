@@ -16,6 +16,10 @@ inputs:
     description: "Failure policy: new, any, or none"
     required: false
     default: new
+  incremental:
+    description: Scan only files changed since the baseline's recorded commit
+    required: false
+    default: "false"
   pr-comment:
     description: >-
       Post the verdict as a sticky comment on pull requests. Needs the
@@ -68,6 +72,9 @@ runs:
         args=(scan --fail-on "${{ inputs.fail-on }}")
         if [ -n "${{ inputs.baseline }}" ]; then
           args+=(--baseline "${{ inputs.baseline }}")
+        fi
+        if [ "${{ inputs.incremental }}" = "true" ]; then
+          args+=(--incremental)
         fi
         args+=("${{ inputs.path }}")
         out="${RUNNER_TEMP}/overwater-out.txt"
