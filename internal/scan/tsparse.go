@@ -303,7 +303,7 @@ func applyCallInfo(s *Shape, content string, info *callInfo) {
 	if raw, ok := propVal(info, "effort", "reasoning_effort"); ok {
 		s.Effort = strings.Trim(strings.TrimSpace(raw), `"'`)
 	}
-	if v, ok := propNumber(content, info, "max_retries", "maxRetries"); ok {
+	if v, ok := propNumber(content, info, "max_retries", "maxRetries", "retries"); ok {
 		iv := int(v)
 		s.MaxRetries = &iv
 	}
