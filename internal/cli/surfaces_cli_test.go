@@ -50,6 +50,16 @@ func TestScanWritesHTMLAndCSV(t *testing.T) {
 	}
 }
 
+func TestVersionPrintsDev(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := Run([]string{"version"}, &stdout, &stderr); code != ExitClean {
+		t.Fatalf("exit = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "overwater dev") {
+		t.Errorf("stdout = %q, want the dev version", stdout.String())
+	}
+}
+
 func TestEvalDraftsPromptSets(t *testing.T) {
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer

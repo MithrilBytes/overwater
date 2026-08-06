@@ -39,6 +39,10 @@ const (
 	ExitError = 2
 )
 
+// buildVersion is stamped by the release workflow via ldflags; source
+// builds say dev.
+var buildVersion = "dev"
+
 // A command is one subcommand of the overwater binary.
 type command struct {
 	name    string
@@ -53,6 +57,12 @@ var commands = []command{
 	{"fleet", "scan every repository in a list file", runFleet},
 	{"eval", "generate A/B eval scripts for scan findings", runEval},
 	{"catalog", "show or refresh the model catalog", runCatalog},
+	{"version", "print the overwater version", runVersion},
+}
+
+func runVersion(_ []string, stdout, _ io.Writer) int {
+	fmt.Fprintf(stdout, "overwater %s\n", buildVersion)
+	return ExitClean
 }
 
 // Run executes the subcommand named in args and returns the process exit code.
