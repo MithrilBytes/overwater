@@ -11,11 +11,16 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-const version = 1
+// version is the current on disk format. Version 2 added the per entry
+// Recorded date; version 1 files still load with every entry undated.
+const version = 2
+
+const dateFormat = "2006-01-02"
 
 // Entry is one baselined finding. The fingerprint is the key; rule,
 // file, and model are there so a human reviewing the diff can tell what
@@ -25,6 +30,9 @@ type Entry struct {
 	Rule        string `json:"rule"`
 	File        string `json:"file"`
 	Model       string `json:"model"`
+	// Recorded is the YYYY-MM-DD day the entry was written, empty when
+	// the file predates version 2.
+	Recorded string `json:"recorded,omitempty"`
 }
 
 // File is the on disk baseline.
@@ -41,8 +49,10 @@ func Fingerprint(f rules.Finding) string {
 }
 
 // Write records the findings as the new baseline, which inherently
-// prunes anything fixed since the last record.
+// prunes anything fixed since the last record. Every entry is stamped
+// with today's date, so re-recording is an explicit re-acknowledgment.
 func Write(path string, findings []rules.Finding) error {
+	today := time.Now().Format(dateFormat)
 	entries := make([]Entry, 0, len(findings))
 	for _, f := range findings {
 		entries = append(entries, Entry{
@@ -50,6 +60,7 @@ func Write(path string, findings []rules.Finding) error {
 			Rule:        f.RuleID,
 			File:        f.File,
 			Model:       f.Model,
+			Recorded:    today,
 		})
 	}
 	sort.Slice(entries, func(i, j int) bool {
@@ -76,10 +87,51 @@ func Load(path string) (*File, error) {
 	if err := json.Unmarshal(raw, &f); err != nil {
 		return nil, fmt.Errorf("baseline %s is not valid JSON: %w", path, err)
 	}
-	if f.Version != version {
-		return nil, fmt.Errorf("baseline %s has version %d, this build understands %d", path, f.Version, version)
+	if f.Version != version && f.Version != 1 {
+		return nil, fmt.Errorf("baseline %s has version %d, this build understands 1 and %d", path, f.Version, version)
 	}
 	return &f, nil
+}
+
+// Aged is a matched baseline entry recorded longer ago than the limit.
+type Aged struct {
+	Entry Entry
+	Days  int
+}
+
+// AgedMatches returns the baseline entries that absorb a finding and
+// were recorded more than maxDays days before now. Undated entries
+// (version 1 files) never age. Matching mirrors NewFindings, multiset
+// by fingerprint, so an entry nags at most once per run.
+func AgedMatches(findings []rules.Finding, bl *File, now time.Time, maxDays int) []Aged {
+	if maxDays <= 0 {
+		return nil
+	}
+	pool := map[string][]Entry{}
+	for _, e := range bl.Findings {
+		pool[e.Fingerprint] = append(pool[e.Fingerprint], e)
+	}
+	var out []Aged
+	for _, f := range findings {
+		fp := Fingerprint(f)
+		entries := pool[fp]
+		if len(entries) == 0 {
+			continue
+		}
+		e := entries[0]
+		pool[fp] = entries[1:]
+		if e.Recorded == "" {
+			continue
+		}
+		rec, err := time.Parse(dateFormat, e.Recorded)
+		if err != nil {
+			continue
+		}
+		if days := int(now.UTC().Sub(rec).Hours() / 24); days > maxDays {
+			out = append(out, Aged{Entry: e, Days: days})
+		}
+	}
+	return out
 }
 
 // NewFindings returns the findings absent from the baseline. Matching

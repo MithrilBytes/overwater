@@ -115,6 +115,66 @@ func TestBaselineRatchetLifecycle(t *testing.T) {
 	}
 }
 
+// Aging: entries past --max-baseline-age-days nag on stderr and never
+// change the exit code; fresh entries stay quiet.
+func TestBaselineAgingNags(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bl := filepath.Join(dir, ".overwater.json")
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("update exit = %d, stderr = %q", code, stderr)
+	}
+
+	// Freshly recorded entries stay quiet.
+	code, _, stderr := runScanArgs(t, "-baseline", bl, "-max-baseline-age-days", "30", repo)
+	if code != ExitClean {
+		t.Fatalf("scan exit = %d, stderr = %q", code, stderr)
+	}
+	if strings.Contains(stderr, "day limit") {
+		t.Errorf("fresh entries nagged: %q", stderr)
+	}
+
+	// Backdate every recorded stamp: the same scan nags, still clean.
+	raw, err := os.ReadFile(bl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Version  int `json:"version"`
+		Findings []struct {
+			Fingerprint string `json:"fingerprint"`
+			Rule        string `json:"rule"`
+			File        string `json:"file"`
+			Model       string `json:"model"`
+			Recorded    string `json:"recorded"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	for i := range doc.Findings {
+		doc.Findings[i].Recorded = "2026-01-01"
+	}
+	edited, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bl, edited, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr = runScanArgs(t, "-baseline", bl, "-max-baseline-age-days", "30", repo)
+	if code != ExitClean {
+		t.Fatalf("aged scan exit = %d, want clean; nags must not move the exit code (stderr %q)", code, stderr)
+	}
+	if !strings.Contains(stderr, "past the 30 day limit") || !strings.Contains(stderr, "classify.js") {
+		t.Errorf("stderr = %q, want an aging nag naming classify.js", stderr)
+	}
+}
+
 func TestFailOnAnyFailsWithFindings(t *testing.T) {
 	code, _, stderr := runScanArgs(t, "-fail-on", "any", fixturePath("ts-chat-firehose"))
 	if code != ExitFindings {

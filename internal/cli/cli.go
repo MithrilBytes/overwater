@@ -92,6 +92,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	volume := fs.Int("volume", 0, "estimated calls per month per call site")
 	baselinePath := fs.String("baseline", "", "baseline file for the ratchet")
 	updateBaseline := fs.Bool("update-baseline", false, "record this scan's findings as the baseline")
+	maxAge := fs.Int("max-baseline-age-days", 0, "nag when a matched baseline entry is older than this many days (0 disables)")
 	failOn := fs.String("fail-on", "new", "failure policy: new, any, or none")
 	refresh := fs.Bool("refresh", false, "fetch the published catalog before scanning")
 	offline := fs.Bool("offline", false, "forbid all network activity")
@@ -168,7 +169,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stderr, "wrote %s\n", path)
 	}
-	return guardExit(findings, *baselinePath, *updateBaseline, *failOn, failOnSet, stderr)
+	return guardExit(findings, *baselinePath, *updateBaseline, *failOn, failOnSet, *maxAge, stderr)
 }
 
 // analyzeRepo runs the shared pipeline for scan and eval: pick the
@@ -207,7 +208,8 @@ func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, [
 // guardExit applies the failure policy. Recording a baseline never
 // fails; findings fail only when the policy says so; and anything wrong
 // with the baseline itself is an operational error, exit 2, never 1.
-func guardExit(findings []rules.Finding, baselinePath string, update bool, failOn string, failOnSet bool, stderr io.Writer) int {
+// Aged baseline entries nag on stderr and never move the exit code.
+func guardExit(findings []rules.Finding, baselinePath string, update bool, failOn string, failOnSet bool, maxAgeDays int, stderr io.Writer) int {
 	if update {
 		path := baselinePath
 		if path == "" {
@@ -243,6 +245,10 @@ func guardExit(findings []rules.Finding, baselinePath string, update bool, failO
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
+	}
+	for _, a := range baseline.AgedMatches(findings, bl, time.Now(), maxAgeDays) {
+		fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
+			a.Entry.Rule, a.Entry.File, a.Days, maxAgeDays)
 	}
 	fresh := baseline.NewFindings(findings, bl)
 	if len(fresh) > 0 {
