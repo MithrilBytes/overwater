@@ -1,0 +1,10 @@
+id: llama-3.1-8b-instruct-turbo
+provider: together
+aliases:
+  - meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+input_per_mtok: 0.18
+output_per_mtok: 0.18
+context_window: 131072
+tier: small
+released: "2024-07-23"
+source: https://www.together.ai/pricing

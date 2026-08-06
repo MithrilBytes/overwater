@@ -1,8 +1,16 @@
 id: claude-opus-5
 provider: anthropic
+aliases:
+  - anthropic.claude-opus-5
+  - us.anthropic.claude-opus-5
+  - eu.anthropic.claude-opus-5
 input_per_mtok: 5.00
 output_per_mtok: 25.00
 context_window: 1000000
 tier: frontier
 released: "2026-06-01"
 source: https://platform.claude.com/docs/en/pricing
+cache_read_per_mtok: 0.5
+cache_write_per_mtok: 6.25
+batch_multiplier: 0.5
+capabilities: [vision, tools, caching, structured_output]

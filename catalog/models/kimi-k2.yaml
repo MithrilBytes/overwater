@@ -1,0 +1,10 @@
+id: kimi-k2
+provider: moonshot
+aliases:
+  - kimi-k2-0711-preview
+input_per_mtok: 0.60
+output_per_mtok: 2.50
+context_window: 131072
+tier: frontier
+released: "2025-07-11"
+source: https://platform.moonshot.ai/docs/pricing/chat

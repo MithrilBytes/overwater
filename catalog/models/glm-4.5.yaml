@@ -1,0 +1,8 @@
+id: glm-4.5
+provider: zhipu
+input_per_mtok: 0.60
+output_per_mtok: 2.20
+context_window: 131072
+tier: frontier
+released: "2025-07-28"
+source: https://docs.z.ai/guides/overview/pricing

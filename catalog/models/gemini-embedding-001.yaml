@@ -6,3 +6,5 @@ context_window: 2048
 tier: embedding
 released: "2025-07-14"
 source: https://ai.google.dev/gemini-api/docs/pricing
+batch_multiplier: 0.5
+capabilities: [dimensions]

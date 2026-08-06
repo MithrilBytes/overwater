@@ -8,3 +8,4 @@ context_window: 8192
 tier: frontier
 released: "2023-03-14"
 source: https://platform.openai.com/docs/pricing
+batch_multiplier: 0.5

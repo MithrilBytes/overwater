@@ -6,3 +6,7 @@ context_window: 1000000
 tier: frontier
 released: "2026-02-15"
 source: https://platform.claude.com/docs/en/pricing
+cache_read_per_mtok: 0.5
+cache_write_per_mtok: 6.25
+batch_multiplier: 0.5
+capabilities: [vision, tools, caching, structured_output]

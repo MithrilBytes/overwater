@@ -1,5 +1,5 @@
 {
-  "version": "2026-08-05",
+  "version": "2026-08-06",
   "models": [
     {
       "id": "claude-3-5-haiku-20241022",
@@ -83,8 +83,22 @@
     {
       "id": "claude-fable-5",
       "provider": "anthropic",
+      "aliases": [
+        "anthropic.claude-fable-5",
+        "us.anthropic.claude-fable-5",
+        "eu.anthropic.claude-fable-5"
+      ],
       "input_per_mtok": 10,
       "output_per_mtok": 50,
+      "cache_read_per_mtok": 1,
+      "cache_write_per_mtok": 12.5,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-06-01",
@@ -94,10 +108,22 @@
       "id": "claude-haiku-4-5",
       "provider": "anthropic",
       "aliases": [
-        "claude-haiku-4-5-20251001"
+        "claude-haiku-4-5-20251001",
+        "anthropic.claude-haiku-4-5",
+        "us.anthropic.claude-haiku-4-5",
+        "eu.anthropic.claude-haiku-4-5"
       ],
       "input_per_mtok": 1,
       "output_per_mtok": 5,
+      "cache_read_per_mtok": 0.1,
+      "cache_write_per_mtok": 1.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 200000,
       "tier": "small",
       "released": "2025-10-01",
@@ -139,6 +165,15 @@
       ],
       "input_per_mtok": 5,
       "output_per_mtok": 25,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_per_mtok": 6.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 200000,
       "tier": "frontier",
       "released": "2025-11-01",
@@ -149,6 +184,15 @@
       "provider": "anthropic",
       "input_per_mtok": 5,
       "output_per_mtok": 25,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_per_mtok": 6.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2025-12-15",
@@ -159,6 +203,15 @@
       "provider": "anthropic",
       "input_per_mtok": 5,
       "output_per_mtok": 25,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_per_mtok": 6.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-02-15",
@@ -169,6 +222,15 @@
       "provider": "anthropic",
       "input_per_mtok": 5,
       "output_per_mtok": 25,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_per_mtok": 6.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-04-15",
@@ -177,8 +239,22 @@
     {
       "id": "claude-opus-5",
       "provider": "anthropic",
+      "aliases": [
+        "anthropic.claude-opus-5",
+        "us.anthropic.claude-opus-5",
+        "eu.anthropic.claude-opus-5"
+      ],
       "input_per_mtok": 5,
       "output_per_mtok": 25,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_per_mtok": 6.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-06-01",
@@ -206,6 +282,15 @@
       ],
       "input_per_mtok": 3,
       "output_per_mtok": 15,
+      "cache_read_per_mtok": 0.3,
+      "cache_write_per_mtok": 3.75,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 200000,
       "tier": "mid",
       "released": "2025-09-29",
@@ -216,6 +301,15 @@
       "provider": "anthropic",
       "input_per_mtok": 3,
       "output_per_mtok": 15,
+      "cache_read_per_mtok": 0.3,
+      "cache_write_per_mtok": 3.75,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "mid",
       "released": "2026-02-15",
@@ -224,8 +318,22 @@
     {
       "id": "claude-sonnet-5",
       "provider": "anthropic",
+      "aliases": [
+        "anthropic.claude-sonnet-5",
+        "us.anthropic.claude-sonnet-5",
+        "eu.anthropic.claude-sonnet-5"
+      ],
       "input_per_mtok": 3,
       "output_per_mtok": 15,
+      "cache_read_per_mtok": 0.3,
+      "cache_write_per_mtok": 3.75,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "mid",
       "released": "2026-05-01",
@@ -239,6 +347,7 @@
       ],
       "input_per_mtok": 0.3,
       "output_per_mtok": 0.9,
+      "batch_multiplier": 0.5,
       "context_window": 262144,
       "tier": "mid",
       "released": "2025-01-13",
@@ -369,6 +478,7 @@
       ],
       "input_per_mtok": 0.1,
       "output_per_mtok": 0.4,
+      "batch_multiplier": 0.5,
       "context_window": 1048576,
       "tier": "mid",
       "released": "2025-02-05",
@@ -382,6 +492,7 @@
       ],
       "input_per_mtok": 0.075,
       "output_per_mtok": 0.3,
+      "batch_multiplier": 0.5,
       "context_window": 1048576,
       "tier": "small",
       "released": "2025-02-25",
@@ -392,6 +503,13 @@
       "provider": "google",
       "input_per_mtok": 0.3,
       "output_per_mtok": 2.5,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1048576,
       "tier": "mid",
       "released": "2025-06-17",
@@ -402,6 +520,13 @@
       "provider": "google",
       "input_per_mtok": 0.1,
       "output_per_mtok": 0.4,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1048576,
       "tier": "small",
       "released": "2025-07-22",
@@ -415,6 +540,13 @@
       ],
       "input_per_mtok": 1.25,
       "output_per_mtok": 10,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1048576,
       "tier": "frontier",
       "released": "2025-06-17",
@@ -428,6 +560,13 @@
       ],
       "input_per_mtok": 2,
       "output_per_mtok": 12,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2025-11-18",
@@ -438,10 +577,34 @@
       "provider": "google",
       "input_per_mtok": 0.15,
       "output_per_mtok": 0,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 2048,
       "tier": "embedding",
       "released": "2025-07-14",
       "source": "https://ai.google.dev/gemini-api/docs/pricing"
+    },
+    {
+      "id": "glm-4.5",
+      "provider": "zhipu",
+      "input_per_mtok": 0.6,
+      "output_per_mtok": 2.2,
+      "context_window": 131072,
+      "tier": "frontier",
+      "released": "2025-07-28",
+      "source": "https://docs.z.ai/guides/overview/pricing"
+    },
+    {
+      "id": "glm-4.5-air",
+      "provider": "zhipu",
+      "input_per_mtok": 0.2,
+      "output_per_mtok": 1.1,
+      "context_window": 131072,
+      "tier": "mid",
+      "released": "2025-07-28",
+      "source": "https://docs.z.ai/guides/overview/pricing"
     },
     {
       "id": "gpt-3.5-turbo",
@@ -451,6 +614,7 @@
       ],
       "input_per_mtok": 0.5,
       "output_per_mtok": 1.5,
+      "batch_multiplier": 0.5,
       "context_window": 16385,
       "tier": "small",
       "released": "2023-03-01",
@@ -464,6 +628,7 @@
       ],
       "input_per_mtok": 30,
       "output_per_mtok": 60,
+      "batch_multiplier": 0.5,
       "context_window": 8192,
       "tier": "frontier",
       "released": "2023-03-14",
@@ -488,6 +653,7 @@
       ],
       "input_per_mtok": 10,
       "output_per_mtok": 30,
+      "batch_multiplier": 0.5,
       "context_window": 128000,
       "tier": "frontier",
       "released": "2023-11-06",
@@ -501,6 +667,15 @@
       ],
       "input_per_mtok": 2,
       "output_per_mtok": 8,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_per_mtok": 2,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1047576,
       "tier": "mid",
       "released": "2025-04-14",
@@ -514,6 +689,15 @@
       ],
       "input_per_mtok": 0.4,
       "output_per_mtok": 1.6,
+      "cache_read_per_mtok": 0.1,
+      "cache_write_per_mtok": 0.4,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1047576,
       "tier": "mid",
       "released": "2025-04-14",
@@ -527,6 +711,15 @@
       ],
       "input_per_mtok": 0.1,
       "output_per_mtok": 0.4,
+      "cache_read_per_mtok": 0.025,
+      "cache_write_per_mtok": 0.1,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 1047576,
       "tier": "small",
       "released": "2025-04-14",
@@ -552,6 +745,15 @@
       ],
       "input_per_mtok": 2.5,
       "output_per_mtok": 10,
+      "cache_read_per_mtok": 1.25,
+      "cache_write_per_mtok": 2.5,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 128000,
       "tier": "mid",
       "released": "2024-05-13",
@@ -565,6 +767,15 @@
       ],
       "input_per_mtok": 0.15,
       "output_per_mtok": 0.6,
+      "cache_read_per_mtok": 0.075,
+      "cache_write_per_mtok": 0.15,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 128000,
       "tier": "small",
       "released": "2024-07-18",
@@ -578,6 +789,15 @@
       ],
       "input_per_mtok": 1.25,
       "output_per_mtok": 10,
+      "cache_read_per_mtok": 0.125,
+      "cache_write_per_mtok": 1.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 400000,
       "tier": "frontier",
       "released": "2025-08-07",
@@ -591,6 +811,14 @@
       ],
       "input_per_mtok": 0.25,
       "output_per_mtok": 2,
+      "cache_read_per_mtok": 0.025,
+      "cache_write_per_mtok": 0.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 400000,
       "tier": "mid",
       "released": "2025-08-07",
@@ -604,6 +832,14 @@
       ],
       "input_per_mtok": 0.05,
       "output_per_mtok": 0.4,
+      "cache_read_per_mtok": 0.005,
+      "cache_write_per_mtok": 0.05,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 400000,
       "tier": "small",
       "released": "2025-08-07",
@@ -617,6 +853,15 @@
       ],
       "input_per_mtok": 1.25,
       "output_per_mtok": 10,
+      "cache_read_per_mtok": 0.125,
+      "cache_write_per_mtok": 1.25,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 400000,
       "tier": "frontier",
       "released": "2025-11-13",
@@ -669,6 +914,91 @@
       "source": "https://docs.x.ai/docs/models"
     },
     {
+      "id": "kimi-k2",
+      "provider": "moonshot",
+      "aliases": [
+        "kimi-k2-0711-preview"
+      ],
+      "input_per_mtok": 0.6,
+      "output_per_mtok": 2.5,
+      "context_window": 131072,
+      "tier": "frontier",
+      "released": "2025-07-11",
+      "source": "https://platform.moonshot.ai/docs/pricing/chat"
+    },
+    {
+      "id": "llama-3.1-8b-instant",
+      "provider": "groq",
+      "input_per_mtok": 0.05,
+      "output_per_mtok": 0.08,
+      "context_window": 131072,
+      "tier": "small",
+      "released": "2024-07-23",
+      "source": "https://groq.com/pricing/"
+    },
+    {
+      "id": "llama-3.1-8b-instruct-turbo",
+      "provider": "together",
+      "aliases": [
+        "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+      ],
+      "input_per_mtok": 0.18,
+      "output_per_mtok": 0.18,
+      "context_window": 131072,
+      "tier": "small",
+      "released": "2024-07-23",
+      "source": "https://www.together.ai/pricing"
+    },
+    {
+      "id": "llama-3.3-70b-instruct-turbo",
+      "provider": "together",
+      "aliases": [
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+      ],
+      "input_per_mtok": 0.88,
+      "output_per_mtok": 0.88,
+      "context_window": 131072,
+      "tier": "mid",
+      "released": "2024-12-06",
+      "source": "https://www.together.ai/pricing"
+    },
+    {
+      "id": "llama-3.3-70b-versatile",
+      "provider": "groq",
+      "input_per_mtok": 0.59,
+      "output_per_mtok": 0.79,
+      "context_window": 131072,
+      "tier": "mid",
+      "released": "2024-12-06",
+      "source": "https://groq.com/pricing/"
+    },
+    {
+      "id": "llama-v3p1-70b-instruct",
+      "provider": "fireworks",
+      "aliases": [
+        "accounts/fireworks/models/llama-v3p1-70b-instruct"
+      ],
+      "input_per_mtok": 0.9,
+      "output_per_mtok": 0.9,
+      "context_window": 131072,
+      "tier": "mid",
+      "released": "2024-07-23",
+      "source": "https://fireworks.ai/pricing"
+    },
+    {
+      "id": "llama-v3p1-8b-instruct",
+      "provider": "fireworks",
+      "aliases": [
+        "accounts/fireworks/models/llama-v3p1-8b-instruct"
+      ],
+      "input_per_mtok": 0.2,
+      "output_per_mtok": 0.2,
+      "context_window": 131072,
+      "tier": "small",
+      "released": "2024-07-23",
+      "source": "https://fireworks.ai/pricing"
+    },
+    {
       "id": "magistral-medium-2506",
       "provider": "mistral",
       "aliases": [
@@ -676,6 +1006,7 @@
       ],
       "input_per_mtok": 2,
       "output_per_mtok": 5,
+      "batch_multiplier": 0.5,
       "context_window": 40960,
       "tier": "mid",
       "released": "2025-06-10",
@@ -689,6 +1020,7 @@
       ],
       "input_per_mtok": 0.1,
       "output_per_mtok": 0.1,
+      "batch_multiplier": 0.5,
       "context_window": 131072,
       "tier": "small",
       "released": "2024-10-16",
@@ -699,6 +1031,7 @@
       "provider": "mistral",
       "input_per_mtok": 0.1,
       "output_per_mtok": 0,
+      "batch_multiplier": 0.5,
       "context_window": 8192,
       "tier": "embedding",
       "released": "2023-12-11",
@@ -712,6 +1045,7 @@
       ],
       "input_per_mtok": 2,
       "output_per_mtok": 6,
+      "batch_multiplier": 0.5,
       "context_window": 131072,
       "tier": "frontier",
       "released": "2024-11-18",
@@ -725,6 +1059,7 @@
       ],
       "input_per_mtok": 0.4,
       "output_per_mtok": 2,
+      "batch_multiplier": 0.5,
       "context_window": 131072,
       "tier": "mid",
       "released": "2025-05-07",
@@ -738,6 +1073,7 @@
       ],
       "input_per_mtok": 0.1,
       "output_per_mtok": 0.3,
+      "batch_multiplier": 0.5,
       "context_window": 131072,
       "tier": "small",
       "released": "2025-06-20",
@@ -790,6 +1126,15 @@
       ],
       "input_per_mtok": 2,
       "output_per_mtok": 8,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_per_mtok": 2,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 200000,
       "tier": "frontier",
       "released": "2025-04-16",
@@ -803,6 +1148,14 @@
       ],
       "input_per_mtok": 1.1,
       "output_per_mtok": 4.4,
+      "cache_read_per_mtok": 0.275,
+      "cache_write_per_mtok": 1.1,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 200000,
       "tier": "mid",
       "released": "2025-01-31",
@@ -816,10 +1169,49 @@
       ],
       "input_per_mtok": 1.1,
       "output_per_mtok": 4.4,
+      "cache_read_per_mtok": 0.275,
+      "cache_write_per_mtok": 1.1,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools",
+        "caching",
+        "structured_output"
+      ],
       "context_window": 200000,
       "tier": "mid",
       "released": "2025-04-16",
       "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
+      "id": "qwen-max",
+      "provider": "alibaba",
+      "input_per_mtok": 1.6,
+      "output_per_mtok": 6.4,
+      "context_window": 32768,
+      "tier": "frontier",
+      "released": "2025-01-25",
+      "source": "https://www.alibabacloud.com/help/en/model-studio/models"
+    },
+    {
+      "id": "qwen-plus",
+      "provider": "alibaba",
+      "input_per_mtok": 0.4,
+      "output_per_mtok": 1.2,
+      "context_window": 131072,
+      "tier": "mid",
+      "released": "2025-01-25",
+      "source": "https://www.alibabacloud.com/help/en/model-studio/models"
+    },
+    {
+      "id": "qwen-turbo",
+      "provider": "alibaba",
+      "input_per_mtok": 0.05,
+      "output_per_mtok": 0.2,
+      "context_window": 131072,
+      "tier": "small",
+      "released": "2025-01-25",
+      "source": "https://www.alibabacloud.com/help/en/model-studio/models"
     },
     {
       "id": "text-davinci-003",
@@ -837,6 +1229,10 @@
       "provider": "openai",
       "input_per_mtok": 0.13,
       "output_per_mtok": 0,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 8191,
       "tier": "embedding",
       "released": "2024-01-25",
@@ -847,6 +1243,10 @@
       "provider": "openai",
       "input_per_mtok": 0.02,
       "output_per_mtok": 0,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 8191,
       "tier": "embedding",
       "released": "2024-01-25",
@@ -857,6 +1257,7 @@
       "provider": "openai",
       "input_per_mtok": 0.1,
       "output_per_mtok": 0,
+      "batch_multiplier": 0.5,
       "context_window": 8191,
       "tier": "embedding",
       "released": "2022-12-15",

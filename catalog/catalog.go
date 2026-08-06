@@ -31,11 +31,33 @@ type Model struct {
 	Aliases       []string `yaml:"aliases,omitempty" json:"aliases,omitempty"`
 	InputPerMtok  float64  `yaml:"input_per_mtok" json:"input_per_mtok"`
 	OutputPerMtok float64  `yaml:"output_per_mtok" json:"output_per_mtok"`
-	ContextWindow int      `yaml:"context_window" json:"context_window"`
-	Tier          string   `yaml:"tier" json:"tier"`
-	Released      string   `yaml:"released" json:"released"`
-	Deprecated    string   `yaml:"deprecated,omitempty" json:"deprecated,omitempty"`
-	Source        string   `yaml:"source" json:"source"`
+	// Cache read and write rates let caching findings price exactly;
+	// batch_multiplier is the provider's batch endpoint discount.
+	// All optional: absent means no data, never free.
+	CacheReadPerMtok  float64  `yaml:"cache_read_per_mtok,omitempty" json:"cache_read_per_mtok,omitempty"`
+	CacheWritePerMtok float64  `yaml:"cache_write_per_mtok,omitempty" json:"cache_write_per_mtok,omitempty"`
+	BatchMultiplier   float64  `yaml:"batch_multiplier,omitempty" json:"batch_multiplier,omitempty"`
+	Capabilities      []string `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
+	ContextWindow     int      `yaml:"context_window" json:"context_window"`
+	Tier              string   `yaml:"tier" json:"tier"`
+	Released          string   `yaml:"released" json:"released"`
+	Deprecated        string   `yaml:"deprecated,omitempty" json:"deprecated,omitempty"`
+	Source            string   `yaml:"source" json:"source"`
+}
+
+var validCapabilities = map[string]bool{
+	"vision": true, "tools": true, "caching": true,
+	"structured_output": true, "audio": true, "dimensions": true,
+}
+
+// HasCapability reports whether the entry declares a capability.
+func (m Model) HasCapability(c string) bool {
+	for _, have := range m.Capabilities {
+		if have == c {
+			return true
+		}
+	}
+	return false
 }
 
 // Catalog is the emitted artifact. Version is the date the prices were
@@ -82,6 +104,17 @@ func (m Model) validate() error {
 	}
 	if !strings.HasPrefix(m.Source, "https://") {
 		return fmt.Errorf("%s: source must be an https URL backing the pricing claim", m.ID)
+	}
+	if m.CacheReadPerMtok < 0 || m.CacheWritePerMtok < 0 {
+		return fmt.Errorf("%s: cache rates must not be negative", m.ID)
+	}
+	if m.BatchMultiplier < 0 || m.BatchMultiplier > 1 {
+		return fmt.Errorf("%s: batch_multiplier must be between 0 and 1", m.ID)
+	}
+	for _, c := range m.Capabilities {
+		if !validCapabilities[c] {
+			return fmt.Errorf("%s: unknown capability %q", m.ID, c)
+		}
 	}
 	return nil
 }

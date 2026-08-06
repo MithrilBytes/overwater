@@ -345,11 +345,14 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	drifts, missing := catalog.DiffLitellm(c, prices)
+	drifts, notes, missing := catalog.DiffLitellm(c, prices)
 	for _, d := range drifts {
 		fmt.Fprintf(stdout, "%s: ours %g/%g, litellm %g/%g\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, d.TheirsOut)
 	}
-	fmt.Fprintf(stdout, "%d drifted, %d not in litellm, %d checked\n", len(drifts), len(missing), len(c.Models))
+	for _, n := range notes {
+		fmt.Fprintf(stdout, "note: %s\n", n)
+	}
+	fmt.Fprintf(stdout, "%d drifted, %d notes, %d not in litellm, %d checked\n", len(drifts), len(notes), len(missing), len(c.Models))
 	if !*write || len(drifts) == 0 {
 		return ExitClean
 	}

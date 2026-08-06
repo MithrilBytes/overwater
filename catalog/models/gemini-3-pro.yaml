@@ -8,3 +8,5 @@ context_window: 1000000
 tier: frontier
 released: "2025-11-18"
 source: https://ai.google.dev/gemini-api/docs/pricing
+batch_multiplier: 0.5
+capabilities: [vision, tools, caching, structured_output]

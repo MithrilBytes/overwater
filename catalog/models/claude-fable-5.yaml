@@ -1,8 +1,16 @@
 id: claude-fable-5
 provider: anthropic
+aliases:
+  - anthropic.claude-fable-5
+  - us.anthropic.claude-fable-5
+  - eu.anthropic.claude-fable-5
 input_per_mtok: 10.00
 output_per_mtok: 50.00
 context_window: 1000000
 tier: frontier
 released: "2026-06-01"
 source: https://platform.claude.com/docs/en/pricing
+cache_read_per_mtok: 1
+cache_write_per_mtok: 12.5
+batch_multiplier: 0.5
+capabilities: [vision, tools, caching, structured_output]

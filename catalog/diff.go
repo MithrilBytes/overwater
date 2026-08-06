@@ -13,14 +13,21 @@ import (
 // file arrives as a local path, never a fetch; the binary's only
 // permitted network call stays the catalog itself.
 
-// LitellmPrices maps a model key to dollars per million tokens.
-type LitellmPrices map[string]struct {
-	Input  float64
-	Output float64
+// LitellmEntry is one upstream record, prices in dollars per million.
+type LitellmEntry struct {
+	Input       float64
+	Output      float64
+	MaxInput    int
+	Deprecation string
 }
+
+// LitellmPrices maps a model key to its upstream record.
+type LitellmPrices map[string]LitellmEntry
 
 // ParseLitellm reads LiteLLM's model_prices_and_context_window.json,
 // keeping entries that carry per token costs and skipping the rest.
+// Context windows and deprecation dates ride along when present, so
+// the nightly diff can report their drift too.
 func ParseLitellm(raw []byte) (LitellmPrices, error) {
 	var entries map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &entries); err != nil {
@@ -29,8 +36,10 @@ func ParseLitellm(raw []byte) (LitellmPrices, error) {
 	prices := LitellmPrices{}
 	for key, rawEntry := range entries {
 		var e struct {
-			Input  *float64 `json:"input_cost_per_token"`
-			Output *float64 `json:"output_cost_per_token"`
+			Input       *float64 `json:"input_cost_per_token"`
+			Output      *float64 `json:"output_cost_per_token"`
+			MaxInput    int      `json:"max_input_tokens"`
+			Deprecation string   `json:"deprecation_date"`
 		}
 		if err := json.Unmarshal(rawEntry, &e); err != nil || e.Input == nil {
 			continue
@@ -39,10 +48,12 @@ func ParseLitellm(raw []byte) (LitellmPrices, error) {
 		if e.Output != nil {
 			out = *e.Output
 		}
-		prices[key] = struct {
-			Input  float64
-			Output float64
-		}{*e.Input * 1e6, out * 1e6}
+		prices[key] = LitellmEntry{
+			Input:       *e.Input * 1e6,
+			Output:      out * 1e6,
+			MaxInput:    e.MaxInput,
+			Deprecation: e.Deprecation,
+		}
 	}
 	return prices, nil
 }
@@ -59,7 +70,9 @@ type Drift struct {
 // DiffLitellm compares active catalog entries against LiteLLM prices,
 // matching by id, alias, and provider prefixed variants of both.
 // Deprecated entries keep their historical prices and are skipped.
-func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, missing []string) {
+// Prices come back as applyable drift; context window and deprecation
+// disagreements come back as notes for a human, never auto applied.
+func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missing []string) {
 	for _, m := range c.Models {
 		if m.Deprecated != "" {
 			continue
@@ -81,13 +94,19 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, missing []st
 					TheirsIn: p.Input, TheirsOut: p.Output,
 				})
 			}
+			if p.MaxInput > 0 && p.MaxInput != m.ContextWindow {
+				notes = append(notes, fmt.Sprintf("%s: context window ours %d, litellm %d", m.ID, m.ContextWindow, p.MaxInput))
+			}
+			if p.Deprecation != "" {
+				notes = append(notes, fmt.Sprintf("%s: litellm lists deprecation date %s; our entry is active", m.ID, p.Deprecation))
+			}
 			break
 		}
 		if !found {
 			missing = append(missing, m.ID)
 		}
 	}
-	return drifts, missing
+	return drifts, notes, missing
 }
 
 // differs allows half a percent of slack so float dust and rounding in
@@ -136,7 +155,14 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "catalog.json"), b, 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "catalog.json"), b, 0o644); err != nil {
+		return err
+	}
+	// Dated snapshot, so price drift has a history in the repo.
+	if err := os.MkdirAll(filepath.Join(dir, "history"), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "history", version+".json"), b, 0o644)
 }
 
 func formatPrice(v float64) string {

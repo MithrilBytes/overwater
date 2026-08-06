@@ -1,0 +1,8 @@
+id: glm-4.5-air
+provider: zhipu
+input_per_mtok: 0.20
+output_per_mtok: 1.10
+context_window: 131072
+tier: mid
+released: "2025-07-28"
+source: https://docs.z.ai/guides/overview/pricing

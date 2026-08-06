@@ -1,0 +1,10 @@
+id: llama-v3p1-8b-instruct
+provider: fireworks
+aliases:
+  - accounts/fireworks/models/llama-v3p1-8b-instruct
+input_per_mtok: 0.20
+output_per_mtok: 0.20
+context_window: 131072
+tier: small
+released: "2024-07-23"
+source: https://fireworks.ai/pricing

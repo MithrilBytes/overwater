@@ -6,3 +6,5 @@ context_window: 1048576
 tier: small
 released: "2025-07-22"
 source: https://ai.google.dev/gemini-api/docs/pricing
+batch_multiplier: 0.5
+capabilities: [vision, tools, caching, structured_output]

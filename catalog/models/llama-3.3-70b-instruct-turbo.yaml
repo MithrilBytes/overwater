@@ -1,0 +1,10 @@
+id: llama-3.3-70b-instruct-turbo
+provider: together
+aliases:
+  - meta-llama/Llama-3.3-70B-Instruct-Turbo
+input_per_mtok: 0.88
+output_per_mtok: 0.88
+context_window: 131072
+tier: mid
+released: "2024-12-06"
+source: https://www.together.ai/pricing

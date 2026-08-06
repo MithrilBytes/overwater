@@ -8,7 +8,7 @@ import (
 )
 
 const sampleLitellm = `{
-  "test-model": {"input_cost_per_token": 0.000002, "output_cost_per_token": 0.000008, "litellm_provider": "testco"},
+  "test-model": {"input_cost_per_token": 0.000002, "output_cost_per_token": 0.000008, "litellm_provider": "testco", "max_input_tokens": 9000},
   "testco/aliased-model": {"input_cost_per_token": 0.0000005, "output_cost_per_token": 0.000001},
   "sample_spec": {"input_cost_per_token": "not a number"}
 }`
@@ -48,12 +48,15 @@ func TestDiffLitellmMatchesAndTolerates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifts, missing := DiffLitellm(diffFixtureCatalog(), prices)
+	drifts, notes, missing := DiffLitellm(diffFixtureCatalog(), prices)
 	if len(drifts) != 1 || drifts[0].ID != "test-model" {
 		t.Fatalf("drifts = %+v, want only test-model", drifts)
 	}
 	if drifts[0].TheirsIn != 2 || drifts[0].TheirsOut != 8 {
 		t.Errorf("drift prices = %+v", drifts[0])
+	}
+	if len(notes) != 1 || !strings.Contains(notes[0], "context window") {
+		t.Errorf("notes = %v, want the context window disagreement reported", notes)
 	}
 	// aliased-model matched via the provider prefixed key and its
 	// prices agree, so it is neither drifted nor missing; the retired

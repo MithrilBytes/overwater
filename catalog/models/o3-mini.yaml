@@ -8,3 +8,7 @@ context_window: 200000
 tier: mid
 released: "2025-01-31"
 source: https://platform.openai.com/docs/pricing
+batch_multiplier: 0.5
+cache_read_per_mtok: 0.275
+cache_write_per_mtok: 1.10
+capabilities: [tools, caching, structured_output]

@@ -1,0 +1,8 @@
+id: llama-3.3-70b-versatile
+provider: groq
+input_per_mtok: 0.59
+output_per_mtok: 0.79
+context_window: 131072
+tier: mid
+released: "2024-12-06"
+source: https://groq.com/pricing/
