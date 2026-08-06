@@ -216,29 +216,53 @@ Current release line. On top of the ten v1 build steps:
 
 ### Next
 
-Roughly ordered inside each branch. Nothing here is promised.
+One branch per area, roughly ordered inside each. Nothing here is
+promised; items get cut when a cheaper answer shows up.
 
 - Parsers
-  - Python: indentation aware call extents, kwargs, dict configs
-    - Python 3 first; legacy Python 2 files keep the regex path
+  - Python
+    - indentation aware call extents, kwargs, dict configs
+    - notebooks: parse .ipynb cells as Python
     - resolve constants through module imports, not just one hop
     - keep the walk out of .venv and site-packages so runtime stays flat
-  - Go and Ruby on the same pure Go approach
-  - resolve calls through user wrappers: a helper that forwards to the
-    client should not hide the call site
-  - model ids that live in config: tie a MODEL env var back to the call
+    - Python 3 first; legacy Python 2 files keep the regex path
+  - Go: struct literal params, MessageNewParams{Model: ...}
+  - Java and Kotlin: builder chains, plus pom.xml and gradle manifests
+    for layer 1
+  - C#: object initializers, csproj manifests
+  - Ruby: keyword args
+  - PHP: named args, composer.json manifests
+  - Rust: builder patterns, Cargo.toml manifests
+  - Swift: Package.swift manifests
+  - shell: model ids inside curl payloads
+  - wrappers: a helper that forwards to the client should not hide the
+    call site
+  - config tracing: tie a MODEL env var or yaml key back to the call
     that reads it
+  - Azure OpenAI: deployment names are user chosen, so detection needs
+    the config trace, not the dictionary
   - tsconfig path aliases and monorepo workspaces for the import hop
 - Classifier
-  - corpus past fifty cases, balanced across languages and providers
+  - corpus past a hundred cases, balanced across languages and
+    providers
   - per archetype precision and recall, not one accuracy number
   - raise the floor as the corpus grows; never lower it
-  - new archetypes: translation, reranking, moderation
+  - new archetypes: translation, reranking, moderation, transcription,
+    code generation, vision extraction
+  - confidence calibration: low should be wrong more often than high,
+    measured
   - more pragmas: overwater:ignore for a site, overwater:volume for a
     known call rate
 - Rules
   - reasoning effort overkill: high effort settings on lookup shaped
     tasks
+  - retry amplification: aggressive retry config in front of frontier
+    prices
+  - fallback chains that name retired models
+  - embedding dimension overkill where the API takes a dimensions
+    parameter
+  - image detail high on thumbnail sized inputs
+  - realtime transcription models on batch audio jobs
   - budget rule: fail when projected monthly total crosses a number
     you set
   - temperature above zero on extraction shapes, flagged as
@@ -252,23 +276,38 @@ Roughly ordered inside each branch. Nothing here is promised.
   - batch endpoint rates per provider instead of one multiplier
   - context windows and deprecation dates in the nightly price-watch
   - capability flags per entry: vision, tools, caching, structured
-    output
-  - hosted open weight providers with their own pricing pages (groq,
-    fireworks, together), which closes the llama gap honestly
+    output, audio
+  - hosted open weight providers with their own pricing pages: groq,
+    fireworks, together
+  - international providers: qwen, moonshot, zhipu
   - bedrock and vertex id variants as aliases on existing entries
+  - dated price snapshots kept in the repo, so drift has a history
 - Guard
   - baseline aging: entries expire after a set time and start nagging
+  - incremental scan: only files changed since the baseline commit
   - SARIF output so findings land as code scanning annotations
   - scan diff: two runs compared, delta dollars per call site
   - monorepos: several roots, one baseline each, one summary
+  - fleet mode: many repos scanned locally, one rollup report
 - Evals
-  - templates for google, mistral, cohere, deepseek, and xai
-  - report latency and cost per call next to agreement
+  - templates for google, mistral, cohere, deepseek, xai, and groq
+  - draft prompts.jsonl from string literals near the call site, local
+    only
+  - report latency and cost per call next to agreement, plus the cost
+    of the eval itself
+  - sample size guidance: say when the prompt set is too small to mean
+    anything
   - embedding evals against a labeled pairs file, recall at k
   - optional judge model for open ended outputs; user picks it and
     pays for it
+- Renderers
+  - single file HTML report
+  - CSV of findings for spreadsheets
+  - a one line summary mode for CI logs
 - Distribution and speed
-  - Homebrew tap
+  - Homebrew tap, winget, and scoop
+  - a small docker image for CI runners
+  - nix flake
   - build provenance attestation on releases
   - Aho-Corasick for the dictionary scan on big repos
   - parallel file walk, with a benchmark in CI to keep both honest
