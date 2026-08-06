@@ -16,6 +16,16 @@ inputs:
     description: "Failure policy: new, any, or none"
     required: false
     default: new
+  pr-comment:
+    description: >-
+      Post the verdict as a sticky comment on pull requests. Needs the
+      caller to grant pull-requests write permission.
+    required: false
+    default: "false"
+  github-token:
+    description: Token used only for the PR comment
+    required: false
+    default: ${{ github.token }}
 
 runs:
   using: composite
@@ -51,6 +61,7 @@ runs:
         echo "OVERWATER_BIN=$dest" >> "$GITHUB_ENV"
 
     - name: scan
+      id: scan
       shell: bash
       run: |
         set -uo pipefail
@@ -67,6 +78,7 @@ runs:
         set -e
         cat "$out"
         cat "$errout" >&2
+        report="${RUNNER_TEMP}/overwater-report.md"
         {
           echo "## overwater"
           echo
@@ -79,5 +91,35 @@ runs:
             cat "$errout"
             echo '```'
           fi
-        } >> "$GITHUB_STEP_SUMMARY"
-        exit "$code"
+        } > "$report"
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        echo "code=$code" >> "$GITHUB_OUTPUT"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+
+    - name: pr comment
+      if: inputs.pr-comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      # Sticky: one overwater comment per PR, updated in place. A
+      # comment failure never changes the scan's exit code.
+      run: |
+        set -uo pipefail
+        marker="<!-- overwater -->"
+        body="${RUNNER_TEMP}/overwater-comment.md"
+        { echo "$marker"; cat "${{ steps.scan.outputs.report }}"; } > "$body"
+        repo="${{ github.repository }}"
+        pr="${{ github.event.pull_request.number }}"
+        existing=$(gh api "repos/$repo/issues/$pr/comments" --paginate \
+          --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1 || true)
+        if [ -n "$existing" ]; then
+          gh api -X PATCH "repos/$repo/issues/comments/$existing" -F body=@"$body" > /dev/null \
+            || echo "could not update the PR comment" >&2
+        else
+          gh api "repos/$repo/issues/$pr/comments" -F body=@"$body" > /dev/null \
+            || echo "could not create the PR comment; the workflow needs pull-requests: write" >&2
+        fi
+
+    - name: report exit code
+      shell: bash
+      run: exit "${{ steps.scan.outputs.code }}"
