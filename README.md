@@ -32,6 +32,14 @@ overrides the default estimate of 10,000 calls per month per call site.
 Scanning always exits 0 unless the run itself fails; the failure policy
 for CI arrives with the baseline ratchet.
 
+When the classifier reads a call site wrong, pin it with a comment on or
+just above the call:
+
+```ts
+// overwater:archetype=summarization
+const result = await generateText({ ... });
+```
+
 ## Example
 
 `fixtures/node-cron-summarizer` is a nightly digest job: a cron trigger
@@ -91,10 +99,20 @@ Four detection layers feed a rules engine:
    files, and config. Unknown model-looking strings are reported at low
    confidence instead of ignored.
 3. Call-site shape: temperature, max_tokens, schemas, tools, streaming,
-   system prompt size, cache_control, read from a window around each hit.
-   When the shape is unreadable, the scanner says so instead of guessing.
+   system prompt size, cache_control. Signals are read from the call's
+   own bracket-balanced extent over comment- and prose-masked source, so
+   a neighboring call cannot bleed its parameters in and a prompt that
+   merely mentions temperature cannot fake one. System prompts and
+   schemas referenced by name are resolved in the same file or one
+   import hop away. When the shape is unreadable, the scanner says so
+   instead of guessing.
 4. Archetype: extraction, classification, summarization, chat, agentic
-   loop, or embedding.
+   loop, or embedding, scored from weighted evidence: the enclosing
+   function name counts most, then the resolved prompt text and schema
+   semantics (an enum-only schema reads as classification, a many-field
+   one as extraction), then nearby identifiers. The winner carries a
+   graded confidence; a narrow win is reported as low confidence and
+   demotes any finding that leans on it.
 
 Every rule, threshold, and price lives in data files (`rules/*.yaml` and
 `catalog/`), not code. Every finding renders five fields:
@@ -177,10 +195,21 @@ In scope: the advisor scan, the CI guard with a baseline ratchet so legacy
 findings never fail a build, the public versioned catalog, and generated A/B
 eval scripts that the user runs with their own keys outside the scanner.
 
+Detection intelligence sits inside that line, and its expansion path is
+deliberate. Shipped now: bracket-balanced call extents, comment and prose
+masking, scored archetypes with graded confidence, schema semantics,
+prompt resolution one import hop away, and the archetype pragma for the
+cases heuristics get wrong. The next step up is real per-language parsing
+(tree-sitter or AST), which stays out of v1 on purpose; the golden
+harness exists so that engine swap can land later without changing a
+byte of the output contract. One expansion is off the table in every
+version: the scanner asking a model to classify call sites. The trust
+boundary says code never leaves the machine.
+
 Out of scope, deliberately: PR comment mode, a scheduled upstream price-diff
-action, a built-in eval runner, tree-sitter or full AST parsing, editor
-plugins, a hosted service of any kind, Homebrew packaging, and telemetry of
-any kind.
+action, a built-in eval runner, tree-sitter or full AST parsing (v1),
+editor plugins, a hosted service of any kind, Homebrew packaging, and
+telemetry of any kind.
 
 ## Exit codes
 
