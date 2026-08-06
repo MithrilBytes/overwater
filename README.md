@@ -47,6 +47,14 @@ Findings are matched by a fingerprint of the call site itself, not its
 line number, so code moving around a file does not churn the baseline,
 and fixed findings fall out the next time you record it.
 
+The guard grew with the tool: `--incremental` scans only files changed
+since the baseline's recorded commit, `--max-baseline-age-days` nags
+about entries baselined too long, `--sarif` feeds code scanning, and a
+repo can carry an `.overwater.yaml` (volume, budget_monthly_usd,
+disable, thresholds). `overwater diff` compares two `--json` reports,
+`overwater fleet` scans a list of repos into one rollup, and
+`--summary`, `--html`, and `--csv` reshape the output.
+
 When the classifier reads a call site wrong, pin it with a comment on or
 just above the call:
 
@@ -214,96 +222,32 @@ Current release line. On top of the ten v1 build steps:
 - opt-in PR comments in the Action
 - labeled corpus with a classifier accuracy floor enforced in tests
 
+### v1.6
+
+The whole expansion tree through Renderers:
+
+- parsers: nine language families plus notebooks and shell, six new
+  manifests, wrapper and builder calls, config tracing for env vars
+  and Azure deployment names, tsconfig aliases
+- classifier: 106 case corpus, per archetype precision and recall,
+  calibration checked, six new archetypes, ignore and volume pragmas
+- rules: twelve rules; new ones cover effort overkill, retry
+  amplification, hot temperature extraction, uncapped embedding
+  dimensions, image detail, and duplicate call sites, with exact cache
+  pricing and a per repo .overwater.yaml carrying volume, budget,
+  disables, and thresholds
+- catalog: cache and batch rates, capability flags, twelve entries for
+  hosted open weight and international providers, bedrock and vertex
+  aliases, drift notes for context windows and deprecations, dated
+  history snapshots
+- guard: baseline aging, incremental scans, --sarif, a diff command
+  over two reports, multi root scans, fleet mode
+- evals: eight provider templates, optional judge, latency and cost
+  reporting, sample size guidance, recall at 3, drafted prompt sets
+- renderers: html, csv, sarif, one line summary
+
 ### Next
 
-One branch per area, roughly ordered inside each. Nothing here is
-promised; items get cut when a cheaper answer shows up.
-
-- Parsers
-  - Python
-    - indentation aware call extents, kwargs, dict configs
-    - notebooks: parse .ipynb cells as Python
-    - resolve constants through module imports, not just one hop
-    - keep the walk out of .venv and site-packages so runtime stays flat
-    - Python 3 first; legacy Python 2 files keep the regex path
-  - Go: struct literal params, MessageNewParams{Model: ...}
-  - Java and Kotlin: builder chains, plus pom.xml and gradle manifests
-    for layer 1
-  - C#: object initializers, csproj manifests
-  - Ruby: keyword args
-  - PHP: named args, composer.json manifests
-  - Rust: builder patterns, Cargo.toml manifests
-  - Swift: Package.swift manifests
-  - shell: model ids inside curl payloads
-  - wrappers: a helper that forwards to the client should not hide the
-    call site
-  - config tracing: tie a MODEL env var or yaml key back to the call
-    that reads it
-  - Azure OpenAI: deployment names are user chosen, so detection needs
-    the config trace, not the dictionary
-  - tsconfig path aliases and monorepo workspaces for the import hop
-- Classifier
-  - corpus past a hundred cases, balanced across languages and
-    providers
-  - per archetype precision and recall, not one accuracy number
-  - raise the floor as the corpus grows; never lower it
-  - new archetypes: translation, reranking, moderation, transcription,
-    code generation, vision extraction
-  - confidence calibration: low should be wrong more often than high,
-    measured
-  - more pragmas: overwater:ignore for a site, overwater:volume for a
-    known call rate
-- Rules
-  - reasoning effort overkill: high effort settings on lookup shaped
-    tasks
-  - retry amplification: aggressive retry config in front of frontier
-    prices
-  - fallback chains that name retired models
-  - embedding dimension overkill where the API takes a dimensions
-    parameter
-  - image detail high on thumbnail sized inputs
-  - realtime transcription models on batch audio jobs
-  - budget rule: fail when projected monthly total crosses a number
-    you set
-  - temperature above zero on extraction shapes, flagged as
-    correctness
-  - duplicate call sites that could share one cached result
-  - per repo config file: disable rules, tune thresholds, point at a
-    volume file instead of the 10,000 per month default
-- Catalog
-  - cache read and write rates per entry, so caching findings price
-    exactly instead of flagging
-  - batch endpoint rates per provider instead of one multiplier
-  - context windows and deprecation dates in the nightly price-watch
-  - capability flags per entry: vision, tools, caching, structured
-    output, audio
-  - hosted open weight providers with their own pricing pages: groq,
-    fireworks, together
-  - international providers: qwen, moonshot, zhipu
-  - bedrock and vertex id variants as aliases on existing entries
-  - dated price snapshots kept in the repo, so drift has a history
-- Guard
-  - baseline aging: entries expire after a set time and start nagging
-  - incremental scan: only files changed since the baseline commit
-  - SARIF output so findings land as code scanning annotations
-  - scan diff: two runs compared, delta dollars per call site
-  - monorepos: several roots, one baseline each, one summary
-  - fleet mode: many repos scanned locally, one rollup report
-- Evals
-  - templates for google, mistral, cohere, deepseek, xai, and groq
-  - draft prompts.jsonl from string literals near the call site, local
-    only
-  - report latency and cost per call next to agreement, plus the cost
-    of the eval itself
-  - sample size guidance: say when the prompt set is too small to mean
-    anything
-  - embedding evals against a labeled pairs file, recall at k
-  - optional judge model for open ended outputs; user picks it and
-    pays for it
-- Renderers
-  - single file HTML report
-  - CSV of findings for spreadsheets
-  - a one line summary mode for CI logs
 - Distribution and speed
   - Homebrew tap, winget, and scoop
   - a small docker image for CI runners
