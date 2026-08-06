@@ -23,14 +23,29 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-      - run: |
+      - name: is pages enabled
+        id: pages
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")
+          if [ "$code" = "200" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages is not enabled; skipping the mirror deploy." >> "$GITHUB_STEP_SUMMARY"
+            echo "Enable it under Settings, Pages, Source: GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.pages.outputs.enabled == 'true'
+        uses: actions/configure-pages@v5
+      - if: steps.pages.outputs.enabled == 'true'
+        run: |
           mkdir -p site
           cp catalog/catalog.json site/
-      - uses: actions/upload-pages-artifact@v3
+      - if: steps.pages.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - id: deployment
+      - if: steps.pages.outputs.enabled == 'true'
+        id: deployment
         uses: actions/deploy-pages@v4

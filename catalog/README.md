@@ -16,13 +16,16 @@ and commit the YAML change together with the regenerated `catalog.json`.
 CI rejects the change if `catalog.json` is out of sync with the entries.
 
 The emitted `catalog.json` is embedded into the binary at build time and
-published to GitHub Pages on merge, at
+served as a static file straight from this repository:
 
-    https://mithrilbytes.github.io/overwater/catalog.json
+    https://raw.githubusercontent.com/MithrilBytes/overwater/main/catalog/catalog.json
 
-That static file is the entire endpoint: no server, no database.
-`overwater catalog refresh` pulls it into a local cache, and the scanner
-prefers the cache only when it is newer than the embedded snapshot.
+That file is the entire endpoint: no server, no database. `overwater
+catalog refresh` pulls it into a local cache, and the scanner prefers
+the cache only when it is newer than the embedded snapshot. A GitHub
+Pages mirror of the same bytes deploys on merge once Pages is enabled
+for the repo (Settings, then Pages, then Source: GitHub Actions); until
+then the publish workflow skips with a notice.
 
 ## What belongs in the catalog
 

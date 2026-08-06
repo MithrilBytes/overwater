@@ -10,10 +10,12 @@ import (
 	"time"
 )
 
-// DefaultURL is the published catalog: a static file on GitHub Pages is
-// the entire endpoint. Fetching it is the only network activity the
-// scanner is ever permitted, and even that is optional.
-const DefaultURL = "https://mithrilbytes.github.io/overwater/catalog.json"
+// DefaultURL is the published catalog: the committed catalog.json
+// served straight from the repository over HTTPS. A static file is the
+// entire endpoint; the GitHub Pages mirror deploys the same bytes once
+// Pages is enabled on the repo. Fetching this is the only network
+// activity the scanner is ever permitted, and even that is optional.
+const DefaultURL = "https://raw.githubusercontent.com/MithrilBytes/overwater/main/catalog/catalog.json"
 
 // StaleAfter is how old prices get before the scanner starts saying so.
 const StaleAfter = 90 * 24 * time.Hour
