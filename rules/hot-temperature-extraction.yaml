@@ -1,0 +1,14 @@
+# Temperature above zero on an extraction call. A correctness flag, not
+# a cost one: sampled variety is noise when the output should be the
+# document's own facts.
+id: hot-temperature-extraction
+kind: flag
+confidence: medium
+when:
+  archetype: [extraction]
+  temperature_above: 0
+candidate:
+  strategy: none
+  note: same model at temperature 0; extraction wants the document's facts, not variety
+tripwire: None; temperature 0 changes determinism, not capability
+flag: Temperature above zero on extraction risks inconsistent output; a correctness issue before a cost one

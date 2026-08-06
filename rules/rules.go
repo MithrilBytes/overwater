@@ -49,6 +49,10 @@ type When struct {
 	CacheControl     *bool    `yaml:"cache_control"`
 	MinSystemTokens  int      `yaml:"min_system_tokens"`
 	MinInputPerMtok  float64  `yaml:"min_input_per_mtok"`
+	Effort           []string `yaml:"effort"`
+	MinRetries       int      `yaml:"min_retries"`
+	TemperatureAbove *float64 `yaml:"temperature_above"`
+	ImageDetailHigh  *bool    `yaml:"image_detail_high"`
 }
 
 // Candidate describes how a rule nominates an alternative.
@@ -245,6 +249,18 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model) bool {
 	if w.MinInputPerMtok > 0 && m.InputPerMtok < w.MinInputPerMtok {
 		return false
 	}
+	if len(w.Effort) > 0 && !contains(w.Effort, site.Shape.Effort) {
+		return false
+	}
+	if w.MinRetries > 0 && (site.Shape.MaxRetries == nil || *site.Shape.MaxRetries < w.MinRetries) {
+		return false
+	}
+	if w.TemperatureAbove != nil && (site.Shape.Temperature == nil || *site.Shape.Temperature <= *w.TemperatureAbove) {
+		return false
+	}
+	if w.ImageDetailHigh != nil && site.Shape.ImageDetailHigh != *w.ImageDetailHigh {
+		return false
+	}
 	return true
 }
 
@@ -380,6 +396,9 @@ func evidence(site scan.Site) string {
 
 func (e *Engine) template(tpl string, site scan.Site, m *catalog.Model) string {
 	s := strings.ReplaceAll(tpl, "{system_tokens}", comma(e.systemTokens(site)))
+	if site.Shape.MaxRetries != nil {
+		s = strings.ReplaceAll(s, "{max_retries}", strconv.Itoa(*site.Shape.MaxRetries))
+	}
 	return strings.ReplaceAll(s, "{deprecated_date}", m.Deprecated)
 }
 

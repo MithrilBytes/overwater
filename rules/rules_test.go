@@ -41,8 +41,8 @@ func TestLoadRulesAndEstimates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Rules) != 6 {
-		t.Errorf("loaded %d rules, want the 6 shipped with v1", len(e.Rules))
+	if len(e.Rules) != 10 {
+		t.Errorf("loaded %d rules, want the 10 shipped", len(e.Rules))
 	}
 	if e.Est.Volume.CallsPerMonth != 10000 {
 		t.Errorf("calls_per_month = %d, want 10000", e.Est.Volume.CallsPerMonth)
@@ -206,6 +206,154 @@ func TestFlagWithNoHostFindingBecomesAFinding(t *testing.T) {
 }
 
 func intPtr(v int) *int { return &v }
+
+func floatPtr(v float64) *float64 { return &v }
+
+// loadEngine and embeddedCatalog keep the synthetic site tests short.
+func loadEngine(t *testing.T) (*Engine, *catalog.Catalog) {
+	t.Helper()
+	engine, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cat, err := catalog.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return engine, cat
+}
+
+// site builds one known synthetic call site with a bounded, readable
+// shape so only the rule under test fires.
+func site(ref, archetype string, shape scan.Shape) scan.Site {
+	if shape.MaxTokens == nil {
+		shape.MaxTokens = intPtr(300)
+	}
+	shape.Readable = true
+	return scan.Site{
+		File: "app.ts", Line: 5, Ref: ref, ModelID: ref,
+		Known: true, Archetype: archetype, Hash: "cafe0123", Shape: shape,
+	}
+}
+
+func TestEffortOverkillOnExtraction(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-sonnet-5", scan.ArchetypeExtraction, scan.Shape{Effort: "high"}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "effort-overkill" {
+		t.Fatalf("got %+v, want one effort-overkill finding", got)
+	}
+	if got[0].Confidence != "medium" {
+		t.Errorf("confidence = %s, want medium", got[0].Confidence)
+	}
+	if got[0].CandidateText != "same model at default effort; extraction and classification rarely need deliberate reasoning" {
+		t.Errorf("candidate = %q", got[0].CandidateText)
+	}
+}
+
+func TestEffortOverkillIgnoresDefaultEffortAndChat(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-sonnet-5", scan.ArchetypeClassification, scan.Shape{Effort: "medium"}),
+		site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{Effort: "xhigh"}),
+	}}
+	if got := engine.Evaluate(report, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings", got)
+	}
+}
+
+func TestRetryAmplificationFlagsFrontierRetries(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-opus-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(3)}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "retry-amplification" {
+		t.Fatalf("got %+v, want one promoted retry-amplification finding", got)
+	}
+	want := "max_retries 3 on a frontier model multiplies worst case spend"
+	if len(got[0].Flags) != 1 || got[0].Flags[0] != want {
+		t.Errorf("flags = %v, want %q", got[0].Flags, want)
+	}
+}
+
+func TestRetryAmplificationAttachesToHostFinding(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{MaxRetries: intPtr(4)}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "frontier-extraction" {
+		t.Fatalf("got %+v, want the frontier-extraction finding to host the flag", got)
+	}
+	want := "max_retries 4 on a frontier model multiplies worst case spend"
+	if len(got[0].Flags) != 1 || got[0].Flags[0] != want {
+		t.Errorf("flags = %v, want %q", got[0].Flags, want)
+	}
+}
+
+func TestRetryAmplificationRespectsThresholdAndTier(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-opus-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(2)}),
+		site("claude-haiku-4-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(9)}),
+	}}
+	if got := engine.Evaluate(report, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings below the threshold or tier", got)
+	}
+}
+
+func TestHotTemperatureExtraction(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-sonnet-5", scan.ArchetypeExtraction, scan.Shape{Temperature: floatPtr(0.8)}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "hot-temperature-extraction" {
+		t.Fatalf("got %+v, want one hot-temperature-extraction finding", got)
+	}
+	want := "Temperature above zero on extraction risks inconsistent output; a correctness issue before a cost one"
+	if len(got[0].Flags) != 1 || got[0].Flags[0] != want {
+		t.Errorf("flags = %v, want %q", got[0].Flags, want)
+	}
+}
+
+func TestHotTemperatureIgnoresZeroAndAbsent(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-sonnet-5", scan.ArchetypeExtraction, scan.Shape{Temperature: floatPtr(0)}),
+		site("claude-sonnet-5", scan.ArchetypeExtraction, scan.Shape{}),
+	}}
+	if got := engine.Evaluate(report, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings for temperature zero or unset", got)
+	}
+}
+
+func TestImageDetailHighOnVisionAndExtraction(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("gpt-4o", scan.ArchetypeVision, scan.Shape{ImageDetailHigh: true}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "image-detail-high" {
+		t.Fatalf("got %+v, want one image-detail-high finding", got)
+	}
+	if got[0].Confidence != "low" {
+		t.Errorf("confidence = %s, want low", got[0].Confidence)
+	}
+}
+
+func TestImageDetailHighIgnoresChat(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("gpt-4o", scan.ArchetypeChat, scan.Shape{ImageDetailHigh: true}),
+	}}
+	if got := engine.Evaluate(report, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings on a chat archetype", got)
+	}
+}
 
 // A rule that leans on the archetype inherits the classifier's doubt.
 func TestLowConfidenceArchetypeDemotesFinding(t *testing.T) {

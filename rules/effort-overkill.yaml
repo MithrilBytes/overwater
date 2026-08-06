@@ -1,0 +1,13 @@
+# Reasoning effort turned up on a task that names fields or picks a
+# label. Default effort answers these; the extra deliberation is spend,
+# not accuracy.
+id: effort-overkill
+kind: finding
+confidence: medium
+when:
+  archetype: [extraction, classification]
+  effort: [high, xhigh]
+candidate:
+  strategy: none
+  note: same model at default effort; extraction and classification rarely need deliberate reasoning
+tripwire: If eval agreement drops below 97%, stay put

@@ -1,0 +1,13 @@
+# detail high on an image reading call. High detail pays per tile, and
+# thumbnails or receipts read fine at the default resolution.
+id: image-detail-high
+kind: flag
+confidence: low
+when:
+  archetype: [vision, extraction]
+  image_detail_high: true
+candidate:
+  strategy: none
+  note: same model with image detail auto or low; thumbnails do not need high detail
+tripwire: If small print in images stops parsing, stay put
+flag: Image detail pinned to high; thumbnails do not need high detail

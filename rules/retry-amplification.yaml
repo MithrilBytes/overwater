@@ -1,0 +1,14 @@
+# An aggressive retry policy wrapped around a frontier model. Retries
+# multiply the most expensive call in the codebase, and transient
+# failures rarely need three attempts at the top price.
+id: retry-amplification
+kind: flag
+confidence: medium
+when:
+  tier: [frontier]
+  min_retries: 3
+candidate:
+  strategy: none
+  note: same model with a lower retry cap, or a cheaper model on the retry path
+tripwire: If the provider's error rate genuinely needs this many attempts, stay put
+flag: max_retries {max_retries} on a frontier model multiplies worst case spend
