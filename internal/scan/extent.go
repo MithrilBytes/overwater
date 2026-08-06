@@ -15,7 +15,8 @@ const (
 	extentMaxBytes  = 16000
 )
 
-var reModelKey = regexp.MustCompile(`(?:^|[^A-Za-z0-9_"])(?:"model"|model)\s*[:=]`)
+// Case insensitive so Go's Model: and C#'s Model = count too.
+var reModelKey = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9_"])(?:"model"|model)\s*[:=]`)
 
 func callExtent(maskedAll, maskedProse string, hit int) (int, int, bool) {
 	pos := hit
@@ -87,6 +88,22 @@ func matchClose(s string, open int) (int, bool) {
 	return 0, false
 }
 
+// innermostExtent returns the closest balanced bracket region around
+// the hit, with no requirement that it name a model parameter. The
+// fallback for wrapper calls, where the model string is an argument to
+// a helper rather than a keyed property.
+func innermostExtent(masked string, hit int) (int, int, bool) {
+	open, ok := enclosingOpen(masked, hit)
+	if !ok {
+		return 0, 0, false
+	}
+	closer, ok := matchClose(masked, open)
+	if !ok || closer <= hit {
+		return 0, 0, false
+	}
+	return open, closer + 1, true
+}
+
 // headExpand pulls the region start up two lines above the opener so
 // call names like streamText( or .stream( stay visible to the shape
 // regexes.
@@ -103,10 +120,19 @@ func headExpand(content string, from int) int {
 }
 
 // Function definition shapes across the supported languages, used to
-// find the name of the function enclosing a call site.
+// find the name of the function enclosing a call site. The third form
+// catches C family methods (name(args) {), which have no keyword; the
+// stopword list keeps control statements from posing as names.
 var reFuncDefs = []*regexp.Regexp{
-	regexp.MustCompile(`(?:function|func|def)\s+([A-Za-z_][A-Za-z0-9_]*)`),
+	regexp.MustCompile(`(?:function|func|def|fn)\s+([A-Za-z_][A-Za-z0-9_]*)`),
 	regexp.MustCompile(`(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:async\b|\()`),
+	regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_]*)\s*\([^()]*\)\s*\{`),
+}
+
+var funcNameStopwords = map[string]bool{
+	"if": true, "for": true, "while": true, "switch": true, "catch": true,
+	"return": true, "foreach": true, "using": true, "when": true,
+	"unless": true, "match": true, "lock": true, "defer": true,
 }
 
 // enclosingFuncName returns the last function name defined shortly
@@ -119,9 +145,13 @@ func enclosingFuncName(prose string, before int) string {
 	bestPos := -1
 	for _, re := range reFuncDefs {
 		for _, m := range re.FindAllStringSubmatchIndex(region, -1) {
+			name := region[m[2]:m[3]]
+			if funcNameStopwords[name] {
+				continue
+			}
 			if m[0] > bestPos {
 				bestPos = m[0]
-				best = region[m[2]:m[3]]
+				best = name
 			}
 		}
 	}

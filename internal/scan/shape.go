@@ -3,6 +3,7 @@ package scan
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"path"
 	"regexp"
 	"strconv"
@@ -25,9 +26,13 @@ var (
 	reEmbedding   = regexp.MustCompile(`embeddings\.create|embedContent|embed_content|\.embed\(`)
 	reBatchAPI    = regexp.MustCompile(`batches\.create|/v1/batches|messages\.batches`)
 	reBatchCtx    = regexp.MustCompile(`cron\.schedule|node-cron|crontab|schedule\.every|celery|BackgroundScheduler`)
-	reCallish     = regexp.MustCompile(`\.create\(|generateText|generateObject|streamText|completions|embeddings|\.stream\(|messages\.create`)
+	reCallish     = regexp.MustCompile(`\.create\(|generateText|generateObject|streamText|completions|embeddings|\.stream\(|messages\.create|\.builder\(`)
 	reZodField    = regexp.MustCompile(`:\s*z\.`)
 	reSchemaRef   = regexp.MustCompile(`(?:schema|tools)\s*[:=]\s*\[?\s*([A-Za-z_][A-Za-z0-9_]*)`)
+	reEffort      = regexp.MustCompile(`(?i)["']?(?:reasoning_)?effort["']?\s*[:=]\s*["']?(minimal|low|medium|high|xhigh|max)`)
+	reRetries     = regexp.MustCompile(`(?i)max_?retries["']?\s*[:=]\s*([0-9]+)`)
+	reDimensions  = regexp.MustCompile(`(?i)["']?dimensions["']?\s*[:=]\s*([0-9]+)`)
+	reDetailHigh  = regexp.MustCompile(`(?i)["']?detail["']?\s*[:=]\s*["']high["']`)
 )
 
 // analyzer carries the walked files so shape extraction and prompt
@@ -91,12 +96,22 @@ func hitOffset(content string, line, col int) int {
 // regionFor picks the byte range the shape and archetype layers read:
 // the call extent when one exists, expanded to keep the call name in
 // view, else the legacy line window. extStart is the extent's opening
-// bracket, which the structural parser needs unexpanded.
+// bracket, which the structural parser needs unexpanded. Builder
+// languages bound the whole chained statement instead; wrapper calls
+// with no model key fall back to the innermost balanced extent.
 func (a *analyzer) regionFor(p string, line, col int) (regionStart, regionEnd, extStart int, hasExtent bool) {
 	content := a.byPath[p]
 	hit := hitOffset(content, line, col)
 	m := a.masked(p)
+	if builderFamily(p) {
+		if s, e, ok := builderExtent(m.all, hit); ok {
+			return headExpand(content, s), e, s, true
+		}
+	}
 	if s, e, ok := callExtent(m.all, m.prose, hit); ok {
+		return headExpand(content, s), e, s, true
+	}
+	if s, e, ok := innermostExtent(m.all, hit); ok {
 		return headExpand(content, s), e, s, true
 	}
 	s, e := windowBounds(content, line)
@@ -135,10 +150,30 @@ func (a *analyzer) extractShape(p string, regionStart, regionEnd, extStart int, 
 	}
 	s.SchemaEnumOnly, s.SchemaMultiField = schemaFacts(schemaText)
 
-	// For JS and TS the structural parser has the final word on the
-	// fields the property list decides.
-	if hasExtent && jsFamily(p) {
+	if m := reEffort.FindStringSubmatch(region); m != nil {
+		s.Effort = strings.ToLower(m[1])
+	}
+	if m := reRetries.FindStringSubmatch(region); m != nil {
+		if v, err := strconv.Atoi(m[1]); err == nil {
+			s.MaxRetries = &v
+		}
+	}
+	if m := reDimensions.FindStringSubmatch(region); m != nil {
+		if v, err := strconv.Atoi(m[1]); err == nil {
+			s.Dimensions = &v
+		}
+	}
+	s.ImageDetailHigh = reDetailHigh.MatchString(region)
+
+	// For property and builder languages the structural parser has the
+	// final word on the fields it decides.
+	if hasExtent && propsFamily(p) {
 		if info := parseCall(a.byPath[p], m, extStart, regionEnd); info != nil {
+			applyCallInfo(&s, a.byPath[p], info)
+		}
+	}
+	if hasExtent && builderFamily(p) {
+		if info := builderParse(a.byPath[p], m, extStart, regionEnd); info != nil {
 			applyCallInfo(&s, a.byPath[p], info)
 		}
 	}
@@ -332,22 +367,32 @@ func literalText(content string, start int, delim string) (string, bool) {
 }
 
 var (
-	reImportJS  = regexp.MustCompile(`import\s*\{([^}]+)\}\s*from\s*["'](\.{1,2}/[\w./-]+)["']`)
-	reRequireJS = regexp.MustCompile(`(?:const|let|var)\s*\{([^}]+)\}\s*=\s*require\(\s*["'](\.{1,2}/[\w./-]+)["']\s*\)`)
-	rePyImport  = regexp.MustCompile(`from\s+([\w.]+)\s+import\s+([\w, ]+)`)
+	reImportJS   = regexp.MustCompile(`import\s*\{([^}]+)\}\s*from\s*["'](\.{1,2}/[\w./-]+)["']`)
+	reExportFrom = regexp.MustCompile(`export\s*\{([^}]+)\}\s*from\s*["'](\.{1,2}/[\w./-]+)["']`)
+	reImportBare = regexp.MustCompile(`import\s*\{([^}]+)\}\s*from\s*["']([@\w][\w./-]*)["']`)
+	reRequireJS  = regexp.MustCompile(`(?:const|let|var)\s*\{([^}]+)\}\s*=\s*require\(\s*["'](\.{1,2}/[\w./-]+)["']\s*\)`)
+	rePyImport   = regexp.MustCompile(`from\s+([\w.]+)\s+import\s+([\w, ]+)`)
 )
 
 // resolveConstText finds a string constant by name: first in the same
-// file, then one import hop away inside the scanned repo. One hop only,
-// and never outside the repo.
+// file, then across import hops inside the scanned repo, up to three
+// hops with a cycle guard. Never outside the repo.
 func (a *analyzer) resolveConstText(p, name string) (string, bool) {
+	return a.resolveConstHop(p, name, 0, map[string]bool{})
+}
+
+func (a *analyzer) resolveConstHop(p, name string, depth int, seen map[string]bool) (string, bool) {
+	if depth > 3 || seen[p+"\x00"+name] {
+		return "", false
+	}
+	seen[p+"\x00"+name] = true
 	content := a.byPath[p]
 	if text, ok := resolveConstIn(content, name); ok {
 		return text, true
 	}
 	for _, target := range a.importTargets(p, name) {
-		if other, ok := a.byPath[target]; ok {
-			if text, ok := resolveConstIn(other, name); ok {
+		if _, ok := a.byPath[target]; ok {
+			if text, ok := a.resolveConstHop(target, name, depth+1, seen); ok {
 				return text, true
 			}
 		}
@@ -365,22 +410,45 @@ func resolveConstIn(content, name string) (string, bool) {
 }
 
 // importTargets lists candidate repo paths that might define name,
-// based on the file's own import statements.
+// based on the file's own import statements, tsconfig path aliases,
+// and a suffix search as the last resort for workspace layouts.
 func (a *analyzer) importTargets(p, name string) []string {
 	content := a.byPath[p]
 	dir := path.Dir(p)
 	var targets []string
+	jsExts := []string{".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
 	add := func(spec string, exts []string) {
 		base := path.Clean(path.Join(dir, spec))
 		for _, ext := range exts {
 			targets = append(targets, base+ext)
 		}
 	}
-	jsExts := []string{".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"}
-	for _, re := range []*regexp.Regexp{reImportJS, reRequireJS} {
+	addAliased := func(spec string) {
+		for _, resolved := range a.tsconfigResolve(spec) {
+			for _, ext := range jsExts {
+				targets = append(targets, path.Clean(resolved)+ext)
+			}
+		}
+		// Workspace fallback: any repo file whose path ends with the
+		// spec, tried with each extension.
+		for _, ext := range jsExts {
+			suffix := spec + ext
+			for known := range a.byPath {
+				if strings.HasSuffix(known, suffix) {
+					targets = append(targets, known)
+				}
+			}
+		}
+	}
+	for _, re := range []*regexp.Regexp{reImportJS, reExportFrom, reRequireJS, reImportBare} {
 		for _, m := range re.FindAllStringSubmatch(content, -1) {
-			if importsName(m[1], name) {
+			if !importsName(m[1], name) {
+				continue
+			}
+			if strings.HasPrefix(m[2], ".") {
 				add(m[2], jsExts)
+			} else {
+				addAliased(m[2])
 			}
 		}
 	}
@@ -393,6 +461,39 @@ func (a *analyzer) importTargets(p, name string) []string {
 		}
 	}
 	return targets
+}
+
+// tsconfigResolve expands a non relative import spec through the
+// compilerOptions paths of any tsconfig.json in the repo.
+func (a *analyzer) tsconfigResolve(spec string) []string {
+	var out []string
+	for known, content := range a.byPath {
+		if path.Base(known) != "tsconfig.json" && path.Base(known) != "jsconfig.json" {
+			continue
+		}
+		var cfg struct {
+			CompilerOptions struct {
+				BaseURL string              `json:"baseUrl"`
+				Paths   map[string][]string `json:"paths"`
+			} `json:"compilerOptions"`
+		}
+		if err := json.Unmarshal([]byte(content), &cfg); err != nil {
+			continue
+		}
+		root := path.Dir(known)
+		base := path.Join(root, cfg.CompilerOptions.BaseURL)
+		for pattern, subs := range cfg.CompilerOptions.Paths {
+			prefix := strings.TrimSuffix(pattern, "*")
+			if !strings.HasPrefix(spec, prefix) {
+				continue
+			}
+			rest := strings.TrimPrefix(spec, prefix)
+			for _, sub := range subs {
+				out = append(out, path.Join(base, strings.TrimSuffix(sub, "*")+rest))
+			}
+		}
+	}
+	return out
 }
 
 func importsName(list, name string) bool {

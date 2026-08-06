@@ -25,6 +25,10 @@ type Shape struct {
 	Readable          bool
 	Temperature       *float64
 	MaxTokens         *int
+	MaxRetries        *int
+	Dimensions        *int
+	Effort            string
+	ImageDetailHigh   bool
 	JSONSchema        bool
 	SchemaEnumOnly    bool
 	SchemaMultiField  bool

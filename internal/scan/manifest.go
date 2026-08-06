@@ -28,10 +28,22 @@ var goSDKs = []string{
 
 var gemSDKs = []string{"anthropic", "cohere", "openai", "ruby-openai"}
 
+// Substring markers for the manifest formats where presence detection
+// is the whole job.
+var javaSDKs = []string{"com.anthropic", "com.openai", "dev.langchain4j", "com.theokanning"}
+var csprojSDKs = []string{"Anthropic.SDK", "OpenAI", "Azure.AI.OpenAI", "Microsoft.SemanticKernel"}
+var composerSDKs = []string{"openai-php", "anthropic-ai"}
+var cargoSDKs = []string{"async-openai", "anthropic", "genai"}
+var swiftSDKs = []string{"openai", "anthropic", "generative-ai-swift"}
+
 // scanManifest reads one file as a dependency manifest and returns the
 // LLM SDKs it declares. Files that are not manifests return nothing.
 func scanManifest(relPath string, data []byte) []SDK {
-	switch path.Base(relPath) {
+	base := path.Base(relPath)
+	if strings.HasSuffix(base, ".csproj") {
+		return substringManifest(relPath, data, "nuget", csprojSDKs, false)
+	}
+	switch base {
 	case "package.json":
 		return npmManifest(relPath, data)
 	case "requirements.txt":
@@ -42,8 +54,34 @@ func scanManifest(relPath string, data []byte) []SDK {
 		return goManifest(relPath, data)
 	case "Gemfile":
 		return gemManifest(relPath, data)
+	case "pom.xml", "build.gradle", "build.gradle.kts":
+		return substringManifest(relPath, data, "maven", javaSDKs, false)
+	case "composer.json":
+		return substringManifest(relPath, data, "composer", composerSDKs, false)
+	case "Cargo.toml":
+		return substringManifest(relPath, data, "cargo", cargoSDKs, false)
+	case "Package.swift":
+		return substringManifest(relPath, data, "swiftpm", swiftSDKs, true)
 	}
 	return nil
+}
+
+func substringManifest(relPath string, data []byte, ecosystem string, names []string, fold bool) []SDK {
+	s := string(data)
+	if fold {
+		s = strings.ToLower(s)
+	}
+	var sdks []SDK
+	for _, name := range names {
+		probe := name
+		if fold {
+			probe = strings.ToLower(name)
+		}
+		if strings.Contains(s, probe) {
+			sdks = append(sdks, SDK{Ecosystem: ecosystem, Name: name, File: relPath})
+		}
+	}
+	return sdks
 }
 
 func npmManifest(relPath string, data []byte) []SDK {

@@ -44,8 +44,12 @@ type langFamily struct {
 
 func familyFor(p string) langFamily {
 	switch path.Ext(p) {
-	case ".py":
+	case ".py", ".ipynb":
 		return langFamily{hashComment: true, triples: true, quotes: true}
+	case ".sh", ".bash", ".zsh":
+		// Shell strings are often the payload (curl -d '{...}'), so
+		// string interiors stay visible to the shape layer.
+		return langFamily{hashComment: true}
 	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
 		return langFamily{slashComment: true, blockComment: true, backtick: true, quotes: true}
 	case ".go":
