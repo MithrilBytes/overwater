@@ -216,15 +216,62 @@ Current release line. On top of the ten v1 build steps:
 
 ### Next
 
-Rough order, no promises:
+Roughly ordered inside each branch. Nothing here is promised.
 
-- structural parsing for Python, same pure Go approach
-- grow the corpus past fifty cases and raise the accuracy floor
-- eval templates for google, mistral, and cohere
-- volume hints: read real call volume from a file instead of the
-  10,000 per month default
-- price-watch coverage for context windows and deprecation dates, not
-  just prices
+- Parsers
+  - Python: indentation aware call extents, kwargs, dict configs
+    - Python 3 first; legacy Python 2 files keep the regex path
+    - resolve constants through module imports, not just one hop
+    - keep the walk out of .venv and site-packages so runtime stays flat
+  - Go and Ruby on the same pure Go approach
+  - resolve calls through user wrappers: a helper that forwards to the
+    client should not hide the call site
+  - model ids that live in config: tie a MODEL env var back to the call
+    that reads it
+  - tsconfig path aliases and monorepo workspaces for the import hop
+- Classifier
+  - corpus past fifty cases, balanced across languages and providers
+  - per archetype precision and recall, not one accuracy number
+  - raise the floor as the corpus grows; never lower it
+  - new archetypes: translation, reranking, moderation
+  - more pragmas: overwater:ignore for a site, overwater:volume for a
+    known call rate
+- Rules
+  - reasoning effort overkill: high effort settings on lookup shaped
+    tasks
+  - budget rule: fail when projected monthly total crosses a number
+    you set
+  - temperature above zero on extraction shapes, flagged as
+    correctness
+  - duplicate call sites that could share one cached result
+  - per repo config file: disable rules, tune thresholds, point at a
+    volume file instead of the 10,000 per month default
+- Catalog
+  - cache read and write rates per entry, so caching findings price
+    exactly instead of flagging
+  - batch endpoint rates per provider instead of one multiplier
+  - context windows and deprecation dates in the nightly price-watch
+  - capability flags per entry: vision, tools, caching, structured
+    output
+  - hosted open weight providers with their own pricing pages (groq,
+    fireworks, together), which closes the llama gap honestly
+  - bedrock and vertex id variants as aliases on existing entries
+- Guard
+  - baseline aging: entries expire after a set time and start nagging
+  - SARIF output so findings land as code scanning annotations
+  - scan diff: two runs compared, delta dollars per call site
+  - monorepos: several roots, one baseline each, one summary
+- Evals
+  - templates for google, mistral, cohere, deepseek, and xai
+  - report latency and cost per call next to agreement
+  - embedding evals against a labeled pairs file, recall at k
+  - optional judge model for open ended outputs; user picks it and
+    pays for it
+- Distribution and speed
+  - Homebrew tap
+  - build provenance attestation on releases
+  - Aho-Corasick for the dictionary scan on big repos
+  - parallel file walk, with a benchmark in CI to keep both honest
 
 Never: hosted service, telemetry, model calls from the scanner.
 
