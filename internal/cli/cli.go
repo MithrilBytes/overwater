@@ -50,6 +50,7 @@ type command struct {
 var commands = []command{
 	{"scan", "report overwatered LLM call sites in a repository", runScan},
 	{"diff", "compare two scan --json reports", runDiff},
+	{"fleet", "scan every repository in a list file", runFleet},
 	{"eval", "generate A/B eval scripts for scan findings", runEval},
 	{"catalog", "show or refresh the model catalog", runCatalog},
 }
