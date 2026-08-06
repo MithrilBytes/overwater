@@ -29,8 +29,20 @@ The scan prints one verdict block per finding, or the null verdict when
 nothing clears the bar. `--json` emits the same findings for machines,
 `--models-md` writes MODELS.md into the scanned repo, and `--volume`
 overrides the default estimate of 10,000 calls per month per call site.
-Scanning always exits 0 unless the run itself fails; the failure policy
-for CI arrives with the baseline ratchet.
+By default the scan is advice: it exits 0 whenever the run itself
+succeeds. In CI, record a baseline once, commit it, and let the ratchet
+fail only what is new:
+
+```bash
+overwater scan --baseline .overwater.json --update-baseline
+overwater scan --baseline .overwater.json
+```
+
+`--fail-on any` fails on any finding, `none` never fails, and the
+default `new` fails only on findings missing from the baseline.
+Findings are matched by a fingerprint of the call site itself, not its
+line number, so code moving around a file does not churn the baseline,
+and fixed findings fall out the next time you record it.
 
 When the classifier reads a call site wrong, pin it with a comment on or
 just above the call:
@@ -147,69 +159,70 @@ Working today:
   `--json`) driven by one shared findings object. The golden harness
   proves the MODELS.md renderer reproduces each fixture's golden byte
   for byte.
+- The baseline ratchet: `--baseline`, `--update-baseline`, and
+  `--fail-on` turn the scan into a CI guard that fails on new
+  overwatering without punishing what a repo already had.
 
-### Milestones to v1.0
+### Toward v1.0
 
-Steps 1 through 6 of the build order landed 2026-08-05: the scaffold, the
-catalog, the fixtures and goldens, all four detection layers, the rules
-engine, and the renderers with their golden harness. What remains is
-deliberate and ordered, and each milestone has an acceptance bar it must
-clear before it counts.
+Steps 1 through 7 are done: scaffold, catalog, fixtures and goldens, the
+detection layers, the rules engine, renderers with the golden harness,
+and the baseline ratchet. Three pieces left before a v1.0 tag.
 
-**The guard (step 7).** The scan learns a failure policy: `--baseline
-.overwater.json` compares findings by stable fingerprint (rule id plus
-normalized path plus a call-site hash, so line drift does not break
-matching), `--update-baseline` rewrites the file and prunes fixed
-findings, and `--fail-on new|any|none` defaults to `new`. Done when tests
-prove three things: a new finding fails the build, a baselined finding
-passes, and a fixed finding is pruned on update.
+The GitHub Action. A composite `action.yml` that pulls a pinned release
+binary, checks its sha256, runs the scan, and writes the findings table
+into the step summary. No secrets, read permission only. Blocked on
+cutting a first release, since pinning by checksum needs an artifact to
+pin. We dogfood it in this repo: ts-chat-firehose has to exit 1 and
+clean-app has to exit 0, or the workflow is lying to us.
 
-**The Action (step 8).** A composite `action.yml` at the repo root:
-downloads a pinned release binary, verifies its checksum, runs the scan,
-writes the findings table to the step summary, and exits with the
-scanner's code. Zero secrets, read permission only. Done when the dogfood
-workflow in this repo runs it against ts-chat-firehose expecting exit 1
-and against clean-app expecting exit 0, and both are green.
+Catalog refresh. Fetch the published catalog.json over HTTPS, cache it
+locally, and warn when prices have gone stale instead of failing. The
+`--offline` flag forbids all network. The test for this installs a
+transport that counts requests, because "the scanner does not phone
+home" should be enforced by a test, not a promise.
 
-**The living catalog (step 9).** Optional HTTPS fetch of the published
-catalog with a local cache, a "prices as of" staleness warning instead of
-a failure, and `--offline` forbidding all network activity. Done when a
-network-denying transport test proves the scanner makes zero requests
-under `--offline` and only the single catalog request otherwise.
+overwater eval. Writes one runnable A/B script per finding with both
+model ids filled in. You bring a JSONL of real prompts and your own
+keys; the script reports agreement between the current model and the
+candidate, and the finding's tripwire already told you what number
+means stay put.
 
-**Generated evals (step 10).** `overwater eval` writes one runnable A/B
-script per finding, with both model ids filled in. The user supplies a
-JSONL of real prompts and their own keys, runs it outside the scanner,
-and reads an agreement percentage against the tripwire. Done when a
-generated script exists for every fixture finding and names exactly the
-models its finding names.
+Tag criteria: dogfood workflow green, tests pass with the network off,
+release binaries for macOS, Linux, and Windows.
 
-**v1.0.** All of the above, plus release binaries for macOS, Linux, and
-Windows and a CI setup snippet in this README. Tagged only when the
-dogfood workflow is green and the full suite passes with networking
-disabled.
+### After v1
+
+Nothing here is a commitment. It is the list we would work from, in
+roughly this order:
+
+- Replace the layer 3 regex heuristics with tree-sitter, one language
+  at a time, TypeScript first. The golden harness is what makes that
+  swap safe to do incrementally: if output changes by a byte, a test
+  says so.
+- A scheduled job that diffs our catalog against LiteLLM's community
+  pricing file and opens a PR when a provider moves a price. A pricing
+  catalog is only worth having while somebody keeps it honest.
+- PR comments from the Action, once the step summary has earned trust.
+- An accuracy corpus for the classifier: snapshots of real repos with
+  hand labeled call sites, so classifier changes ship with precision
+  numbers instead of anecdotes.
+
+Three things stay off this list in every version: a hosted service,
+telemetry, and the scanner calling a model. Code stays on the machine
+that runs it.
 
 ### Scope for v1
 
-In scope: the advisor scan, the CI guard with a baseline ratchet so legacy
-findings never fail a build, the public versioned catalog, and generated A/B
-eval scripts that the user runs with their own keys outside the scanner.
+In: the advisor scan, the CI guard with its baseline ratchet so legacy
+repos adopt it without a clean-up project first, the public versioned
+catalog, and generated A/B eval scripts you run with your own keys.
 
-Detection intelligence sits inside that line, and its expansion path is
-deliberate. Shipped now: bracket-balanced call extents, comment and prose
-masking, scored archetypes with graded confidence, schema semantics,
-prompt resolution one import hop away, and the archetype pragma for the
-cases heuristics get wrong. The next step up is real per-language parsing
-(tree-sitter or AST), which stays out of v1 on purpose; the golden
-harness exists so that engine swap can land later without changing a
-byte of the output contract. One expansion is off the table in every
-version: the scanner asking a model to classify call sites. The trust
-boundary says code never leaves the machine.
-
-Out of scope, deliberately: PR comment mode, a scheduled upstream price-diff
-action, a built-in eval runner, tree-sitter or full AST parsing (v1),
-editor plugins, a hosted service of any kind, Homebrew packaging, and
-telemetry of any kind.
+Out for v1: PR comment mode, the scheduled price-diff job, a built-in
+eval runner, tree-sitter or any real parsing, editor plugins, and
+Homebrew packaging. Most of that reappears on the After v1 list above.
+Hosted services, telemetry, and scanner-side model calls do not; those
+are refusals, not deferrals.
 
 ## Exit codes
 
