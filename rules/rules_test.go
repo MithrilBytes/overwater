@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -42,8 +43,8 @@ func TestLoadRulesAndEstimates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Rules) != 11 {
-		t.Errorf("loaded %d rules, want the 11 shipped", len(e.Rules))
+	if len(e.Rules) != 12 {
+		t.Errorf("loaded %d rules, want the 12 shipped", len(e.Rules))
 	}
 	if e.Est.Volume.CallsPerMonth != 10000 {
 		t.Errorf("calls_per_month = %d, want 10000", e.Est.Volume.CallsPerMonth)
@@ -253,15 +254,20 @@ func loadEngine(t *testing.T) (*Engine, *catalog.Catalog) {
 }
 
 // site builds one known synthetic call site with a bounded, readable
-// shape so only the rule under test fires.
+// shape so only the rule under test fires. Each call gets its own hash
+// so unrelated sites never group as duplicates.
+var siteSeq int
+
 func site(ref, archetype string, shape scan.Shape) scan.Site {
 	if shape.MaxTokens == nil {
 		shape.MaxTokens = intPtr(300)
 	}
 	shape.Readable = true
+	siteSeq++
 	return scan.Site{
 		File: "app.ts", Line: 5, Ref: ref, ModelID: ref,
-		Known: true, Archetype: archetype, Hash: "cafe0123", Shape: shape,
+		Known: true, Archetype: archetype,
+		Hash: fmt.Sprintf("hash%04d", siteSeq), Shape: shape,
 	}
 }
 
@@ -417,6 +423,60 @@ func TestImageDetailHighIgnoresChat(t *testing.T) {
 	}}
 	if got := engine.Evaluate(report, cat); len(got) != 0 {
 		t.Errorf("got %+v, want no findings on a chat archetype", got)
+	}
+}
+
+func TestDuplicateCallSitesFlagEverySiteAfterTheFirst(t *testing.T) {
+	engine, cat := loadEngine(t)
+	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	b := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	c := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	a.Line, b.Line, c.Line = 3, 9, 21
+	b.File, c.File = "twin.ts", "twin.ts"
+	a.Hash, b.Hash, c.Hash = "feedbeef", "feedbeef", "feedbeef"
+	got := engine.Evaluate(&scan.Report{Sites: []scan.Site{a, b, c}}, cat)
+	if len(got) != 2 {
+		t.Fatalf("got %+v, want findings on the two later duplicates only", got)
+	}
+	for i, want := range []struct {
+		file string
+		line int
+	}{{"twin.ts", 9}, {"twin.ts", 21}} {
+		f := got[i]
+		if f.RuleID != "duplicate-call-sites" || f.File != want.file || f.Line != want.line {
+			t.Errorf("finding %d = %s at %s:%d, want duplicate-call-sites at %s:%d",
+				i, f.RuleID, f.File, f.Line, want.file, want.line)
+		}
+		if f.Confidence != "low" {
+			t.Errorf("confidence = %s, want low", f.Confidence)
+		}
+		if f.CandidateText != "consolidate with the first identical call and share one cached result" {
+			t.Errorf("candidate = %q", f.CandidateText)
+		}
+	}
+}
+
+func TestDuplicateCallSitesNeedTheSameModel(t *testing.T) {
+	engine, cat := loadEngine(t)
+	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	b := site("claude-haiku-4-5", scan.ArchetypeChat, scan.Shape{})
+	a.Hash, b.Hash = "feedbeef", "feedbeef"
+	if got := engine.Evaluate(&scan.Report{Sites: []scan.Site{a, b}}, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings for the same hash on different models", got)
+	}
+}
+
+func TestDuplicateCallSitesSkipIgnoredAndHashless(t *testing.T) {
+	engine, cat := loadEngine(t)
+	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	b := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
+	a.Hash, b.Hash = "feedbeef", "feedbeef"
+	a.Ignored = true
+	empty1 := site("claude-haiku-4-5", scan.ArchetypeChat, scan.Shape{})
+	empty2 := site("claude-haiku-4-5", scan.ArchetypeChat, scan.Shape{})
+	empty1.Hash, empty2.Hash = "", ""
+	if got := engine.Evaluate(&scan.Report{Sites: []scan.Site{a, b, empty1, empty2}}, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings when the twin is ignored or hashes are empty", got)
 	}
 }
 

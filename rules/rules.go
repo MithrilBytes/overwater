@@ -58,6 +58,10 @@ type When struct {
 	ImageDetailHigh   *bool    `yaml:"image_detail_high"`
 	ModelCapability   string   `yaml:"model_capability"`
 	DimensionsPresent *bool    `yaml:"dimensions_present"`
+	// MinDuplicateSites is the cross site predicate: the site's hash and
+	// model appear at least this many times in the report, and the site
+	// is not the first occurrence. The engine computes the grouping.
+	MinDuplicateSites int `yaml:"min_duplicate_sites"`
 }
 
 // Candidate describes how a rule nominates an alternative.
@@ -171,22 +175,40 @@ func (r Rule) validate() error {
 	return nil
 }
 
+// dupKey groups call sites for the duplicate predicate: same content
+// hash and same model is the same call written twice.
+type dupKey struct{ hash, model string }
+
 // Evaluate runs every rule against every known call site and returns the
 // findings sorted by file, line, and rule id.
 func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
+	names := cat.Names()
+	counts := map[dupKey]int{}
+	for _, site := range report.Sites {
+		if site.Known && !site.Ignored && site.Hash != "" && names[site.Ref] != nil {
+			counts[dupKey{site.Hash, site.Ref}]++
+		}
+	}
+	seen := map[dupKey]int{}
 	var findings []Finding
 	for _, site := range report.Sites {
 		if !site.Known || site.Ignored {
 			continue
 		}
-		model := cat.ByName(site.Ref)
+		model := names[site.Ref]
 		if model == nil {
 			continue
+		}
+		var dupCount, dupPos int
+		if site.Hash != "" {
+			k := dupKey{site.Hash, site.Ref}
+			dupCount, dupPos = counts[k], seen[k]
+			seen[k]++
 		}
 		var siteFindings []Finding
 		var flagRules []Rule
 		for _, r := range e.Rules {
-			if !e.matches(r.When, site, model) {
+			if !e.matches(r.When, site, model, dupCount, dupPos) {
 				continue
 			}
 			if r.Kind == "flag" {
@@ -220,7 +242,7 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 	return findings
 }
 
-func (e *Engine) matches(w When, site scan.Site, m *catalog.Model) bool {
+func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dupPos int) bool {
 	if len(w.Archetype) > 0 && !contains(w.Archetype, site.Archetype) {
 		return false
 	}
@@ -273,6 +295,9 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model) bool {
 		return false
 	}
 	if w.DimensionsPresent != nil && (site.Shape.Dimensions != nil) != *w.DimensionsPresent {
+		return false
+	}
+	if w.MinDuplicateSites > 0 && (dupCount < w.MinDuplicateSites || dupPos == 0) {
 		return false
 	}
 	return true
