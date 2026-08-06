@@ -95,6 +95,9 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	failOn := fs.String("fail-on", "new", "failure policy: new, any, or none")
 	refresh := fs.Bool("refresh", false, "fetch the published catalog before scanning")
 	offline := fs.Bool("offline", false, "forbid all network activity")
+	htmlOut := fs.String("html", "", "write a single file HTML report to this path")
+	csvOut := fs.String("csv", "", "write findings as CSV to this path")
+	summary := fs.Bool("summary", false, "print a one line summary instead of the full verdict")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
@@ -130,15 +133,32 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	if *jsonOut {
+	switch {
+	case *jsonOut:
 		out, err := render.JSON(findings, meta)
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			return ExitError
 		}
 		stdout.Write(out)
-	} else {
+	case *summary:
+		fmt.Fprintln(stdout, render.SummaryLine(findings, meta))
+	default:
 		render.Terminal(stdout, findings, meta)
+	}
+	if *htmlOut != "" {
+		if err := os.WriteFile(*htmlOut, render.HTML(findings, meta), 0o644); err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "wrote %s\n", *htmlOut)
+	}
+	if *csvOut != "" {
+		if err := os.WriteFile(*csvOut, render.CSV(findings), 0o644); err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "wrote %s\n", *csvOut)
 	}
 	if *modelsMD {
 		path := filepath.Join(root, "MODELS.md")
@@ -246,6 +266,7 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	outDir := fs.String("o", "overwater-evals", "directory for generated scripts")
 	volume := fs.Int("volume", 0, "estimated calls per month per call site")
+	draft := fs.Bool("draft-prompts", false, "seed a prompts.jsonl per script from literals near the call site")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
@@ -276,6 +297,16 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	}
 	for _, note := range skipped {
 		fmt.Fprintf(stderr, "skipped %s\n", note)
+	}
+	if *draft {
+		drafts, err := evalgen.DraftPromptSets(root, findings, *outDir)
+		if err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		for _, path := range drafts {
+			fmt.Fprintf(stdout, "wrote %s (drafted; real production prompts beat these)\n", path)
+		}
 	}
 	if len(written) == 0 {
 		fmt.Fprintln(stdout, "no findings nominate a different model, so there is nothing to eval")
