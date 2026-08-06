@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -389,6 +390,53 @@ func TestImageDetailHighIgnoresChat(t *testing.T) {
 	}}
 	if got := engine.Evaluate(report, cat); len(got) != 0 {
 		t.Errorf("got %+v, want no findings on a chat archetype", got)
+	}
+}
+
+// A fallback chain that names a retired model needs no rule of its
+// own: layer 2 reports every model string as a site, so the retired
+// entry in the array draws its deprecated-model finding at that line.
+func TestFallbackChainNamingRetiredModelIsCovered(t *testing.T) {
+	engine, cat := loadEngine(t)
+	dir := t.TempDir()
+	src := `const PRIMARY = "gpt-5.1";
+const FALLBACK_MODELS = ["gpt-5.1", "text-davinci-003"];
+`
+	if err := os.WriteFile(filepath.Join(dir, "models.js"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report, err := scan.Analyze(dir, cat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 {
+		t.Fatalf("got %+v, want exactly the deprecated-model finding", got)
+	}
+	f := got[0]
+	if f.RuleID != "deprecated-model" || f.File != "models.js" || f.Line != 2 {
+		t.Errorf("finding = %s at %s:%d, want deprecated-model at models.js:2", f.RuleID, f.File, f.Line)
+	}
+	if f.CandidateModel != "gpt-5-mini" {
+		t.Errorf("candidate model = %q, want the active successor gpt-5-mini", f.CandidateModel)
+	}
+}
+
+// A realtime transcription model on a cron job needs no rule of its
+// own either: batch-on-realtime excludes only embeddings, so the
+// transcription archetype rides the existing batch rule.
+func TestTranscriptionOnCronTripsBatchOnRealtime(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("gpt-4o-mini", scan.ArchetypeTranscription, scan.Shape{BatchContext: true}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "batch-on-realtime" {
+		t.Fatalf("got %+v, want one batch-on-realtime finding", got)
+	}
+	want := "gpt-4o-mini through the batch endpoint at half price"
+	if len(got[0].CandidateText) < len(want) || got[0].CandidateText[:len(want)] != want {
+		t.Errorf("candidate = %q, want it to open with %q", got[0].CandidateText, want)
 	}
 }
 
