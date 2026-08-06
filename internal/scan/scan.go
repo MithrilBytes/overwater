@@ -74,8 +74,8 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 	for _, f := range files {
 		report.SDKs = append(report.SDKs, scanManifest(f.path, f.data)...)
 		for _, site := range findModelRefs(f.path, f.data, names) {
-			regionStart, regionEnd, hasExtent := a.regionFor(f.path, site.Line, site.Col)
-			site.Shape = a.extractShape(f.path, regionStart, regionEnd)
+			regionStart, regionEnd, extStart, hasExtent := a.regionFor(f.path, site.Line, site.Col)
+			site.Shape = a.extractShape(f.path, regionStart, regionEnd, extStart, hasExtent)
 			site.Hash = a.siteHash(f.path, site.Line, regionStart, regionEnd, hasExtent)
 			tier := ""
 			if site.Known {

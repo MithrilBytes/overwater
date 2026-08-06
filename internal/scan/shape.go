@@ -90,19 +90,20 @@ func hitOffset(content string, line, col int) int {
 
 // regionFor picks the byte range the shape and archetype layers read:
 // the call extent when one exists, expanded to keep the call name in
-// view, else the legacy line window.
-func (a *analyzer) regionFor(p string, line, col int) (int, int, bool) {
+// view, else the legacy line window. extStart is the extent's opening
+// bracket, which the structural parser needs unexpanded.
+func (a *analyzer) regionFor(p string, line, col int) (regionStart, regionEnd, extStart int, hasExtent bool) {
 	content := a.byPath[p]
 	hit := hitOffset(content, line, col)
 	m := a.masked(p)
 	if s, e, ok := callExtent(m.all, m.prose, hit); ok {
-		return headExpand(content, s), e, true
+		return headExpand(content, s), e, s, true
 	}
 	s, e := windowBounds(content, line)
-	return s, e, false
+	return s, e, 0, false
 }
 
-func (a *analyzer) extractShape(p string, regionStart, regionEnd int) Shape {
+func (a *analyzer) extractShape(p string, regionStart, regionEnd, extStart int, hasExtent bool) Shape {
 	m := a.masked(p)
 	region := m.prose[regionStart:regionEnd]
 
@@ -134,6 +135,13 @@ func (a *analyzer) extractShape(p string, regionStart, regionEnd int) Shape {
 	}
 	s.SchemaEnumOnly, s.SchemaMultiField = schemaFacts(schemaText)
 
+	// For JS and TS the structural parser has the final word on the
+	// fields the property list decides.
+	if hasExtent && jsFamily(p) {
+		if info := parseCall(a.byPath[p], m, extStart, regionEnd); info != nil {
+			applyCallInfo(&s, a.byPath[p], info)
+		}
+	}
 	s.SystemPromptText = a.systemPromptText(p, regionStart, regionEnd)
 	s.SystemPromptChars = len(s.SystemPromptText)
 	s.Readable = reCallish.MatchString(region) ||
