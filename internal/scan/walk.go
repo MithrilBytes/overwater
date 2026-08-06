@@ -37,6 +37,10 @@ var skipFiles = map[string]bool{
 	"poetry.lock":       true,
 	"go.sum":            true,
 	"Cargo.lock":        true,
+	// Our own artifacts name model ids; scanning them would make the
+	// tool flag its own output.
+	".overwater.json": true,
+	"MODELS.md":       true,
 }
 
 const maxFileSize = 512 * 1024

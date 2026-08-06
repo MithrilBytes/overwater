@@ -51,6 +51,7 @@ type Site struct {
 	Known               bool
 	Archetype           string // filled by the classifier, layer 4
 	ArchetypeConfidence string // high, medium, or low; pragmas pin high
+	Hash                string // content hash of the call site, stable across line drift
 	Shape               Shape
 }
 
@@ -73,8 +74,9 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 	for _, f := range files {
 		report.SDKs = append(report.SDKs, scanManifest(f.path, f.data)...)
 		for _, site := range findModelRefs(f.path, f.data, names) {
-			regionStart, regionEnd, _ := a.regionFor(f.path, site.Line, site.Col)
+			regionStart, regionEnd, hasExtent := a.regionFor(f.path, site.Line, site.Col)
 			site.Shape = a.extractShape(f.path, regionStart, regionEnd)
+			site.Hash = a.siteHash(f.path, site.Line, regionStart, regionEnd, hasExtent)
 			tier := ""
 			if site.Known {
 				tier = names[site.Ref].Tier

@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/MithrilBytes/overwater/catalog"
+	"github.com/MithrilBytes/overwater/internal/baseline"
 	"github.com/MithrilBytes/overwater/internal/render"
 	"github.com/MithrilBytes/overwater/internal/scan"
 	"github.com/MithrilBytes/overwater/rules"
@@ -81,7 +82,20 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	jsonOut := fs.Bool("json", false, "emit findings as JSON instead of text")
 	modelsMD := fs.Bool("models-md", false, "write MODELS.md into the scanned repo")
 	volume := fs.Int("volume", 0, "estimated calls per month per call site")
+	baselinePath := fs.String("baseline", "", "baseline file for the ratchet")
+	updateBaseline := fs.Bool("update-baseline", false, "record this scan's findings as the baseline")
+	failOn := fs.String("fail-on", "new", "failure policy: new, any, or none")
 	if err := fs.Parse(args); err != nil {
+		return ExitError
+	}
+	failOnSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "fail-on" {
+			failOnSet = true
+		}
+	})
+	if *failOn != "new" && *failOn != "any" && *failOn != "none" {
+		fmt.Fprintf(stderr, "overwater: unknown --fail-on %q, want new, any, or none\n", *failOn)
 		return ExitError
 	}
 	if fs.NArg() > 1 {
@@ -132,6 +146,60 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 			return ExitError
 		}
 		fmt.Fprintf(stderr, "wrote %s\n", path)
+	}
+	return guardExit(findings, *baselinePath, *updateBaseline, *failOn, failOnSet, stderr)
+}
+
+// guardExit applies the failure policy. Recording a baseline never
+// fails; findings fail only when the policy says so; and anything wrong
+// with the baseline itself is an operational error, exit 2, never 1.
+func guardExit(findings []rules.Finding, baselinePath string, update bool, failOn string, failOnSet bool, stderr io.Writer) int {
+	if update {
+		path := baselinePath
+		if path == "" {
+			path = ".overwater.json"
+		}
+		if err := baseline.Write(path, findings); err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		fmt.Fprintf(stderr, "wrote %s: %d findings baselined\n", path, len(findings))
+		return ExitClean
+	}
+	switch failOn {
+	case "none":
+		return ExitClean
+	case "any":
+		if len(findings) > 0 {
+			fmt.Fprintf(stderr, "%d findings; failing under --fail-on any\n", len(findings))
+			return ExitFindings
+		}
+		return ExitClean
+	}
+	// fail-on new
+	if baselinePath == "" {
+		if failOnSet {
+			fmt.Fprintln(stderr, "overwater: --fail-on new needs --baseline; run once with --update-baseline to record one")
+			return ExitError
+		}
+		// Advisor mode: no baseline, no explicit policy, no failure.
+		return ExitClean
+	}
+	bl, err := baseline.Load(baselinePath)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	fresh := baseline.NewFindings(findings, bl)
+	if len(fresh) > 0 {
+		fmt.Fprintf(stderr, "%d findings, %d new against %s\n", len(findings), len(fresh), baselinePath)
+		for _, f := range fresh {
+			fmt.Fprintf(stderr, "  new: %s at %s:%d\n", f.RuleID, f.File, f.Line)
+		}
+		return ExitFindings
+	}
+	if len(findings) > 0 {
+		fmt.Fprintf(stderr, "%d findings, all baselined in %s\n", len(findings), baselinePath)
 	}
 	return ExitClean
 }

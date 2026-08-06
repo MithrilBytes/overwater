@@ -77,12 +77,15 @@ type Rule struct {
 	Flag       string    `yaml:"flag"`
 }
 
-// Finding is one downgrade nomination for one call site.
+// Finding is one downgrade nomination for one call site. SiteHash is
+// the scanner's content hash of the call site, the drift stable part of
+// the baseline fingerprint.
 type Finding struct {
 	RuleID        string
 	Confidence    string
 	File          string
 	Line          int
+	SiteHash      string
 	Archetype     string
 	Evidence      string
 	Model         string
@@ -255,6 +258,7 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 		Confidence: confidence,
 		File:       site.File,
 		Line:       site.Line,
+		SiteHash:   site.Hash,
 		Archetype:  site.Archetype,
 		Evidence:   evidence(site),
 		Model:      m.ID,

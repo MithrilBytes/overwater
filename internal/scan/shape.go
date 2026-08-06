@@ -1,6 +1,8 @@
 package scan
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"path"
 	"regexp"
 	"strconv"
@@ -51,6 +53,30 @@ func (a *analyzer) masked(p string) masked {
 		a.masks[p] = m
 	}
 	return m
+}
+
+// siteHash fingerprints the call site's own text so the baseline
+// ratchet survives line drift. Extent sites hash the prose masked
+// extent with whitespace collapsed: moving the call or editing prompt
+// prose changes nothing, changing the call's parameters does. Fallback
+// sites hash their own line only.
+func (a *analyzer) siteHash(p string, line, regionStart, regionEnd int, hasExtent bool) string {
+	var text string
+	if hasExtent {
+		text = a.masked(p).prose[regionStart:regionEnd]
+	} else {
+		content := a.byPath[p]
+		starts := lineStarts(content)
+		if line-1 < len(starts) {
+			end := len(content)
+			if line < len(starts) {
+				end = starts[line]
+			}
+			text = content[starts[line-1]:end]
+		}
+	}
+	sum := sha256.Sum256([]byte(strings.Join(strings.Fields(text), " ")))
+	return hex.EncodeToString(sum[:])[:16]
 }
 
 // hitOffset converts a one based line and column to a byte offset.

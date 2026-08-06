@@ -23,7 +23,17 @@ func evaluateFixture(t *testing.T, name string) []Finding {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return engine.Evaluate(report, cat)
+	findings := engine.Evaluate(report, cat)
+	// The fixture tables pin the human visible fields; fingerprint
+	// material is covered by the baseline tests. Blank it here so the
+	// tables stay readable, after checking it is populated at all.
+	for i := range findings {
+		if findings[i].SiteHash == "" {
+			t.Errorf("finding %s at %s:%d has no site hash", findings[i].RuleID, findings[i].File, findings[i].Line)
+		}
+		findings[i].SiteHash = ""
+	}
+	return findings
 }
 
 func TestLoadRulesAndEstimates(t *testing.T) {
