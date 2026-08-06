@@ -25,6 +25,11 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
+      - name: cross compile
+        run: |
+          for target in linux/amd64 darwin/arm64 windows/amd64; do
+            GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/overwater
+          done
       - name: catalog.json is current
         run: |
           go run ./cmd/overwater catalog build
