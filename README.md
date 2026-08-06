@@ -20,7 +20,13 @@ go install github.com/MithrilBytes/overwater/cmd/overwater@latest
 ```
 
 Or take a release binary: every release ships static builds for macOS,
-Linux, and Windows, plus a SHA256SUMS file to verify them against.
+Linux, and Windows, plus a SHA256SUMS file to verify them against. The
+installer does the verification for you; download it, read it, run it:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
+sh install.sh v2.0.1
+```
 
 ## Usage
 
@@ -252,27 +258,23 @@ Speed and deploy. Today a serial scan does about 4,500 files a second
 on one core with a 140 name dictionary; the items below are ordered by
 what that measurement says matters.
 
+Shipped so far: parallel analysis (measured 3.9x on ten cores), a
+files per second benchmark in CI, overwater version stamped by
+releases, a checksum verifying installer, and --incremental in the
+action.
+
 - Speed
-  - parallel walk and analyze, workers sized to the machine; the scan
-    is single core today and files are independent until the merge
-  - benchmark suite in CI: a synthetic 10,000 file repo, fail the
-    build on a 2x regression, print files per second
+  - fail the CI benchmark on a 2x regression instead of just printing
   - Aho-Corasick over the dictionary: one pass per line instead of one
     per name; matters as the catalog grows past a few hundred names
-  - mask lazily: only files with model hits need the two masked views
   - allocation profile on monorepo scans; cap peak memory, stream
     instead of holding every file
-  - wire --incremental into the action for PR builds
 - Deploy
-  - overwater version, stamped by the release build; today the binary
-    cannot say what it is
   - Homebrew tap, winget, scoop
   - docker image on GHCR, distroless, for CI runners
   - nix flake
   - build provenance attestation and signed checksums on releases
   - release notes generated from the commit log
-  - an install script that verifies checksums; never curl straight
-    into sh
 
 Never: hosted service, telemetry, model calls from the scanner.
 
