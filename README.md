@@ -115,9 +115,11 @@ is exactly: "Keep the models you have."
 
 Working today:
 
-- The model catalog: 20 seed entries across five providers, one YAML file
-  per model, validated and emitted as a single versioned `catalog.json`
-  that is embedded in the binary. `overwater catalog build` and
+- The model catalog: 75 entries across nine providers, one YAML file per
+  model, validated and emitted as a single versioned `catalog.json` that
+  is embedded in the binary. Deprecated and retired ids stay in the
+  catalog on purpose; they are exactly what the deprecated-model rule
+  detects in legacy code. `overwater catalog build` and
   `overwater catalog show` work now.
 - Five fixture repos under `fixtures/` and their golden verdicts under
   `goldens/`. The goldens are the spec.
