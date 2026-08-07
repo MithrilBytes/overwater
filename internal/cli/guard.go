@@ -27,25 +27,44 @@ type guardOpts struct {
 	scanned      map[string]bool // non nil when the scan was incremental
 }
 
-// guardExit applies the failure policy. Recording a baseline never
-// fails; anything wrong with the baseline itself is exit 2, never 1;
-// aging nags go to stderr and never move the exit code.
+// recordBaseline writes this scan's findings as the new baseline.
+// Recording never fails the build; only a bad write is exit 2.
+func recordBaseline(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
+	path := defaultBaselinePath(o.baselinePath)
+	entries := baseline.Entries(findings)
+	if o.scanned != nil {
+		// A partial scan keeps the entries it never looked at.
+		if old, err := baseline.Load(path); err == nil {
+			entries = append(entries, baseline.Outside(old, o.scanned)...)
+		}
+	}
+	if err := baseline.Write(path, entries, gitHead(o.root)); err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(stderr, "wrote %s: %d findings baselined\n", path, len(entries))
+	return ExitClean
+}
+
+// nagAged names the baseline entries that have outlived the age limit.
+// Nags never move the exit code.
+func nagAged(findings []rules.Finding, bl *baseline.File, maxDays int, stderr io.Writer) {
+	for _, a := range baseline.AgedMatches(findings, bl, time.Now(), maxDays) {
+		if a.Days < 0 {
+			fmt.Fprintf(stderr, "baseline: %s at %s has an unreadable recorded date %q; re-record it\n",
+				a.Entry.Rule, a.Entry.File, a.Entry.Recorded)
+			continue
+		}
+		fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
+			a.Entry.Rule, a.Entry.File, a.Days, maxDays)
+	}
+}
+
+// guardExit applies the failure policy. Anything wrong with the
+// baseline itself is exit 2, never 1.
 func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 	if o.update {
-		path := defaultBaselinePath(o.baselinePath)
-		entries := baseline.Entries(findings)
-		if o.scanned != nil {
-			// A partial scan keeps the entries it never looked at.
-			if old, err := baseline.Load(path); err == nil {
-				entries = append(entries, baseline.Outside(old, o.scanned)...)
-			}
-		}
-		if err := baseline.Write(path, entries, gitHead(o.root)); err != nil {
-			fmt.Fprintf(stderr, "overwater: %v\n", err)
-			return ExitError
-		}
-		fmt.Fprintf(stderr, "wrote %s: %d findings baselined\n", path, len(entries))
-		return ExitClean
+		return recordBaseline(findings, o, stderr)
 	}
 	// Aging nags run under every failure policy, not just fail-on new.
 	var bl *baseline.File
@@ -56,15 +75,7 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			return ExitError
 		}
-		for _, a := range baseline.AgedMatches(findings, bl, time.Now(), o.maxAgeDays) {
-			if a.Days < 0 {
-				fmt.Fprintf(stderr, "baseline: %s at %s has an unreadable recorded date %q; re-record it\n",
-					a.Entry.Rule, a.Entry.File, a.Entry.Recorded)
-				continue
-			}
-			fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
-				a.Entry.Rule, a.Entry.File, a.Days, o.maxAgeDays)
-		}
+		nagAged(findings, bl, o.maxAgeDays, stderr)
 	}
 	switch o.failOn {
 	case "none":
