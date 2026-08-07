@@ -267,10 +267,13 @@ func propNumber(content string, info *callInfo, names ...string) (float64, bool)
 	}
 	for _, wrapper := range []string{"config", "generationConfig", "generation_config"} {
 		v, ok := propVal(info, wrapper)
-		if !ok || !strings.HasPrefix(strings.TrimSpace(v), "{") {
+		if !ok {
 			continue
 		}
-		inner := propsFromObjectText(strings.TrimSpace(v))
+		inner := wrapperProps(v)
+		if inner == nil {
+			continue
+		}
 		wrapped := &callInfo{Props: inner}
 		if raw, ok := propVal(wrapped, names...); ok {
 			if f, ok := numberFrom(raw); ok {
@@ -281,11 +284,31 @@ func propNumber(content string, info *callInfo, names ...string) (float64, bool)
 	return 0, false
 }
 
-// propsFromObjectText parses a standalone object literal string by
-// masking it as if it were its own tiny source file.
-func propsFromObjectText(text string) map[string]string {
-	m := maskFile("w.ts", text)
-	return parseProps(text, m.all, m.prose, 1, len(text)-1)
+// A wrapper value that is a constructor or function call: Name(...) or
+// pkg.Name(...). Google GenAI's typed config is written this way, and
+// its keyword arguments are the call's parameters exactly as an object
+// literal's entries are.
+var reConstructorCall = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)*\s*\(`)
+
+// wrapperProps reads the properties out of a config wrapper value,
+// whether it is an object literal or a typed constructor call. Nil means
+// the value is neither, and the caller leaves the wrapper alone.
+func wrapperProps(value string) map[string]string {
+	v := strings.TrimSpace(value)
+	open := 0
+	if !strings.HasPrefix(v, "{") {
+		loc := reConstructorCall.FindStringIndex(v)
+		if loc == nil {
+			return nil
+		}
+		open = loc[1] - 1
+	}
+	m := maskFile("w.ts", v)
+	closer, ok := matchClose(m.all, open)
+	if !ok {
+		return nil
+	}
+	return parseProps(v, m.all, m.prose, open+1, closer)
 }
 
 // applyCallInfo overrides the regex read shape with the parsed one for

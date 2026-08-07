@@ -36,6 +36,79 @@ func TestMaxTokensUnderscoreSeparators(t *testing.T) {
 	}
 }
 
+// Google GenAI's typed config is a constructor call, which is the form
+// the current docs use. Its keyword arguments are the call's parameters
+// and must read the same as the dict spelling, which only descended into
+// values that started with a brace.
+func TestTypedConfigWrapperReadsLikeDict(t *testing.T) {
+	const typed = `from google import genai
+from google.genai import types
+
+
+def draft_copy(topic):
+    return client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=topic,
+        config=types.GenerateContentConfig(
+            system_instruction="You draft short marketing copy.",
+            temperature=0.2,
+        ),
+    )
+`
+	const dict = `from google import genai
+
+
+def draft_copy(topic):
+    return client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=topic,
+        config={
+            "system_instruction": "You draft short marketing copy.",
+            "temperature": 0.2,
+        },
+    )
+`
+	control := soleSite(t, analyzeTemp(t, map[string]string{"draft.py": dict})).Shape
+	if control.Temperature == nil || *control.Temperature != 0.2 {
+		t.Fatalf("control dict form read temperature %v, want 0.2", control.Temperature)
+	}
+	s := soleSite(t, analyzeTemp(t, map[string]string{"draft.py": typed})).Shape
+	if s.Temperature == nil || *s.Temperature != *control.Temperature {
+		t.Errorf("typed config read temperature %v, want %v as the dict form does",
+			s.Temperature, control.Temperature)
+	}
+	if s.MaxTokens != nil {
+		t.Errorf("typed config invented max tokens %v", *s.MaxTokens)
+	}
+}
+
+// The descent reaches into a bare constructor and a package qualified
+// one, and leaves values that are neither alone.
+func TestWrapperPropsAcceptsConstructorCalls(t *testing.T) {
+	for _, tc := range []struct {
+		name, value, want string
+	}{
+		{"object literal", `{ "temperature": 0.4 }`, "0.4"},
+		{"bare constructor", `GenerateContentConfig(temperature=0.4)`, "0.4"},
+		{"qualified constructor", `types.GenerateContentConfig(temperature=0.4)`, "0.4"},
+		{"nested qualifier", `genai.types.GenerateContentConfig(temperature = 0.4)`, "0.4"},
+	} {
+		props := wrapperProps(tc.value)
+		if props == nil {
+			t.Errorf("%s: no properties read from %s", tc.name, tc.value)
+			continue
+		}
+		if got := props["temperature"]; got != tc.want {
+			t.Errorf("%s: temperature = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+	for _, value := range []string{"CONFIG", `"config.json"`, "", "42"} {
+		if props := wrapperProps(value); props != nil {
+			t.Errorf("%q read as a wrapper: %v", value, props)
+		}
+	}
+}
+
 // Resolving PROMPT must not match the tail of LEGACY_PROMPT.
 func TestResolveConstNameBoundary(t *testing.T) {
 	content := "const LEGACY_PROMPT = `retired words nobody wants`;\nconst PROMPT = `current words`;\n"
