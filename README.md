@@ -28,7 +28,13 @@ sh install.sh v2.1.0
 
 ```bash
 overwater scan path/to/repo
+overwater scan path/to/file.py
 ```
+
+A path is a directory or a single file. A file is scanned with its
+containing directory as context, so imports and wrapper defaults
+resolve as they do in a whole repo scan, and that directory's
+`.overwater.yaml` applies; only the named file reports findings.
 
 Every finding renders five fields, in this order:
 
@@ -57,6 +63,7 @@ condition under which you should not switch.
 | `eval` | generate a runnable A/B script per finding |
 | `volumes` | import a provider usage export into a volumes file |
 | `catalog` | show, build, refresh, or diff the model catalog |
+| `explain` | print what a rule looks for and what it means |
 | `version` | print the build |
 
 ### Scan flags
@@ -237,12 +244,15 @@ provenance on every dollar figure. A rebuilt archetype scorer that reads
 the SDK method, the token cap as intent, schema shape, and negation, so
 a prompt saying "never reply to the customer" no longer scores as a
 chat. Call sites now carry fan in and the models their callers pass, so
-a helper wrapping the SDK is visible as one site with many callers.
+a helper wrapping the SDK is visible as one site with many callers. A
+scan root may be a single file, for editors and pre commit hooks, and
+`explain` prints a rule from its own YAML.
 
 Verified by 274 labeled corpus cases at 0.99 accuracy on a holdout split
-assigned before any tuning, 66 black box smoke checks through the real
+assigned before any tuning, 79 black box smoke checks through the real
 binary, byte for byte golden output for five fixture repositories, fuzz
-targets over the parsers, and a files per second benchmark.
+targets over the parsers, a files per second benchmark, and a scaling
+gate that fails CI when analysis time grows faster than the input.
 
 ## Next
 
@@ -251,7 +261,6 @@ targets over the parsers, and a files per second benchmark.
 The numbers that ordered this list predate parallel analysis and the
 quadratic fixes in v2. Profile before optimizing.
 
-- [ ] fail the CI benchmark on a 2x regression instead of printing it
 - [ ] Aho-Corasick over the dictionary, if a profile still says so
 - [ ] cap peak memory on monorepo scans; stream instead of holding
       every file
@@ -274,9 +283,6 @@ quadratic fixes in v2. Profile before optimizing.
 ### Guard
 
 - [ ] rename stable fingerprints; a moved file should read as moved
-- [ ] `overwater explain <rule-id>`
-- [ ] accept a file path, not just a directory; today it fails with a
-      message about a missing config file
 - [ ] a sixth fixture covering the newer rules end to end
 
 ### Catalog
