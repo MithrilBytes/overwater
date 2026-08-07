@@ -91,7 +91,12 @@ func walk(root string, only map[string]bool) ([]file, error) {
 	var files []file
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			if d == nil {
+				return err // the root itself is missing or unreadable
+			}
+			// An unreadable subdirectory or entry is skipped, never
+			// fatal: one chmod 000 dir must not abort the whole scan.
+			return nil
 		}
 		if d.IsDir() {
 			if path != root && skipDirs[d.Name()] {
@@ -100,6 +105,15 @@ func walk(root string, only map[string]bool) ([]file, error) {
 			return nil
 		}
 		if skipFiles[d.Name()] {
+			return nil
+		}
+		// Only regular files scan. Irregular files (FIFOs, sockets,
+		// devices) would block or fail ReadFile; symlinks are skipped
+		// outright because the lstat size below says nothing about the
+		// target, so a link could smuggle a file past the size cap or
+		// point outside the root. Targets inside the root are reached
+		// by their real paths anyway.
+		if !d.Type().IsRegular() {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)

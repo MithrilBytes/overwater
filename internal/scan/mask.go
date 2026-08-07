@@ -38,6 +38,7 @@ type langFamily struct {
 	slashComment bool
 	blockComment bool
 	backtick     bool
+	rawBacktick  bool // backtick strings take backslash literally (Go)
 	triples      bool
 	quotes       bool
 }
@@ -53,7 +54,7 @@ func familyFor(p string) langFamily {
 	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
 		return langFamily{slashComment: true, blockComment: true, backtick: true, quotes: true}
 	case ".go":
-		return langFamily{slashComment: true, blockComment: true, backtick: true, quotes: true}
+		return langFamily{slashComment: true, blockComment: true, backtick: true, rawBacktick: true, quotes: true}
 	case ".java", ".kt", ".c", ".h", ".cpp", ".cc", ".cs", ".php", ".scala", ".swift":
 		return langFamily{slashComment: true, blockComment: true, quotes: true}
 	case ".md", ".markdown":
@@ -100,27 +101,27 @@ func scanSpans(s string, fam langFamily) []span {
 		c := s[i]
 		switch {
 		case fam.triples && c == '"' && hasAt(s, i, `"""`):
-			end := findClose(s, i+3, `"""`, false)
-			spans = append(spans, span{spanString, i, end, i + 3, end - 3})
+			end, closed := findClose(s, i+3, `"""`, false)
+			spans = append(spans, stringSpan(i, end, 3, closed))
 			i = end
 		case fam.triples && c == '\'' && hasAt(s, i, "'''"):
-			end := findClose(s, i+3, "'''", false)
-			spans = append(spans, span{spanString, i, end, i + 3, end - 3})
+			end, closed := findClose(s, i+3, "'''", false)
+			spans = append(spans, stringSpan(i, end, 3, closed))
 			i = end
 		case fam.backtick && c == '`':
-			end := findClose(s, i+1, "`", false)
-			spans = append(spans, span{spanString, i, end, i + 1, end - 1})
+			end, closed := findClose(s, i+1, "`", fam.rawBacktick)
+			spans = append(spans, stringSpan(i, end, 1, closed))
 			i = end
 		case fam.quotes && (c == '"' || c == '\''):
-			end := quoteEnd(s, i)
-			spans = append(spans, span{spanString, i, end, i + 1, max(i+1, end-1)})
+			end, closed := quoteEnd(s, i)
+			spans = append(spans, stringSpan(i, end, 1, closed))
 			i = end
 		case fam.slashComment && hasAt(s, i, "//"):
 			end := lineEnd(s, i)
 			spans = append(spans, span{kind: spanComment, start: i, end: end})
 			i = end
 		case fam.blockComment && hasAt(s, i, "/*"):
-			end := findClose(s, i+2, "*/", true)
+			end, _ := findClose(s, i+2, "*/", true)
 			spans = append(spans, span{kind: spanComment, start: i, end: end})
 			i = end
 		case fam.hashComment && c == '#':
@@ -147,34 +148,52 @@ func lineEnd(s string, i int) int {
 	return len(s)
 }
 
-// findClose scans for the closing marker, honoring backslash escapes
-// unless the marker belongs to a comment.
-func findClose(s string, from int, close string, comment bool) int {
+// stringSpan builds a string span whose interior excludes the opening
+// delimiter and, only when one was found, the closing delimiter.
+// Interiors are clamped so start <= interiorStart <= interiorEnd <= end
+// always holds, even for strings truncated at end of input.
+func stringSpan(start, end, delim int, closed bool) span {
+	is := min(start+delim, end)
+	ie := end
+	if closed {
+		ie = end - delim
+	}
+	if ie < is {
+		ie = is
+	}
+	return span{spanString, start, end, is, ie}
+}
+
+// findClose scans for the closing marker and reports whether it was
+// found; unterminated spans end at len(s). Backslash escapes are
+// honored unless noEscape is set, which comments and raw backtick
+// strings (Go), where a backslash is a literal byte, require.
+func findClose(s string, from int, close string, noEscape bool) (int, bool) {
 	for i := from; i < len(s); i++ {
-		if !comment && s[i] == '\\' {
+		if !noEscape && s[i] == '\\' {
 			i++
 			continue
 		}
 		if hasAt(s, i, close) {
-			return i + len(close)
+			return i + len(close), true
 		}
 	}
-	return len(s)
+	return len(s), false
 }
 
 // quoteEnd ends a single line string at its quote, an unescaped newline,
-// or end of input.
-func quoteEnd(s string, open int) int {
+// or end of input, reporting whether the closing quote itself was found.
+func quoteEnd(s string, open int) (int, bool) {
 	q := s[open]
 	for i := open + 1; i < len(s); i++ {
 		switch s[i] {
 		case '\\':
 			i++
 		case '\n':
-			return i
+			return i, false
 		case q:
-			return i + 1
+			return i + 1, true
 		}
 	}
-	return len(s)
+	return len(s), false
 }
