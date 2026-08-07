@@ -170,21 +170,13 @@ func (a *analyzer) siteHash(p string, line, regionStart, regionEnd int, hasExten
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// hitOffset converts a one based line and column to a byte offset.
-func hitOffset(content string, line, col int) int {
-	return offsetIn(content, lineStarts(content), line, col)
-}
-
-// hitOffsetIn is hitOffset over the analyzer's cached line index.
+// hitOffsetIn converts a one based line and column to a byte offset.
 func (a *analyzer) hitOffsetIn(p string, line, col int) int {
-	return offsetIn(a.byPath[p], a.lineStartsFor(p), line, col)
-}
-
-func offsetIn(content string, starts []int, line, col int) int {
+	starts := a.lineStartsFor(p)
 	if line-1 >= len(starts) {
 		return 0
 	}
-	return min(starts[line-1]+col, len(content))
+	return min(starts[line-1]+col, len(a.byPath[p]))
 }
 
 // regionFor picks the byte range the shape and archetype layers read:
@@ -267,12 +259,12 @@ func (a *analyzer) extractShape(p string, regionStart, regionEnd, extStart int, 
 	// final word on the fields it decides.
 	if hasExtent && propsFamily(p) {
 		if info := parseCall(a.byPath[p], m, extStart, regionEnd); info != nil {
-			applyCallInfo(&s, a.byPath[p], info)
+			applyCallInfo(&s, info)
 		}
 	}
 	if hasExtent && builderFamily(p) {
 		if info := builderParse(a.byPath[p], m, extStart, regionEnd); info != nil {
-			applyCallInfo(&s, a.byPath[p], info)
+			applyCallInfo(&s, info)
 		}
 	}
 	s.SystemPromptText = a.systemPromptText(p, regionStart, regionEnd)

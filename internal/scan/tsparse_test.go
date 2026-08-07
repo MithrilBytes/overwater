@@ -73,10 +73,10 @@ func TestPropNumberFindsGeminiWrapperTemperature(t *testing.T) {
   generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
 })`
 	info := parseTestCall(t, content)
-	if v, ok := propNumber(content, info, "temperature"); !ok || v != 0.2 {
+	if v, ok := propNumber(info, "temperature"); !ok || v != 0.2 {
 		t.Errorf("temperature = %v %v, want 0.2 via the wrapper", v, ok)
 	}
-	if v, ok := propNumber(content, info, "max_tokens", "maxTokens", "max_output_tokens", "maxOutputTokens"); !ok || v != 256 {
+	if v, ok := propNumber(info, "max_tokens", "maxTokens", "max_output_tokens", "maxOutputTokens"); !ok || v != 256 {
 		t.Errorf("max tokens = %v %v, want 256 via the wrapper", v, ok)
 	}
 }

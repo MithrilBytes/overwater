@@ -259,7 +259,7 @@ func numberFrom(raw string) (float64, bool) {
 // propNumber finds a numeric property by any of the given names,
 // looking one level into config style wrapper objects too, which is
 // where the Gemini SDK keeps temperature.
-func propNumber(content string, info *callInfo, names ...string) (float64, bool) {
+func propNumber(info *callInfo, names ...string) (float64, bool) {
 	if v, ok := propVal(info, names...); ok {
 		if f, ok := numberFrom(v); ok {
 			return f, true
@@ -315,13 +315,13 @@ func wrapperProps(value string) map[string]string {
 // the fields the property list decides outright. Schema and embedding
 // evidence only ever widen, since both can also come from resolved
 // references the properties cannot see.
-func applyCallInfo(s *Shape, content string, info *callInfo) {
-	if v, ok := propNumber(content, info, "temperature"); ok {
+func applyCallInfo(s *Shape, info *callInfo) {
+	if v, ok := propNumber(info, "temperature"); ok {
 		s.Temperature = &v
 	} else {
 		s.Temperature = nil
 	}
-	if v, ok := propNumber(content, info,
+	if v, ok := propNumber(info,
 		"max_tokens", "max_output_tokens", "max_completion_tokens", "maxTokens"); ok {
 		iv := int(v)
 		s.MaxTokens = &iv
@@ -344,11 +344,11 @@ func applyCallInfo(s *Shape, content string, info *callInfo) {
 	if raw, ok := propVal(info, "effort", "reasoning_effort"); ok {
 		s.Effort = strings.Trim(strings.TrimSpace(raw), `"'`)
 	}
-	if v, ok := propNumber(content, info, "max_retries", "maxRetries", "retries"); ok {
+	if v, ok := propNumber(info, "max_retries", "maxRetries", "retries"); ok {
 		iv := int(v)
 		s.MaxRetries = &iv
 	}
-	if v, ok := propNumber(content, info, "dimensions"); ok {
+	if v, ok := propNumber(info, "dimensions"); ok {
 		iv := int(v)
 		s.Dimensions = &iv
 	}
