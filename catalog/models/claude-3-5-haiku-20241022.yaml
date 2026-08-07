@@ -9,3 +9,5 @@ tier: small
 released: "2024-10-22"
 deprecated: "2026-02-19"
 source: https://platform.claude.com/docs/en/about-claude/models/overview
+cache_read_per_mtok: 0.08
+cache_write_per_mtok: 1

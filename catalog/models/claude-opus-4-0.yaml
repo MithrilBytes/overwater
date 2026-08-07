@@ -9,3 +9,5 @@ tier: frontier
 released: "2025-05-14"
 deprecated: "2026-06-15"
 source: https://platform.claude.com/docs/en/about-claude/models/overview
+cache_read_per_mtok: 1.5
+cache_write_per_mtok: 18.75
