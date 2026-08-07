@@ -1,0 +1,64 @@
+name: image
+
+# Builds and smoke tests the container image on every push and pull
+# request so the Dockerfile cannot rot between tags, and publishes it to
+# GHCR on a v* tag.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/mithrilbytes/overwater
+    steps:
+      - uses: actions/checkout@v4
+      - name: build image
+        run: |
+          set -euo pipefail
+          version=dev
+          case "$GITHUB_REF" in
+            refs/tags/v*) version="$GITHUB_REF_NAME" ;;
+          esac
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          docker build --build-arg "VERSION=$version" -t "$IMAGE:ci" .
+      - name: smoke image
+        run: |
+          set -euo pipefail
+          got="$(docker run --rm "$IMAGE:ci" version)"
+          if [ "$got" != "overwater $VERSION" ]; then
+            echo "version says '$got', want 'overwater $VERSION'" >&2
+            exit 1
+          fi
+          # The default command is the documented usage: scan the volume
+          # mounted at /repo.
+          docker run --rm -v "$PWD/fixtures/py-extraction:/repo:ro" "$IMAGE:ci" \
+            | tee "$RUNNER_TEMP/scan.txt"
+          grep -q "Call site: extract.py:24" "$RUNNER_TEMP/scan.txt"
+          # And the gate still exits 1 through the entrypoint.
+          if docker run --rm -v "$PWD/fixtures/py-extraction:/repo:ro" "$IMAGE:ci" \
+               scan -fail-on any /repo > /dev/null; then
+            echo "scan -fail-on any exited 0 on a repo with findings" >&2
+            exit 1
+          fi
+      - name: publish to ghcr
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          docker tag "$IMAGE:ci" "$IMAGE:$GITHUB_REF_NAME"
+          docker tag "$IMAGE:ci" "$IMAGE:latest"
+          docker push "$IMAGE:$GITHUB_REF_NAME"
+          docker push "$IMAGE:latest"

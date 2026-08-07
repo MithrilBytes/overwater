@@ -10,8 +10,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Nothing in CI compiles the release workflow, so what it has to keep
-// doing is pinned here.
+// The release workflow, the image workflow, and the Dockerfile all claim
+// to ship the same thing. Nothing in CI compiles them together, so their
+// agreement is pinned here: the version stamp, the Go toolchain, the base
+// image, the default command, and the permissions each workflow holds.
 
 func repoFile(t *testing.T, parts ...string) string {
 	t.Helper()
@@ -46,6 +48,116 @@ func readWorkflow(t *testing.T, name string) workflow {
 		t.Fatalf("%s has no jobs", name)
 	}
 	return w
+}
+
+// stampRE finds the ldflags symbol the version is written into.
+var stampRE = regexp.MustCompile(`-X ([\w./-]+)\.(\w+)=`)
+
+// The Dockerfile and the release workflow have to write the version into
+// the same symbol, and that symbol has to be a variable that still exists.
+func TestVersionStampIsOneSymbolThatExists(t *testing.T) {
+	docker := stampRE.FindStringSubmatch(repoFile(t, "Dockerfile"))
+	if docker == nil {
+		t.Fatal("Dockerfile does not stamp a version into any symbol")
+	}
+	release := stampRE.FindStringSubmatch(repoFile(t, ".github", "workflows", "release.yml"))
+	if release == nil {
+		t.Fatal("release.yml does not stamp a version into any symbol")
+	}
+	if docker[0] != release[0] {
+		t.Errorf("Dockerfile stamps %q, release.yml stamps %q", docker[0], release[0])
+	}
+
+	module := regexp.MustCompile(`(?m)^module (\S+)`).FindStringSubmatch(repoFile(t, "go.mod"))
+	if module == nil {
+		t.Fatal("go.mod has no module line")
+	}
+	pkg, name := docker[1], docker[2]
+	rel, ok := strings.CutPrefix(pkg, module[1]+"/")
+	if !ok {
+		t.Fatalf("stamped package %q is outside module %q", pkg, module[1])
+	}
+	dir := filepath.Join("..", "..", filepath.FromSlash(rel))
+	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("stamped package %q has no source at %s", pkg, dir)
+	}
+	decl := regexp.MustCompile(`(?m)^var ` + name + `\b`)
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if decl.Match(raw) {
+			return
+		}
+	}
+	t.Errorf("nothing in %s declares var %s, so -ldflags -X %s.%s stamps nothing", dir, name, pkg, name)
+}
+
+// A builder newer or older than the go directive builds a different
+// binary than CI and the release do.
+func TestDockerfileBuilderMatchesGoMod(t *testing.T) {
+	want := regexp.MustCompile(`(?m)^go (\S+)`).FindStringSubmatch(repoFile(t, "go.mod"))
+	if want == nil {
+		t.Fatal("go.mod has no go directive")
+	}
+	got := regexp.MustCompile(`FROM golang:(\S+?)(?:-\S+)? AS`).FindStringSubmatch(repoFile(t, "Dockerfile"))
+	if got == nil {
+		t.Fatal("Dockerfile has no golang builder stage")
+	}
+	if got[1] != want[1] {
+		t.Errorf("Dockerfile builds on golang:%s, go.mod asks for go %s", got[1], want[1])
+	}
+}
+
+// The runtime stage has to be static (the binary is CGO_ENABLED=0) and
+// has to carry root CA certificates, because catalog refresh is an HTTPS
+// fetch and a certificate-less base fails it with an unverifiable error.
+func TestImageIsStaticAndCanReachHTTPS(t *testing.T) {
+	dockerfile := repoFile(t, "Dockerfile")
+	if !strings.Contains(dockerfile, "CGO_ENABLED=0") {
+		t.Error("Dockerfile does not build with CGO_ENABLED=0, so the binary is not static")
+	}
+	froms := regexp.MustCompile(`(?m)^FROM (\S+)`).FindAllStringSubmatch(dockerfile, -1)
+	runtime := froms[len(froms)-1][1]
+	switch {
+	case strings.HasPrefix(runtime, "gcr.io/distroless/static"):
+	case strings.Contains(dockerfile, "ca-certificates"):
+	default:
+		t.Errorf("runtime base %q carries no CA certificates and none are copied in", runtime)
+	}
+}
+
+// The documented usage is a repo mounted at /repo, so the bare image has
+// to scan it with no arguments.
+func TestImageScansTheMountedVolumeByDefault(t *testing.T) {
+	dockerfile := repoFile(t, "Dockerfile")
+	for _, want := range []string{
+		`WORKDIR /repo`,
+		`CMD ["scan", "/repo"]`,
+	} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("Dockerfile is missing: %s", want)
+		}
+	}
+	entry := regexp.MustCompile(`(?m)^ENTRYPOINT \["(\S+)"\]`).FindStringSubmatch(dockerfile)
+	if entry == nil {
+		t.Fatal("Dockerfile has no single-binary ENTRYPOINT")
+	}
+	if filepath.Base(entry[1]) != "overwater" {
+		t.Errorf("entrypoint is %q, want the overwater binary", entry[1])
+	}
+	copied := regexp.MustCompile(`(?m)^COPY --from=\S+ \S+ (\S+)$`).FindAllStringSubmatch(dockerfile, -1)
+	placed := false
+	for _, c := range copied {
+		if c[1] == entry[1] {
+			placed = true
+		}
+	}
+	if !placed {
+		t.Errorf("no COPY --from lands a binary at the entrypoint path %s", entry[1])
+	}
 }
 
 // Attestation needs id-token and attestations write. Anything beyond
@@ -96,5 +208,53 @@ func TestReleaseWorkflowUsesGeneratedNotes(t *testing.T) {
 	}
 	if !strings.Contains(run, "git log") {
 		t.Error("release.yml does not feed the notes from git log")
+	}
+}
+
+// The image job publishes with the workflow's own token, only on a tag,
+// and tags both the version and latest.
+func TestImageWorkflowPublishesOnTagsOnly(t *testing.T) {
+	raw := repoFile(t, ".github", "workflows", "image.yml")
+	w := readWorkflow(t, "image.yml")
+	job := w.Jobs["image"]
+	if job.Permissions["packages"] != "write" {
+		t.Errorf("image job packages permission is %q, want write", job.Permissions["packages"])
+	}
+	if job.Permissions["contents"] != "read" {
+		t.Errorf("image job contents permission is %q, want read", job.Permissions["contents"])
+	}
+
+	var push, smoke bool
+	for _, s := range job.Steps {
+		switch {
+		case strings.Contains(s.Run, "docker push"):
+			push = true
+			if !strings.Contains(s.If, "refs/tags/v") {
+				t.Errorf("step %q pushes without a tag guard (if: %q)", s.Name, s.If)
+			}
+			for _, want := range []string{`"$IMAGE:$GITHUB_REF_NAME"`, `"$IMAGE:latest"`} {
+				if strings.Count(s.Run, "docker push "+want) != 1 {
+					t.Errorf("step %q does not push %s exactly once", s.Name, want)
+				}
+			}
+		case strings.Contains(s.Run, "docker run"):
+			smoke = true
+			if !strings.Contains(s.Run, "/repo") {
+				t.Errorf("step %q never runs the image against a repo volume", s.Name)
+			}
+		}
+	}
+	if !push {
+		t.Error("image.yml never pushes the image")
+	}
+	if !smoke {
+		t.Error("image.yml builds the image without ever running it")
+	}
+	if !strings.Contains(raw, "IMAGE: ghcr.io/mithrilbytes/overwater") {
+		t.Error("image.yml does not publish to ghcr.io/mithrilbytes/overwater")
+	}
+	// A repository secret would not be the workflow's own token.
+	if !strings.Contains(raw, "secrets.GITHUB_TOKEN") {
+		t.Error("image.yml does not log in to ghcr with the workflow's GITHUB_TOKEN")
 	}
 }
