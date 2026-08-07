@@ -109,7 +109,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	updateBaseline := fs.Bool("update-baseline", false, "record this scan's findings as the baseline")
 	maxAge := fs.Int("max-baseline-age-days", 0, "nag when a matched baseline entry is older than this many days (0 disables)")
 	incremental := fs.Bool("incremental", false, "scan only files changed since the baseline's recorded commit")
-	failOn := fs.String("fail-on", "new", "failure policy: new, any, or none")
+	failOn := fs.String("fail-on", "new", "failure policy: new, any, or none (none never fails, even over budget)")
 	refresh := fs.Bool("refresh", false, "fetch the published catalog before scanning")
 	offline := fs.Bool("offline", false, "forbid all network activity")
 	htmlOut := fs.String("html", "", "write a single file HTML report to this path")
@@ -247,11 +247,12 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		scanned:      only,
 	}, stderr)
 	// A blown budget is a findings failure, never an operational error,
-	// and never masks one. Recording a baseline stays exempt: that run's
-	// contract is to write the file and exit clean, budget or not.
+	// and never masks one. Two runs stay exempt: recording a baseline,
+	// whose contract is to write the file and exit clean, and --fail-on
+	// none, which promises never to fail. The line prints either way.
 	for _, line := range overBudgets {
 		fmt.Fprintln(stderr, line)
-		if code == ExitClean && !*updateBaseline {
+		if code == ExitClean && !*updateBaseline && *failOn != "none" {
 			code = ExitFindings
 		}
 	}

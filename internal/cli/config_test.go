@@ -103,6 +103,18 @@ func TestConfigBudgetFailureExitsOne(t *testing.T) {
 	}
 }
 
+// --fail-on none is the promise that this run never exits 1, and the
+// budget keeps that promise too: the line still prints, the code stays 0.
+func TestFailOnNoneNeverFailsOverBudget(t *testing.T) {
+	code, _, stderr := scanRepo(t, repoWith(t, "budget_monthly_usd: 1\n"), "-fail-on", "none")
+	if code != ExitClean {
+		t.Fatalf("exit code = %d, want %d under --fail-on none; stderr = %q", code, ExitClean, stderr)
+	}
+	if !strings.Contains(stderr, "exceeds budget_monthly_usd 1") {
+		t.Errorf("stderr = %q, want the budget line to still print", stderr)
+	}
+}
+
 func TestConfigUnknownFieldExitsTwo(t *testing.T) {
 	code, _, stderr := scanRepo(t, repoWith(t, "budget: 1\n"))
 	if code != ExitError {
