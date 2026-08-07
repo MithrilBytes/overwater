@@ -128,6 +128,7 @@ var archetypeWords = []archetypeKeywords{
 		idents:    []string{"chat", "reply", "respond", "conversation", "companion", "concierge", "helpdesk"},
 		says: []string{"stay in character", "keep the conversation", "ask a follow up", "ask one question",
 			"answer the customer", "answer the user", "answer the reader", "answer visitors", "answer the caller",
+			"reply to the customer", "reply to the user", "respond to the customer", "respond to the user",
 			"keep replies", "keep each reply", "chat naturally", "conversational", "talk the", "reply in",
 			"end with a question", "keep the tone", "in a friendly voice"},
 		hints: []string{"you are a", "you are the", "assistant", "friendly", "warm", "brief", "chat",
@@ -422,10 +423,10 @@ func (a *analyzer) archetypeScores(p string, shape Shape, r region) scoreSet {
 			add(fam.archetype, weightDenied, true)
 			continue
 		}
-		if containsAny(ev.prompt, fam.says) {
+		if saysAny(ev.prompt, fam.says) {
 			add(fam.archetype, weightSays, true)
 		}
-		if containsAny(ev.prompt, fam.hints) {
+		if saysAny(ev.prompt, fam.hints) {
 			add(fam.archetype, weightHint, true)
 		}
 	}
@@ -616,4 +617,41 @@ func containsAny(s string, words []string) bool {
 		}
 	}
 	return false
+}
+
+// Words that flip the phrase after them. A prompt saying "never reply to
+// the customer" is describing what the call must not do, and scoring it
+// as if it said "reply to the customer" reads the instruction backwards.
+var negators = []string{"never ", "not ", "n't ", "avoid ", "without "}
+
+// saysAny is containsAny for task phrases: a match preceded by a negator
+// does not count. Only phrases the prompt asserts score.
+func saysAny(s string, phrases []string) bool {
+	for _, p := range phrases {
+		for from := 0; ; {
+			i := strings.Index(s[from:], p)
+			if i < 0 {
+				break
+			}
+			at := from + i
+			from = at + len(p)
+			if !negatedAt(s, at) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// negatedAt reports whether a negator sits in the short run of words
+// before pos. The scan stops at a sentence break, so a negation in the
+// previous sentence does not reach across into this one.
+func negatedAt(s string, pos int) bool {
+	const lookback = 24
+	start := max(0, pos-lookback)
+	clause := s[start:pos]
+	if cut := strings.LastIndexAny(clause, ".;:\n!?"); cut >= 0 {
+		clause = clause[cut+1:]
+	}
+	return containsAny(clause, negators)
 }

@@ -1319,6 +1319,56 @@
       "file": "vercel_classify.ts",
       "archetype": "classification",
       "split": "tune"
+    },
+    {
+      "file": "ind_a1.py",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a10.py",
+      "archetype": "transcription",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a2.py",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a3.js",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a4.ts",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a5.py",
+      "archetype": "embedding",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a6.ts",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a7.py",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a8.js",
+      "archetype": "moderation",
+      "split": "holdout"
+    },
+    {
+      "file": "ind_a9.py",
+      "archetype": "codegen",
+      "split": "holdout"
     }
   ]
 }
