@@ -3,12 +3,12 @@
 overwater finds LLM call sites where the model is bigger, pricier, or
 more wastefully configured than the task in front of it. It reads your
 code, prices every call against a public model catalog, and nominates
-cheaper candidates in dollars per month. In CI it fails builds that
-introduce new waste and leaves the waste you already had alone.
+cheaper candidates in dollars per month. In CI it fails builds on new
+findings and passes the ones already recorded in a baseline.
 
-The scanner never transmits your code. It makes no model API calls. The
-only network request it can make is fetching the catalog, and a catalog
-snapshot ships inside the binary, so it works with the network off.
+The scanner transmits no code and calls no model API. Its only network
+request is fetching the catalog, and a snapshot ships inside the
+binary, so it runs with the network off.
 
 ## Install
 
@@ -49,9 +49,10 @@ Flag:      No prompt caching on a 1,191-token repeated system prompt
 When nothing clears the confidence bar the whole verdict is: `Keep the
 models you have.`
 
-Findings are nominations, not directives. Only an eval can prove a
-cheaper model safe for your task, so every finding carries the
-condition under which you should not switch.
+Findings are nominations. A scanner cannot know a cheaper model is safe
+for your task, so every finding states the condition under which you
+should not switch, and `overwater eval` generates the A/B script that
+tests it.
 
 ### Commands
 
@@ -172,31 +173,28 @@ Four layers feed a rules engine.
    reasoning effort, retries, image detail, embedding dimensions,
    cache control, system prompt size. JavaScript, TypeScript, Python,
    Go, Ruby, C#, PHP, shell, and notebooks parse as key value pairs;
-   Java, Kotlin, Rust, Scala, and Swift parse as builder chains. Signals
-   come from the call's own bracket balanced extent over comment and
-   prose masked source, so a neighboring call cannot bleed in and a
-   prompt that merely mentions temperature cannot fake one. Prompts and
-   schemas referenced by name resolve across imports and tsconfig
-   aliases. An unreadable shape reports as unreadable.
+   Java, Kotlin, Rust, Scala, and Swift parse as builder chains.
+   Signals are read from the call's own bracket balanced extent, over
+   source with comments and prose masked out. Prompts and schemas
+   referenced by name resolve across imports and tsconfig aliases. An
+   unreadable shape reports as unreadable.
 4. **Archetype.** Extraction, classification, summarization, chat,
    agentic, embedding, translation, reranking, moderation,
    transcription, vision, codegen. Scored from the enclosing function
    name, the resolved prompt, the SDK method called, schema semantics,
-   and the token cap read as intent. A phrase the prompt negates does
-   not score. Below the evidence floor the answer is unknown rather than
-   a guess, and confidence is graded so a finding leaning on a narrow
-   call is demoted.
+   and the token cap read as intent. A negated phrase does not score.
+   Below the evidence floor the archetype is unknown, and confidence is
+   graded.
 
-Call sites also carry fan in, the number of places that call the
-enclosing function, and the models those callers pass. A helper
-wrapping the SDK reports as one site with many callers rather than as
-one call, and is priced for all of them: the volume multiplies by the
-caller count, the finding reads `across 8 callers`, and `--json`
-carries `"volume_source": "fan-in"` and `"callers"`. Only an exactly
-resolved count multiplies; a name defined twice, or a helper with no
-visible caller, stays at one. A helper whose model is a parameter is
-priced for the callers that take its default, since the rest pass a
-model of their own and are priced at the sites where they write it.
+Call sites carry fan in, the number of places that call the enclosing
+function, and the models those callers pass. A helper that wraps the
+SDK is priced for its callers: volume multiplies by the caller count,
+the finding reads `across 8 callers`, and `--json` carries
+`"volume_source": "fan-in"` and `"callers"`. Only an exact count
+multiplies. A name defined twice, or a helper with no visible caller,
+stays at one. A helper whose model is a parameter is priced for the
+callers that take its default; the rest are priced where they write
+their own model.
 
 Every rule, threshold, and price lives in `rules/*.yaml` and `catalog/`.
 The engine holds no numbers.
@@ -216,8 +214,8 @@ One YAML file per model, validated and emitted as a single versioned
 [catalog.json](https://raw.githubusercontent.com/MithrilBytes/overwater/main/catalog/catalog.json),
 mirrored on GitHub Pages. Entries carry prices, context window,
 capability flags, cache and batch rates, release and deprecation dates,
-and a source URL. Retired models stay in the catalog because legacy code
-still references them.
+and a source URL. Retired models stay in the catalog; legacy code still
+references them, and the deprecated-model rule needs their dates.
 
 Contributors update a price by editing one file. A nightly job diffs the
 catalog against LiteLLM and opens a PR when a provider moves a price.
@@ -240,24 +238,22 @@ templates with an optional judge, and 88 catalog entries.
 
 **v2.1** added measured volumes: a volumes file keyed by call site or
 model, an importer for provider usage exports, and provenance on every
-dollar figure. A rebuilt archetype scorer that reads the SDK method, the
-token cap as intent, schema shape, and negation, so a prompt saying
-"never reply to the customer" no longer scores as a chat. Call sites
+dollar figure. The archetype scorer was rebuilt around the SDK method,
+the token cap read as intent, schema shape, and negation. Call sites
 gained fan in and the models their callers pass.
 
-**v2.2** is the current line. A helper that wraps the SDK is now priced
-for the callers it serves, not as one call: a wrapper with two hundred
-callers costs two hundred times a leaf call. Only an exactly resolved
-helper multiplies, and a caller that passes its own model is billed to
-itself rather than twice. A scan root may be a single file, for editors
-and pre commit hooks. `explain <rule-id>` prints a rule from its own
-YAML.
+**v2.2** is the current line. A helper that wraps the SDK is priced for
+its callers, so a wrapper called two hundred times costs two hundred
+leaf calls. Packaging: Homebrew, scoop, and winget manifests, a nix
+flake, a distroless image on GHCR, release notes from the commit log,
+and build provenance on every binary. A scan root may be a single file.
+`explain <rule-id>` prints a rule from its own YAML.
 
-Verified by 274 labeled corpus cases at 0.99 accuracy on a holdout split
-assigned before any tuning, 88 black box smoke checks through the real
-binary, byte for byte golden output for five fixture repositories, fuzz
-targets over the parsers, a files per second benchmark, and a scaling
-gate that fails CI when analysis time grows faster than the input.
+Verified by 274 labeled corpus cases at 0.99 accuracy on an 88 case
+holdout split assigned before tuning, 88 black box smoke checks through
+the real binary, byte for byte golden output for five fixtures, fuzz
+targets over the parsers, and a gate that fails CI when analysis time
+grows faster than its input.
 
 ## Next
 
