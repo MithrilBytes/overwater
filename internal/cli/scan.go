@@ -41,6 +41,13 @@ func parseScanFlags(args []string, stderr io.Writer) (scanFlags, bool) {
 	var f scanFlags
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	fs.Usage = func() {
+		fmt.Fprint(stderr, "Usage: overwater scan [flags] [path...]\n\n")
+		fmt.Fprint(stderr, "A path is a directory or a single file. A file is scanned with its\n")
+		fmt.Fprint(stderr, "containing directory as context, and that directory's .overwater.yaml\n")
+		fmt.Fprint(stderr, "applies; only the named file reports findings.\n\nFlags:\n")
+		fs.PrintDefaults()
+	}
 	fs.BoolVar(&f.jsonOut, "json", false, "emit findings as JSON instead of text")
 	fs.StringVar(&f.sarif, "sarif", "", "write findings as SARIF 2.1.0 to this path")
 	fs.BoolVar(&f.modelsMD, "models-md", false, "write MODELS.md into the scanned repo")
@@ -89,12 +96,24 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	if f.refresh {
 		refreshCatalog(f.offline, stderr)
 	}
+	plans, err := planRoots(f.roots)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	if f.modelsMD && plans[0].only != nil {
+		fmt.Fprintln(stderr, "overwater: --models-md needs a directory root, not a file")
+		return ExitError
+	}
 	var only map[string]bool
 	if f.incremental {
-		if f.multi() {
+		switch {
+		case f.multi():
 			fmt.Fprintln(stderr, "incremental: multiple roots; scanning everything")
-		} else {
-			only = incrementalSet(f.roots[0], defaultBaselinePath(f.baselinePath), stderr)
+		case plans[0].only != nil:
+			fmt.Fprintln(stderr, "incremental: file root; scanning only the named file")
+		default:
+			only = incrementalSet(plans[0].root, defaultBaselinePath(f.baselinePath), stderr)
 		}
 	}
 	var vols *volumesFile
@@ -111,11 +130,6 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	plans, err := planRoots(f.roots)
-	if err != nil {
-		fmt.Fprintf(stderr, "overwater: %v\n", err)
-		return ExitError
-	}
 	vol := p.volumeAcross(plans, f.volume, stderr)
 	p.meta.CallsPerMonth = vol.calls
 	findings, overBudgets, err := p.scanPlans(plans, only, vol, stderr)
@@ -124,7 +138,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		return ExitError
 	}
 	if only != nil {
-		noteCoverage(f.roots[0], only, stderr)
+		noteCoverage(plans[0].root, only, stderr)
 	}
 	if err := writeVerdict(f, findings, p.meta, stdout); err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
@@ -134,7 +148,7 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	return scanExit(f, findings, only, overBudgets, stderr)
+	return scanExit(f, plans[0].root, findings, only, overBudgets, stderr)
 }
 
 // refreshCatalog fetches the published catalog into the cache. Every
@@ -225,11 +239,11 @@ func writeReport(path string, data []byte, stderr io.Writer) error {
 // is a findings failure, never an operational error and never masking
 // one. Recording a baseline and --fail-on none stay exempt; the line
 // prints either way.
-func scanExit(f scanFlags, findings []rules.Finding, only map[string]bool, overBudgets []string, stderr io.Writer) int {
+func scanExit(f scanFlags, root string, findings []rules.Finding, only map[string]bool, overBudgets []string, stderr io.Writer) int {
 	shaRoot := ""
 	if !f.multi() {
 		// One root has one HEAD; a merged multi root baseline records none.
-		shaRoot = f.roots[0]
+		shaRoot = root
 	}
 	code := guardExit(findings, guardOpts{
 		root:         shaRoot,

@@ -53,6 +53,13 @@ check fail-on-none 0 - "$bin" scan -fail-on none fixtures/ts-chat-firehose
 check fail-on-bogus 2 "unknown --fail-on" "$bin" scan -fail-on sometimes fixtures/clean-app
 check offline-refresh 0 "skipping catalog refresh" "$bin" scan -refresh -offline fixtures/clean-app
 
+# A file path as a root scans that file and nothing else beside it.
+check scan-file-root 0 "Call site: extract.py:24" "$bin" scan fixtures/py-extraction/extract.py
+check scan-file-root-fails 1 - "$bin" scan -fail-on any fixtures/py-extraction/extract.py
+check scan-file-root-quiet 0 "Keep the models you have." "$bin" scan fixtures/py-extraction/requirements.txt
+check scan-file-root-missing 2 "scan nope.py" "$bin" scan nope.py
+check scan-file-root-models-md 2 "needs a directory root" "$bin" scan -models-md fixtures/py-extraction/extract.py
+
 # Every fixture's MODELS.md must reproduce its golden byte for byte
 # through the real binary, not just the renderer test.
 for fixture in ts-chat-firehose py-extraction node-cron-summarizer rag-frontier-embeddings clean-app; do
@@ -117,6 +124,9 @@ printf 'budget_monthly_usd: 1\n' > "$guard/.overwater.yaml"
 check config-budget 1 "exceeds budget_monthly_usd" "$bin" scan "$guard"
 printf 'no_such_key: 1\n' > "$guard/.overwater.yaml"
 check config-unknown-key 2 - "$bin" scan "$guard"
+# A file root reads the config of the directory that holds it.
+printf 'disable:\n  - deprecated-model\n' > "$guard/.overwater.yaml"
+check config-file-root 0 "Keep the models you have." "$bin" scan -fail-on any "$guard/legacy.js"
 rm "$guard/.overwater.yaml"
 
 # Measured volumes: the dollars move, the wording moves with them, and

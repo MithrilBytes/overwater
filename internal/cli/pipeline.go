@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -26,26 +27,56 @@ type pipeline struct {
 
 // rootPlan pairs a root with its own .overwater.yaml, nil when it has
 // none. Configs load before any scanning, so a malformed one fails the
-// run before half a report is printed.
+// run before half a report is printed. only names the root relative
+// files that may produce findings, nil for all of them.
 type rootPlan struct {
 	root string
 	cfg  *repoConfig
+	only map[string]bool
 }
 
+// planRoot resolves one argument. A named file becomes its containing
+// directory restricted to that file: the directory loads as context so
+// imports and wrapper defaults resolve the way they do in a whole repo
+// scan, and the directory's .overwater.yaml applies.
 func planRoot(root string) (rootPlan, error) {
-	cfg, err := loadRepoConfig(root)
+	info, err := os.Stat(root)
+	if err != nil {
+		return rootPlan{}, fmt.Errorf("scan %s: %w", root, err)
+	}
+	pl := rootPlan{root: root}
+	if !info.IsDir() {
+		pl.root = filepath.Dir(root)
+		pl.only = map[string]bool{filepath.Base(root): true}
+	}
+	cfg, err := loadRepoConfig(pl.root)
 	if err != nil {
 		return rootPlan{}, err
 	}
-	return rootPlan{root: root, cfg: cfg}, nil
+	pl.cfg = cfg
+	return pl, nil
 }
 
+// planRoots resolves every argument, merging files that share a
+// directory into one plan: a pre commit hook passes a list of files,
+// and scanning their directory once per file would walk it once per
+// file and prefix every finding with the directory's name.
 func planRoots(roots []string) ([]rootPlan, error) {
 	plans := make([]rootPlan, 0, len(roots))
+	filePlan := map[string]int{}
 	for _, r := range roots {
 		pl, err := planRoot(r)
 		if err != nil {
 			return nil, err
+		}
+		if i, ok := filePlan[pl.root]; ok && pl.only != nil {
+			for f := range pl.only {
+				plans[i].only[f] = true
+			}
+			continue
+		}
+		if pl.only != nil {
+			filePlan[pl.root] = len(plans)
 		}
 		plans = append(plans, pl)
 	}
@@ -160,11 +191,16 @@ type rootResult struct {
 }
 
 // scanRoot scans one root under its own config and nothing else. A non
-// nil only set restricts the scan to those root relative files.
+// nil only set restricts the scan to those root relative files; a plan
+// that names files of its own keeps them, since the user asked for
+// those files by name.
 func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice) (rootResult, error) {
 	eng, err := p.engineFor(pl, vol)
 	if err != nil {
 		return rootResult{}, err
+	}
+	if pl.only != nil {
+		only = pl.only
 	}
 	report, err := scan.AnalyzeOnly(pl.root, p.cat, only)
 	if err != nil {
