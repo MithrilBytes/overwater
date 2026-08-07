@@ -20,20 +20,35 @@ func CSV(findings []rules.Finding) []byte {
 	})
 	for _, f := range findings {
 		w.Write([]string{
-			f.RuleID,
-			f.Confidence,
-			f.File,
+			neutralize(f.RuleID),
+			neutralize(f.Confidence),
+			neutralize(f.File),
 			strconv.Itoa(f.Line),
-			f.Archetype,
-			f.Evidence,
-			f.Model,
+			neutralize(f.Archetype),
+			neutralize(f.Evidence),
+			neutralize(f.Model),
 			strconv.Itoa(f.MonthlyUSD),
-			f.CandidateText,
-			f.CandidateModel,
-			f.Tripwire,
-			strings.Join(f.Flags, "; "),
+			neutralize(f.CandidateText),
+			neutralize(f.CandidateModel),
+			neutralize(f.Tripwire),
+			neutralize(strings.Join(f.Flags, "; ")),
 		})
 	}
 	w.Flush()
 	return b.Bytes()
+}
+
+// neutralize defuses spreadsheet formula injection. File paths, model
+// strings, and evidence are repo controlled, and a cell starting with
+// =, +, -, @, tab, or carriage return executes as a formula when the
+// CSV opens in a spreadsheet app. A leading single quote keeps it text.
+func neutralize(cell string) string {
+	if cell == "" {
+		return cell
+	}
+	switch cell[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + cell
+	}
+	return cell
 }

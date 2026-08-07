@@ -1,6 +1,8 @@
 package render
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -49,6 +51,55 @@ func TestCSVHeaderAndQuoting(t *testing.T) {
 	}
 	if !strings.HasSuffix(out, "\n") {
 		t.Errorf("CSV = %q, want a trailing newline", out)
+	}
+}
+
+// Cells the repo controls must never open as formulas in a spreadsheet
+// app: a leading =, +, -, @, tab, or carriage return gets a quote prefix.
+func TestCSVNeutralizesFormulaLeadingChars(t *testing.T) {
+	leads := []string{
+		`=HYPERLINK("http://evil.example","click")`,
+		"+cmd|' /C calc'!A0",
+		"-2+3+cmd",
+		"@SUM(A1:A9)",
+		"\tstill=formula",
+		"\rstill=formula",
+	}
+	var findings []rules.Finding
+	for _, lead := range leads {
+		f := sampleFinding()
+		f.File = lead
+		f.CandidateText = lead
+		findings = append(findings, f)
+	}
+	out := CSV(findings)
+	rows, err := csv.NewReader(bytes.NewReader(out)).ReadAll()
+	if err != nil {
+		t.Fatalf("output is not valid CSV: %v", err)
+	}
+	cells := map[string]bool{}
+	for _, row := range rows[1:] {
+		for _, cell := range row {
+			cells[cell] = true
+			if cell == "" {
+				continue
+			}
+			switch cell[0] {
+			case '=', '+', '-', '@', '\t', '\r':
+				t.Errorf("cell %q still starts with a formula character", cell)
+			}
+		}
+	}
+	for _, lead := range leads {
+		if !cells["'"+lead] {
+			t.Errorf("no cell carries the neutralized %q:\n%s", lead, out)
+		}
+	}
+	// Benign cells stay byte identical: the sample's own fields carry no
+	// leading formula characters and must gain no quote.
+	plain := string(CSV([]rules.Finding{sampleFinding()}))
+	if strings.Contains(plain, "'") {
+		t.Errorf("benign CSV gained a quote prefix: %q", plain)
 	}
 }
 
