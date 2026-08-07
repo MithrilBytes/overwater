@@ -61,7 +61,7 @@ func readBaseline(t *testing.T, path string) (string, []string) {
 // --update-baseline records the repo's HEAD, and --incremental then
 // scans only what git reports changed: the untracked file's finding is
 // counted and the committed baselined files are never rescanned.
-func TestIncrementalScanRestrictsToChangedFiles(t *testing.T) {
+func TestIncrementalScansChangedFiles(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -99,7 +99,7 @@ func TestIncrementalScanRestrictsToChangedFiles(t *testing.T) {
 
 // Baselined findings in unscanned files are assumed unchanged: when
 // only an unrelated file changes, the ratchet stays green.
-func TestIncrementalAssumesUnscannedBaselinedUnchanged(t *testing.T) {
+func TestIncrementalRatchetStaysGreen(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -122,7 +122,7 @@ func TestIncrementalAssumesUnscannedBaselinedUnchanged(t *testing.T) {
 
 // An incremental --update-baseline keeps the entries for files it never
 // scanned instead of pruning them.
-func TestIncrementalUpdateKeepsUnscannedEntries(t *testing.T) {
+func TestIncrementalUpdateKeepsUnscanned(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -157,7 +157,7 @@ func TestIncrementalUpdateKeepsUnscannedEntries(t *testing.T) {
 
 // Every incremental scan says how many files it covered, so a null
 // verdict over zero files cannot read as a clean bill of health.
-func TestIncrementalNoteCountsScannedFiles(t *testing.T) {
+func TestIncrementalCoverageNote(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")

@@ -51,7 +51,7 @@ func scanRepo(t *testing.T, dir string, extra ...string) (int, jsonReport, strin
 	return code, report, stderr.String()
 }
 
-func TestConfigDisableSilencesARule(t *testing.T) {
+func TestConfigDisableSilencesRule(t *testing.T) {
 	code, report, stderr := scanRepo(t, repoWith(t, ""))
 	if code != ExitClean || len(report.Findings) != 1 || report.Findings[0].Rule != "deprecated-model" {
 		t.Fatalf("control run: code %d, findings %+v, stderr %q", code, report.Findings, stderr)
@@ -65,7 +65,7 @@ func TestConfigDisableSilencesARule(t *testing.T) {
 	}
 }
 
-func TestConfigVolumeScalesAndLosesToFlag(t *testing.T) {
+func TestConfigVolumeLosesToFlag(t *testing.T) {
 	_, base, _ := scanRepo(t, repoWith(t, ""))
 	if len(base.Findings) != 1 || base.Findings[0].MonthlyUSD <= 0 {
 		t.Fatalf("control run findings = %+v", base.Findings)
@@ -106,7 +106,7 @@ func TestConfigBudgetFailureExitsOne(t *testing.T) {
 
 // --fail-on none is the promise that this run never exits 1, and the
 // budget keeps that promise too: the line still prints, the code stays 0.
-func TestFailOnNoneNeverFailsOverBudget(t *testing.T) {
+func TestFailOnNoneIgnoresBudget(t *testing.T) {
 	code, _, stderr := scanRepo(t, repoWith(t, "budget_monthly_usd: 1\n"), "-fail-on", "none")
 	if code != ExitClean {
 		t.Fatalf("exit code = %d, want %d under --fail-on none; stderr = %q", code, ExitClean, stderr)

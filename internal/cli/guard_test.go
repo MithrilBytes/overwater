@@ -270,13 +270,13 @@ func TestExplicitFailOnNewNeedsBaseline(t *testing.T) {
 	}
 }
 
-func TestUnknownFailOnIsOperationalError(t *testing.T) {
+func TestUnknownFailOnExitsTwo(t *testing.T) {
 	if code, _, _ := runScanArgs(t, "-fail-on", "sometimes", fixturePath("clean-app")); code != ExitError {
 		t.Fatalf("exit = %d, want %d", code, ExitError)
 	}
 }
 
-func TestInvalidBaselineIsOperationalError(t *testing.T) {
+func TestInvalidBaselineExitsTwo(t *testing.T) {
 	dir := t.TempDir()
 	bl := filepath.Join(dir, ".overwater.json")
 	if err := os.WriteFile(bl, []byte("not json"), 0o644); err != nil {
@@ -293,7 +293,7 @@ func TestInvalidBaselineIsOperationalError(t *testing.T) {
 
 // Recording a baseline never fails, even when the repo's config budget
 // is blown: the budget line still prints, the file still lands, exit 0.
-func TestUpdateBaselineNeverFailsOnBlownBudget(t *testing.T) {
+func TestUpdateBaselineIgnoresBudget(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
@@ -314,7 +314,7 @@ func TestUpdateBaselineNeverFailsOnBlownBudget(t *testing.T) {
 	}
 }
 
-func TestMissingBaselineIsOperationalError(t *testing.T) {
+func TestMissingBaselineExitsTwo(t *testing.T) {
 	dir := t.TempDir()
 	code, _, stderr := runScanArgs(t, "-baseline", filepath.Join(dir, "absent.json"), fixturePath("clean-app"))
 	if code != ExitError {

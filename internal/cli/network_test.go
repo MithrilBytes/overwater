@@ -69,7 +69,7 @@ func TestPlainScanMakesZeroRequests(t *testing.T) {
 
 // With --refresh the scanner makes exactly the catalog request and
 // nothing else.
-func TestScanRefreshMakesOnlyTheCatalogRequest(t *testing.T) {
+func TestScanRefreshHitsCatalogOnly(t *testing.T) {
 	tr := &countingTransport{}
 	swapTransport(t, tr)
 	code, _, stderr := runScanArgs(t, "-refresh", fixturePath("clean-app"))
@@ -112,7 +112,7 @@ func TestCatalogRefreshCommand(t *testing.T) {
 	}
 }
 
-func TestCatalogRefreshOfflineIsAContradiction(t *testing.T) {
+func TestCatalogRefreshRejectsOffline(t *testing.T) {
 	tr := &countingTransport{deny: true}
 	swapTransport(t, tr)
 	var stdout, stderr bytes.Buffer

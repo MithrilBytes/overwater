@@ -109,7 +109,7 @@ func TestCatalogDiffReportsAndWritesDrift(t *testing.T) {
 }
 
 // A drift free catalog with -write must not bump anything.
-func TestCatalogDiffWriteWithoutDriftIsANoOp(t *testing.T) {
+func TestCatalogDiffWriteNoDrift(t *testing.T) {
 	dir := writeCatalogDir(t)
 	litellm := filepath.Join(t.TempDir(), "litellm.json")
 	prices := `{"test-model": {"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06}}`

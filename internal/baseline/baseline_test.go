@@ -14,7 +14,7 @@ func finding(rule, file, hash string) rules.Finding {
 	return rules.Finding{RuleID: rule, File: file, SiteHash: hash}
 }
 
-func TestNewFindingsIsAMultiset(t *testing.T) {
+func TestNewFindingsMultiset(t *testing.T) {
 	a := finding("r", "f.ts", "aaaa")
 	findings := []rules.Finding{a, a, finding("r", "f.ts", "bbbb")}
 
@@ -39,7 +39,7 @@ func TestFingerprintIgnoresLineButNotContent(t *testing.T) {
 	}
 }
 
-func TestWriteThenLoadRoundTrips(t *testing.T) {
+func TestWriteLoadRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bl.json")
 	if err := Write(path, Entries([]rules.Finding{finding("r", "f.ts", "aaaa")}), "abc123"); err != nil {
 		t.Fatal(err)
@@ -70,7 +70,7 @@ func TestOutsideKeepsUnscannedEntries(t *testing.T) {
 // The incremental update path end to end: findings become dated
 // entries, survive the disk round trip, and Outside then carves out
 // exactly the unscanned files with their dates intact.
-func TestEntriesWriteLoadOutsideRoundTrip(t *testing.T) {
+func TestIncrementalUpdateRoundTrip(t *testing.T) {
 	findings := []rules.Finding{
 		finding("r1", "scanned.ts", "aaaa"),
 		finding("r2", "kept.ts", "bbbb"),
@@ -114,7 +114,7 @@ func TestLoadRejectsWrongVersion(t *testing.T) {
 	}
 }
 
-func TestLoadAcceptsVersionOneAsUndated(t *testing.T) {
+func TestLoadVersionOneUndated(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bl.json")
 	v1 := `{"version": 1, "findings": [{"fingerprint": "abcd", "rule": "r", "file": "f.ts", "model": "m"}]}`
 	if err := os.WriteFile(path, []byte(v1), 0o644); err != nil {
@@ -183,7 +183,7 @@ func TestAgedMatches(t *testing.T) {
 
 // A recorded date that does not parse can never age out quietly: it
 // comes back as always aged with Days -1 so the caller can name it.
-func TestAgedMatchesFlagsUnparseableRecordedDate(t *testing.T) {
+func TestAgedMatchesBadDate(t *testing.T) {
 	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
 	matched := finding("r", "f.ts", "aaaa")
 	bl := &File{Version: version, Findings: []Entry{{

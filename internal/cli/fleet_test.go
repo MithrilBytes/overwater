@@ -37,7 +37,7 @@ func runFleetArgs(t *testing.T, args ...string) (int, string, string) {
 	return code, stdout.String(), stderr.String()
 }
 
-func TestFleetScansEveryRepoAndRollsUp(t *testing.T) {
+func TestFleetScansAndRollsUp(t *testing.T) {
 	clean, hot, list := fleetFixture(t)
 	code, stdout, stderr := runFleetArgs(t, list)
 	if code != ExitClean {
@@ -68,7 +68,7 @@ func TestFleetFailOnAny(t *testing.T) {
 	}
 }
 
-func TestFleetFailOnAnyPassesWhenAllClean(t *testing.T) {
+func TestFleetFailOnAnyWhenClean(t *testing.T) {
 	dir := t.TempDir()
 	clean := filepath.Join(dir, "clean")
 	if err := os.MkdirAll(clean, 0o755); err != nil {
@@ -87,7 +87,7 @@ func TestFleetFailOnAnyPassesWhenAllClean(t *testing.T) {
 // A fleet where every listed repo fails to scan learned nothing: that
 // is an operational error, not a clean rollup. Partial failures keep
 // the run green (covered above); an empty list stays clean too.
-func TestFleetAllReposFailIsNonZero(t *testing.T) {
+func TestFleetAllReposFail(t *testing.T) {
 	dir := t.TempDir()
 	list := filepath.Join(dir, "repos.txt")
 	content := filepath.Join(dir, "gone-a") + "\n" + filepath.Join(dir, "gone-b") + "\n"

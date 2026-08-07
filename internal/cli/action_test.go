@@ -43,7 +43,7 @@ func actionSteps(t *testing.T) []actionStep {
 
 // An input interpolated into a run script is re parsed as shell; every
 // input must arrive via an env: block instead.
-func TestActionInputsNeverReachScriptsInline(t *testing.T) {
+func TestActionInputsNotInlined(t *testing.T) {
 	re := regexp.MustCompile(`\$\{\{\s*inputs\.`)
 	for _, s := range actionSteps(t) {
 		if re.MatchString(s.Run) {
