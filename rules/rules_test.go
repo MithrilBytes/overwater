@@ -172,13 +172,13 @@ func TestEvaluateRagFrontierEmbeddings(t *testing.T) {
 	}
 }
 
-func TestEvaluateCleanAppKeepsItsModels(t *testing.T) {
+func TestEvaluateCleanApp(t *testing.T) {
 	if got := evaluateFixture(t, "clean-app"); len(got) != 0 {
 		t.Errorf("clean-app produced findings, want the null verdict: %+v", got)
 	}
 }
 
-func TestFlagWithNoHostFindingBecomesAFinding(t *testing.T) {
+func TestFlagWithoutHostBecomesFinding(t *testing.T) {
 	engine, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -213,9 +213,8 @@ func TestFlagWithNoHostFindingBecomesAFinding(t *testing.T) {
 	}
 }
 
-// A model without published cache rates keeps the unpriced wording; a
-// made up number would be worse than none.
-func TestUncachedSystemPromptWithoutCacheRatesStaysUnpriced(t *testing.T) {
+// A model without published cache rates keeps the unpriced wording.
+func TestUnpricedWithoutCacheRates(t *testing.T) {
 	engine, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -241,7 +240,6 @@ func intPtr(v int) *int { return &v }
 
 func floatPtr(v float64) *float64 { return &v }
 
-// loadEngine and embeddedCatalog keep the synthetic site tests short.
 func loadEngine(t *testing.T) (*Engine, *catalog.Catalog) {
 	t.Helper()
 	engine, err := Load()
@@ -255,9 +253,9 @@ func loadEngine(t *testing.T) (*Engine, *catalog.Catalog) {
 	return engine, cat
 }
 
-// site builds one known synthetic call site with a bounded, readable
-// shape so only the rule under test fires. Each call gets its own hash
-// so unrelated sites never group as duplicates.
+// site builds one known call site with a bounded, readable shape so
+// only the rule under test fires. Each gets its own hash so unrelated
+// sites never group as duplicates.
 var siteSeq int
 
 func site(ref, archetype string, shape scan.Shape) scan.Site {
@@ -290,7 +288,7 @@ func TestEffortOverkillOnExtraction(t *testing.T) {
 	}
 }
 
-func TestEffortOverkillIgnoresDefaultEffortAndChat(t *testing.T) {
+func TestEffortOverkillIgnores(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("claude-sonnet-5", scan.ArchetypeClassification, scan.Shape{Effort: "medium"}),
@@ -301,7 +299,7 @@ func TestEffortOverkillIgnoresDefaultEffortAndChat(t *testing.T) {
 	}
 }
 
-func TestRetryAmplificationFlagsFrontierRetries(t *testing.T) {
+func TestRetryAmplificationPromoted(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("claude-opus-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(3)}),
@@ -316,7 +314,7 @@ func TestRetryAmplificationFlagsFrontierRetries(t *testing.T) {
 	}
 }
 
-func TestRetryAmplificationAttachesToHostFinding(t *testing.T) {
+func TestRetryAmplificationAttaches(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{MaxRetries: intPtr(4)}),
@@ -331,7 +329,7 @@ func TestRetryAmplificationAttachesToHostFinding(t *testing.T) {
 	}
 }
 
-func TestRetryAmplificationRespectsThresholdAndTier(t *testing.T) {
+func TestRetryAmplificationIgnores(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("claude-opus-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(2)}),
@@ -357,7 +355,7 @@ func TestHotTemperatureExtraction(t *testing.T) {
 	}
 }
 
-func TestHotTemperatureIgnoresZeroAndAbsent(t *testing.T) {
+func TestHotTemperatureIgnoresZero(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("claude-sonnet-5", scan.ArchetypeExtraction, scan.Shape{Temperature: floatPtr(0)}),
@@ -368,7 +366,7 @@ func TestHotTemperatureIgnoresZeroAndAbsent(t *testing.T) {
 	}
 }
 
-func TestImageDetailHighOnVisionAndExtraction(t *testing.T) {
+func TestImageDetailHigh(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("gpt-4o", scan.ArchetypeVision, scan.Shape{ImageDetailHigh: true}),
@@ -382,7 +380,7 @@ func TestImageDetailHighOnVisionAndExtraction(t *testing.T) {
 	}
 }
 
-func TestUncappedEmbeddingDimensionsFlags(t *testing.T) {
+func TestUncappedEmbeddingDimensions(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("text-embedding-3-large", scan.ArchetypeEmbedding, scan.Shape{}),
@@ -397,7 +395,7 @@ func TestUncappedEmbeddingDimensionsFlags(t *testing.T) {
 	}
 }
 
-func TestCappedOrIncapableEmbeddingsStayQuiet(t *testing.T) {
+func TestCappedEmbeddingsStayQuiet(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		// Dimensions set: the flag stays away even though the model
@@ -439,10 +437,8 @@ func TestDisableRemovesRules(t *testing.T) {
 	}
 }
 
-// A clone is what lets one repository's config disable a rule or move a
-// threshold without any other repository inheriting it, so nothing done
-// to the clone may reach the engine it came from.
-func TestCloneIsolatesDisableAndThresholds(t *testing.T) {
+// Nothing done to a clone may reach the engine it came from.
+func TestCloneIsolates(t *testing.T) {
 	engine, cat := loadEngine(t)
 	clone := engine.Clone()
 	clone.Disable([]string{"deprecated-model"})
@@ -469,7 +465,7 @@ func TestCloneIsolatesDisableAndThresholds(t *testing.T) {
 	}
 }
 
-func TestSetThresholdOverridesWhen(t *testing.T) {
+func TestSetThreshold(t *testing.T) {
 	engine, cat := loadEngine(t)
 	if err := engine.SetThreshold("retry-amplification", "min_retries", 6); err != nil {
 		t.Fatal(err)
@@ -489,7 +485,7 @@ func TestSetThresholdOverridesWhen(t *testing.T) {
 	}
 }
 
-func TestSetThresholdRejectsUnknownRuleOrField(t *testing.T) {
+func TestSetThresholdRejects(t *testing.T) {
 	engine, _ := loadEngine(t)
 	if err := engine.SetThreshold("retry-amplification", "min_carrots", 1); err == nil {
 		t.Error("want an error for an unknown threshold field")
@@ -499,11 +495,9 @@ func TestSetThresholdRejectsUnknownRuleOrField(t *testing.T) {
 	}
 }
 
-// A typo in an enumerated when value used to load fine and disable the
-// rule forever; a missing multiplier priced candidates at zero. Every
-// closed set is now checked at load. Providers stay unvalidated on
-// purpose: catalog data defines them, not a fixed list.
-func TestRuleValidateRejectsUnknownWhenValues(t *testing.T) {
+// Every closed set is checked at load. Providers stay unvalidated on
+// purpose: the catalog owns that namespace, not a fixed list here.
+func TestRuleValidateRejects(t *testing.T) {
 	valid := func() Rule {
 		return Rule{
 			ID: "probe", Kind: "finding", Confidence: "low",
@@ -546,7 +540,7 @@ func TestRuleValidateRejectsUnknownWhenValues(t *testing.T) {
 	}
 }
 
-func TestTotalMonthlyUSDSumsKnownSites(t *testing.T) {
+func TestTotalMonthlyUSD(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
 	b := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
@@ -562,7 +556,7 @@ func TestTotalMonthlyUSDSumsKnownSites(t *testing.T) {
 	}
 }
 
-func TestDuplicateCallSitesFlagEverySiteAfterTheFirst(t *testing.T) {
+func TestDuplicateCallSites(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
 	b := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
@@ -592,7 +586,7 @@ func TestDuplicateCallSitesFlagEverySiteAfterTheFirst(t *testing.T) {
 	}
 }
 
-func TestDuplicateCallSitesNeedTheSameModel(t *testing.T) {
+func TestDuplicatesNeedSameModel(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
 	b := site("claude-haiku-4-5", scan.ArchetypeChat, scan.Shape{})
@@ -602,7 +596,7 @@ func TestDuplicateCallSitesNeedTheSameModel(t *testing.T) {
 	}
 }
 
-func TestDuplicateCallSitesSkipIgnoredAndHashless(t *testing.T) {
+func TestDuplicatesSkipIgnoredAndHashless(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
 	b := site("claude-sonnet-5", scan.ArchetypeChat, scan.Shape{})
@@ -616,10 +610,10 @@ func TestDuplicateCallSitesSkipIgnoredAndHashless(t *testing.T) {
 	}
 }
 
-// A fallback chain that names a retired model needs no rule of its
-// own: layer 2 reports every model string as a site, so the retired
-// entry in the array draws its deprecated-model finding at that line.
-func TestFallbackChainNamingRetiredModelIsCovered(t *testing.T) {
+// A fallback chain needs no rule of its own: layer 2 reports every
+// model string as a site, so the retired entry in the array draws
+// deprecated-model at its own line.
+func TestFallbackChainRetiredModel(t *testing.T) {
 	engine, cat := loadEngine(t)
 	dir := t.TempDir()
 	src := `const PRIMARY = "gpt-5.1";
@@ -645,10 +639,9 @@ const FALLBACK_MODELS = ["gpt-5.1", "text-davinci-003"];
 	}
 }
 
-// A realtime transcription model on a cron job needs no rule of its
-// own either: batch-on-realtime excludes only embeddings, so the
-// transcription archetype rides the existing batch rule.
-func TestTranscriptionOnCronTripsBatchOnRealtime(t *testing.T) {
+// batch-on-realtime excludes only embeddings, so transcription on a
+// cron job rides the existing batch rule.
+func TestTranscriptionOnCron(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("gpt-4o-mini", scan.ArchetypeTranscription, scan.Shape{BatchContext: true}),
@@ -667,7 +660,7 @@ func TestTranscriptionOnCronTripsBatchOnRealtime(t *testing.T) {
 // the remaining system tokens at the cache write rate. Estimates are
 // built locally so the shipped estimates.yaml (fraction 1.0, which
 // zeroes the write term) stays untouched.
-func TestCachedMonthlyUSDChargesWriteRate(t *testing.T) {
+func TestCachedMonthlyUSDWriteRate(t *testing.T) {
 	e := &Engine{}
 	e.Est.Volume.CallsPerMonth = 10000
 	e.Est.Tokens.CharsPerToken = 4
@@ -699,7 +692,7 @@ func TestCachedMonthlyUSDChargesWriteRate(t *testing.T) {
 // at. mistral-embed and gemini-embedding-001 are their providers' only
 // embeddings, and cohere's alternative costs more; none may draw a
 // finding. The openai pair keeps its nomination.
-func TestPriceyEmbeddingsSilentWithoutCheaperCandidate(t *testing.T) {
+func TestNoCheaperEmbedding(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
 		site("mistral-embed", scan.ArchetypeEmbedding, scan.Shape{}),
@@ -724,7 +717,7 @@ func TestPriceyEmbeddingsSilentWithoutCheaperCandidate(t *testing.T) {
 // batch_multiplier over the rule's flat yaml multiplier, which stays
 // the fallback for entries without one. Both are 0.5 in shipped data,
 // so this only shows on a synthetic catalog.
-func TestPriceMultiplierPrefersModelBatchMultiplier(t *testing.T) {
+func TestPriceMultiplierPrefersModel(t *testing.T) {
 	engine, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -765,10 +758,9 @@ func TestPriceMultiplierPrefersModelBatchMultiplier(t *testing.T) {
 	}
 }
 
-// A savings nomination must never cost more than staying put. Cohere's
-// only active embedding besides embed-english-v3.0 is embed-v4.0, and
-// it is pricier; nominate must fall back to the no-candidate wording
-// instead of proposing a raise.
+// Cohere's only active embedding besides embed-english-v3.0 is
+// embed-v4.0, and it is pricier, so nominate must fall back to the
+// no-candidate wording instead of proposing a raise.
 func TestNominateNeverRaisesCost(t *testing.T) {
 	engine, cat := loadEngine(t)
 	current := cat.ByName("embed-english-v3.0")
@@ -793,7 +785,7 @@ func TestNominateNeverRaisesCost(t *testing.T) {
 }
 
 // A rule that leans on the archetype inherits the classifier's doubt.
-func TestLowConfidenceArchetypeDemotesFinding(t *testing.T) {
+func TestLowConfidenceDemotes(t *testing.T) {
 	engine, err := Load()
 	if err != nil {
 		t.Fatal(err)

@@ -172,7 +172,6 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 	case "cached_system_prompt":
 		// Priced only when the catalog knows the model's cache rates;
 		// otherwise the nomination stays a shape suggestion.
-		// A made up number would be worse than none.
 		f.CandidateText = r.Candidate.Note
 		if m.CacheReadPerMtok > 0 {
 			f.CandidateText = fmt.Sprintf("%s, ~$%d/mo", r.Candidate.Note, round(e.cachedMonthlyUSD(m, site)))
