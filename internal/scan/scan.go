@@ -60,6 +60,17 @@ type Site struct {
 	ViaConfig           string // set when the model arrived via config tracing
 	NearbyStrings       []string
 	Shape               Shape
+	// FanIn is how many call sites reach this one through the function
+	// that holds it, and is never below 1. FanInStatus says whether
+	// that number was counted or is only a floor, so a wrapper nobody
+	// visibly calls is not priced as a leaf by accident (fanin.go).
+	FanIn       int
+	FanInFunc   string // the enclosing function, empty at file scope
+	FanInStatus string // direct, exact, ambiguous, or unresolved
+	// CallerModels lists the models callers pass in where this site is
+	// a wrapper's default model. Counts sum to at most FanIn: a caller
+	// whose argument could not be read is left out.
+	CallerModels []CallerModel
 }
 
 // Report is the scanner's output for one repository.
@@ -141,6 +152,7 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 		report.Sites = append(report.Sites, r.sites...)
 	}
 	a.traceConfigModels(report, names, only)
+	a.applyFanIn(report, names)
 	// A total order: two models on one line differ by Col, then by Ref,
 	// so equal sites can never swap between runs.
 	sort.Slice(report.Sites, func(i, j int) bool {

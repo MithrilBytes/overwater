@@ -25,6 +25,10 @@ type analyzer struct {
 	// factsRuns counts fileFacts evaluations, so a test can prove the
 	// file scoped regexes run per file and not per site.
 	factsRuns atomic.Int64
+	// The definition and call index, built once per pass and read only
+	// afterwards (fanin.go).
+	indexOnce sync.Once
+	idx       *repoIndex
 }
 
 func newAnalyzer(files []file) *analyzer {

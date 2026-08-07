@@ -17,6 +17,10 @@
 //	          parse (call.go, props.go, builder.go)
 //	classify  scores an archetype from the shape, the system prompt, and
 //	          the enclosing function name (archetype.go)
+//	fan in    indexes the repo's function definitions and calls, counts
+//	          how many places reach each site through the function that
+//	          holds it, and reads the models a wrapper's callers pass
+//	          for a model parameter (fanin.go)
 //
 // The analyzer (analyzer.go) holds every walked file for the whole pass,
 // so prompt and constant resolution can follow imports across the repo
