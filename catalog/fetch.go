@@ -10,11 +10,9 @@ import (
 	"time"
 )
 
-// DefaultURL is the published catalog: the committed catalog.json
-// served straight from the repository over HTTPS. A static file is the
-// entire endpoint; the GitHub Pages mirror deploys the same bytes once
-// Pages is enabled on the repo. Fetching this is the only network
-// activity the scanner is ever permitted, and even that is optional.
+// DefaultURL is the published catalog: the committed catalog.json served
+// over HTTPS, with a GitHub Pages mirror of the same bytes. Fetching it
+// is the only network call the scanner is permitted, and it is optional.
 const DefaultURL = "https://raw.githubusercontent.com/MithrilBytes/overwater/main/catalog/catalog.json"
 
 // StaleAfter is how old prices get before the scanner starts saying so.
@@ -45,8 +43,8 @@ func Fetch(client *http.Client, url string) (*Catalog, []byte, error) {
 	return &c, raw, nil
 }
 
-// CachePath is where a fetched catalog lives locally. The env override
-// exists so tests and odd environments can redirect it.
+// CachePath is where a fetched catalog lives locally. OVERWATER_CACHE_DIR
+// redirects it for tests and locked down environments.
 func CachePath() (string, error) {
 	if dir := os.Getenv("OVERWATER_CACHE_DIR"); dir != "" {
 		return filepath.Join(dir, "catalog.json"), nil
@@ -94,11 +92,10 @@ func loadCache() (*Catalog, error) {
 	return &c, nil
 }
 
-// Effective picks the freshest valid catalog available with zero
-// network: the cache when it is newer than the embedded snapshot,
-// otherwise the snapshot. A bad cache is reported in note and ignored,
-// never fatal. A cache that wins also announces itself in note, naming
-// both versions, so a scan never swaps its pricing data silently.
+// Effective picks the freshest valid catalog with no network: the cache
+// when it is newer than the embedded snapshot, otherwise the snapshot.
+// A bad cache is reported in note and ignored, never fatal. A cache that
+// wins names both versions in note, so pricing data never swaps silently.
 func Effective() (*Catalog, string, error) {
 	emb, err := Embedded()
 	if err != nil {
@@ -116,8 +113,7 @@ func Effective() (*Catalog, string, error) {
 }
 
 // Stale returns a warning when the catalog's price date has aged past
-// StaleAfter, empty otherwise. Staleness is worth a sentence, never a
-// failure.
+// StaleAfter, empty otherwise. Never an error: stale prices still scan.
 func Stale(c *Catalog, now time.Time) string {
 	v, err := time.Parse(dateLayout, c.Version)
 	if err != nil {

@@ -10,13 +10,12 @@ import (
 )
 
 // Price drift detection against LiteLLM's community pricing file. The
-// file arrives as a local path, never a fetch; the binary's only
-// permitted network call stays the catalog itself.
+// file arrives as a local path, never a fetch: the catalog stays the
+// binary's only permitted network call.
 
 // LitellmEntry is one upstream record, prices in dollars per million.
-// HasOutput distinguishes an upstream output price of zero from an
-// upstream file that simply omits the field; embedding style entries
-// often carry only input_cost_per_token.
+// HasOutput separates an upstream output price of zero from an upstream
+// file that omits the field, as embedding entries usually do.
 type LitellmEntry struct {
 	Input       float64
 	Output      float64
@@ -30,8 +29,7 @@ type LitellmPrices map[string]LitellmEntry
 
 // ParseLitellm reads LiteLLM's model_prices_and_context_window.json,
 // keeping entries that carry per token costs and skipping the rest.
-// Context windows and deprecation dates ride along when present, so
-// the nightly diff can report their drift too.
+// Context windows and deprecation dates ride along when present.
 func ParseLitellm(raw []byte) (LitellmPrices, error) {
 	var entries map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &entries); err != nil {
@@ -62,10 +60,9 @@ func ParseLitellm(raw []byte) (LitellmPrices, error) {
 	return prices, nil
 }
 
-// Drift is one entry whose price disagrees with LiteLLM. When the
-// upstream record omits output_cost_per_token, TheirsOutKnown is false,
-// TheirsOut is meaningless, and ApplyPrices leaves our output price
-// alone.
+// Drift is one entry whose price disagrees with LiteLLM. With
+// TheirsOutKnown false, TheirsOut is meaningless and ApplyPrices leaves
+// our output price alone.
 type Drift struct {
 	ID             string
 	OursIn         float64
@@ -96,9 +93,8 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missi
 				continue
 			}
 			found = true
-			// An upstream record with no output price says nothing
-			// about our output price; comparing against its zero value
-			// would propose zeroing ours.
+			// Comparing against an absent output price would propose
+			// zeroing ours.
 			outDrifts := p.HasOutput && differs(m.OutputPerMtok, p.Output)
 			if p.Input > 0 && (differs(m.InputPerMtok, p.Input) || outDrifts) {
 				drifts = append(drifts, Drift{
@@ -141,10 +137,9 @@ var (
 )
 
 // ApplyPrices rewrites the drifted entries in place, bumps VERSION, and
-// regenerates catalog.json, leaving everything else in each file
-// untouched. Replacements are counted: a drifted entry whose price line
-// the regex cannot find is an error, because silently skipping it would
-// still bump VERSION and snapshot history as if the price had landed.
+// regenerates catalog.json, leaving the rest of each file untouched. A
+// drifted entry whose price line the regex cannot find is an error:
+// skipping it would still bump VERSION as if the price had landed.
 func ApplyPrices(dir string, drifts []Drift, version string) error {
 	for _, d := range drifts {
 		path := filepath.Join(dir, "models", d.ID+".yaml")
@@ -188,7 +183,7 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 }
 
 // replaceCounting swaps every match of re for repl and reports how many
-// lines it actually touched.
+// it touched.
 func replaceCounting(raw []byte, re *regexp.Regexp, repl string) ([]byte, int) {
 	n := 0
 	out := re.ReplaceAllFunc(raw, func([]byte) []byte {
