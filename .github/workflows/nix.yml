@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   flake:
@@ -35,31 +35,15 @@ jobs:
           extra_nix_config: "experimental-features = nix-command flakes"
       - name: evaluate the flake
         run: nix flake check --no-build --all-systems
-      - name: fill in vendorHash
-        # Only nix can compute this hash, and it reports the right one
-        # when the wrong one fails the build. Nobody here runs nix, so
-        # the runner that does writes it back. Fires only while the
-        # placeholder is present, and only on main.
-        if: github.ref == 'refs/heads/main'
-        run: |
-          set -uo pipefail
-          grep -q 'vendorHash = "sha256-AAAA' flake.nix || exit 0
-          got="$(nix build .#overwater 2>&1 | grep -oE 'got: *sha256-[A-Za-z0-9+/=]+' | head -1 | sed 's/got: *//')"
-          if [ -z "$got" ]; then
-            echo "nix did not report a vendor hash; leaving the placeholder" >&2
-            exit 0
-          fi
-          sed -i "s|vendorHash = \"sha256-AAAA[A-Za-z0-9+/=]*\";|vendorHash = \"$got\";|" flake.nix
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(nix): pin the vendor hash nix computed" flake.nix
-          git push origin HEAD:main
-
       - name: build and run
+        # The build needs vendorHash, which only nix can compute. Until
+        # a maintainer fills it in from a local build, evaluation above
+        # is the whole check.
         run: |
           set -euo pipefail
           if grep -q 'vendorHash = "sha256-AAAA' flake.nix; then
             echo "vendorHash is still the placeholder; skipping the build." >&2
+            echo "Run 'nix build .#overwater' and paste the hash nix reports." >&2
             exit 0
           fi
           nix build .#overwater
