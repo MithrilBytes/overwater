@@ -272,14 +272,10 @@ quadratic fixes in v2. Profile before optimizing.
 
 ### Deploy
 
-Manifests for Homebrew, scoop, and winget, a distroless image on GHCR,
-release notes built from the commit log, and build provenance on every
-released binary all ship as of v2.2. What is left:
+Manifests for Homebrew, scoop, and winget, a nix flake, a distroless
+image on GHCR, release notes built from the commit log, and build
+provenance on every released binary all ship as of v2.2. What is left:
 
-- [ ] finish the flake: `nix build .#overwater` and paste the hash it
-      reports over the placeholder vendorHash, then commit a flake.lock
-      so nixpkgs pins to a revision rather than a branch. CI checks the
-      flake evaluates; building it needs someone with nix.
 - [ ] publish the Homebrew formula to a tap repository
 
 ### Detection
