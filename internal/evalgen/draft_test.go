@@ -9,49 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MithrilBytes/overwater/catalog"
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// pickTemplate is the routing table between a finding's model and the
-// script it gets; every provider and tier edge is pinned here.
-func TestPickTemplate(t *testing.T) {
-	chat := func(provider string) *catalog.Model {
-		return &catalog.Model{ID: provider + "-big", Provider: provider, Tier: "mid"}
-	}
-	cases := []struct {
-		name   string
-		model  *catalog.Model
-		want   string
-		reason string
-	}{
-		{"nil model", nil, "", "model is not in the catalog"},
-		{"anthropic chat", chat("anthropic"), anthropicTemplate, ""},
-		{"openai chat", chat("openai"), openaiTemplate, ""},
-		{"google chat", chat("google"), googleTemplate, ""},
-		{"cohere chat", chat("cohere"), cohereTemplate, ""},
-		{"deepseek compat", chat("deepseek"), compatTemplate, ""},
-		{"xai compat", chat("xai"), compatTemplate, ""},
-		{"groq compat", chat("groq"), compatTemplate, ""},
-		{"mistral compat", chat("mistral"), compatTemplate, ""},
-		{"chat provider without a template", chat("alibaba"), "", "no eval template for provider alibaba yet"},
-		{"openai embedding", &catalog.Model{Provider: "openai", Tier: "embedding"}, embeddingTemplate, ""},
-		{"embedding provider without a template", &catalog.Model{Provider: "voyage", Tier: "embedding"}, "", "no embedding eval template for provider voyage yet"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			tpl, reason := pickTemplate(tc.model)
-			if tpl != tc.want {
-				t.Errorf("pickTemplate template mismatch (got %d bytes, want %d)", len(tpl), len(tc.want))
-			}
-			if reason != tc.reason {
-				t.Errorf("reason = %q, want %q", reason, tc.reason)
-			}
-		})
-	}
-}
-
-func TestDraftPromptsEdgeCases(t *testing.T) {
+func TestDraftPrompts(t *testing.T) {
 	long := "This prompt is comfortably longer than twenty characters."
 	cases := []struct {
 		name    string
@@ -93,8 +54,7 @@ func TestDraftPromptsEdgeCases(t *testing.T) {
 	}
 }
 
-// Twelve distinct literals cap at ten, longest first is not promised,
-// but order within the window is stable and duplicates never count.
+// Twelve distinct literals cap at ten, with no duplicates.
 func TestDraftPromptsCapsAtTen(t *testing.T) {
 	var b strings.Builder
 	for i := 0; i < 12; i++ {
@@ -113,9 +73,9 @@ func TestDraftPromptsCapsAtTen(t *testing.T) {
 	}
 }
 
-// DraftPromptSets skips findings without a candidate, unreadable files,
-// and literal free files, and writes one jsonl next to each script name.
-func TestDraftPromptSetsWritesAndSkips(t *testing.T) {
+// One jsonl per script name; findings without a candidate, unreadable
+// files, and literal free files are all skipped.
+func TestDraftPromptSets(t *testing.T) {
 	root := t.TempDir()
 	outDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, "app"), 0o755); err != nil {

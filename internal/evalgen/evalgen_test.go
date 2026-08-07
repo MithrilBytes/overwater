@@ -77,6 +77,44 @@ func pyCompile(t *testing.T, path string) {
 	}
 }
 
+// pickTemplate is the routing table from a finding's model to the script
+// it gets; every provider and tier edge is pinned here.
+func TestPickTemplate(t *testing.T) {
+	chat := func(provider string) *catalog.Model {
+		return &catalog.Model{ID: provider + "-big", Provider: provider, Tier: "mid"}
+	}
+	cases := []struct {
+		name   string
+		model  *catalog.Model
+		want   string
+		reason string
+	}{
+		{"nil model", nil, "", "model is not in the catalog"},
+		{"anthropic chat", chat("anthropic"), anthropicTemplate, ""},
+		{"openai chat", chat("openai"), openaiTemplate, ""},
+		{"google chat", chat("google"), googleTemplate, ""},
+		{"cohere chat", chat("cohere"), cohereTemplate, ""},
+		{"deepseek compat", chat("deepseek"), compatTemplate, ""},
+		{"xai compat", chat("xai"), compatTemplate, ""},
+		{"groq compat", chat("groq"), compatTemplate, ""},
+		{"mistral compat", chat("mistral"), compatTemplate, ""},
+		{"chat provider without a template", chat("alibaba"), "", "no eval template for provider alibaba yet"},
+		{"openai embedding", &catalog.Model{Provider: "openai", Tier: "embedding"}, embeddingTemplate, ""},
+		{"embedding provider without a template", &catalog.Model{Provider: "voyage", Tier: "embedding"}, "", "no embedding eval template for provider voyage yet"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tpl, reason := pickTemplate(tc.model)
+			if tpl != tc.want {
+				t.Errorf("pickTemplate template mismatch (got %d bytes, want %d)", len(tpl), len(tc.want))
+			}
+			if reason != tc.reason {
+				t.Errorf("reason = %q, want %q", reason, tc.reason)
+			}
+		})
+	}
+}
+
 func TestGenerateChatScripts(t *testing.T) {
 	cases := []struct {
 		provider string

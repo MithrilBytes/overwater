@@ -1,8 +1,6 @@
-// Package evalgen writes the runnable A/B eval scripts. The scripts are
-// the one deliberate exception to the scanner's no network rule: they
-// call model APIs, but only when the user runs them, with the user's
-// own keys, outside the scanner. Nothing in this package executes
-// anything.
+// Package evalgen writes the runnable A/B eval scripts. The scripts call
+// model APIs, but only when the user runs them, with the user's own
+// keys, outside the scanner. This package writes files and nothing else.
 package evalgen
 
 import (
@@ -16,9 +14,9 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// openAICompat lists the providers whose chat endpoint speaks the
-// OpenAI protocol. They share one template; only the base URL and the
-// key environment variable differ.
+// openAICompat lists the providers whose chat endpoint speaks the OpenAI
+// protocol. They share one template; only the base URL and key variable
+// differ.
 var openAICompat = map[string]struct {
 	BaseURL string
 	EnvVar  string
@@ -97,9 +95,9 @@ func scriptName(f rules.Finding) string {
 	return fmt.Sprintf("eval_%s_%s_%d.py", f.RuleID, slug, f.Line)
 }
 
-// fill substitutes the placeholders. Prices are baked into the script
-// so it can estimate spend without a network fetch; a candidate the
-// catalog does not know prices as zero rather than failing the write.
+// fill substitutes the placeholders. Prices are baked in so the script
+// can estimate spend with no fetch; a candidate the catalog does not
+// know prices as zero rather than failing the write.
 func fill(tpl string, f rules.Finding, name string, current, candidate *catalog.Model) string {
 	compat := openAICompat[current.Provider]
 	var candIn, candOut float64

@@ -1,11 +1,8 @@
 package evalgen
 
-// The templates are plain Python on purpose: readable before running,
-// editable after generating, no framework. Exact match agreement is
-// strict, and for the structured task classes these findings target,
-// strict is the point. Every chat template shares one scoring body;
-// the provider half supplies the header, the imports, the client, and
-// the single ask call.
+// Plain Python, no framework: readable before running, editable after.
+// Every chat template shares one scoring body; the provider half
+// supplies the header, imports, client, and the single ask call.
 
 // chatDecls holds the constants every chat script bakes in: the two
 // model ids, their catalog prices, and the judge prompt.
@@ -32,10 +29,10 @@ Answer B:
 %s"""
 `
 
-// chatMain is the scoring half shared by every chat template. It
-// expects the provider half to define make_client() and ask(client,
-// model, system, prompt), with ask returning the reply text, the call
-// latency in milliseconds, and the input and output token counts.
+// chatMain is the scoring half shared by every chat template. The
+// provider half must define make_client() and ask(client, model,
+// system, prompt); ask returns the reply text, the latency in
+// milliseconds, and the input and output token counts.
 const chatMain = `
 
 def load_rows(path):
