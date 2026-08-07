@@ -138,12 +138,20 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 		report.Sites = append(report.Sites, r.sites...)
 	}
 	a.traceConfigModels(report, names)
+	// Total order: Col separates two models on one line, Ref breaks the
+	// residual tie, so equal sites can never swap between runs.
 	sort.Slice(report.Sites, func(i, j int) bool {
 		a, b := report.Sites[i], report.Sites[j]
 		if a.File != b.File {
 			return a.File < b.File
 		}
-		return a.Line < b.Line
+		if a.Line != b.Line {
+			return a.Line < b.Line
+		}
+		if a.Col != b.Col {
+			return a.Col < b.Col
+		}
+		return a.Ref < b.Ref
 	})
 	return report, nil
 }

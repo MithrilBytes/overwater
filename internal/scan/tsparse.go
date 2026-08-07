@@ -206,13 +206,28 @@ func normKey(k string) string {
 	return strings.ReplaceAll(strings.ToLower(k), "_", "")
 }
 
+// propVal resolves a property by any of the given names, first name in
+// the list winning. Within one name an exactly spelled key wins;
+// otherwise the lexicographically smallest key folding to the same
+// normalized name does, so duplicate spellings (max_tokens plus
+// maxTokens) resolve identically on every run.
 func propVal(info *callInfo, names ...string) (string, bool) {
-	for k, v := range info.Props {
-		nk := normKey(k)
-		for _, n := range names {
-			if nk == normKey(n) {
-				return v, true
+	for _, n := range names {
+		if v, ok := info.Props[n]; ok {
+			return v, true
+		}
+		want := normKey(n)
+		best, found := "", false
+		for k := range info.Props {
+			if normKey(k) != want {
+				continue
 			}
+			if !found || k < best {
+				best, found = k, true
+			}
+		}
+		if found {
+			return info.Props[best], true
 		}
 	}
 	return "", false

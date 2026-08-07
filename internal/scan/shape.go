@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,6 +42,7 @@ var (
 // caches the masked view of each file.
 type analyzer struct {
 	byPath map[string]string
+	paths  []string // sorted byPath keys; candidate walks stay deterministic
 	// mu guards the lazy caches below; byPath is complete before any
 	// worker starts and is then read only.
 	mu    sync.Mutex
@@ -57,6 +59,11 @@ func newAnalyzer(files []file) *analyzer {
 	for _, f := range files {
 		a.byPath[f.path] = string(f.data)
 	}
+	a.paths = make([]string, 0, len(a.byPath))
+	for p := range a.byPath {
+		a.paths = append(a.paths, p)
+	}
+	sort.Strings(a.paths)
 	return a
 }
 
@@ -446,10 +453,11 @@ func (a *analyzer) importTargets(p, name string) []string {
 			}
 		}
 		// Workspace fallback: any repo file whose path ends with the
-		// spec, tried with each extension.
+		// spec, tried with each extension, in sorted path order so
+		// ambiguous candidates resolve the same way on every run.
 		for _, ext := range jsExts {
 			suffix := spec + ext
-			for known := range a.byPath {
+			for _, known := range a.paths {
 				if strings.HasSuffix(known, suffix) {
 					targets = append(targets, known)
 				}
@@ -480,10 +488,12 @@ func (a *analyzer) importTargets(p, name string) []string {
 }
 
 // tsconfigResolve expands a non relative import spec through the
-// compilerOptions paths of any tsconfig.json in the repo.
+// compilerOptions paths of any tsconfig.json in the repo. Configs and
+// their path patterns are visited in sorted order, keeping ambiguous
+// alias resolution stable across runs.
 func (a *analyzer) tsconfigResolve(spec string) []string {
 	var out []string
-	for known, content := range a.byPath {
+	for _, known := range a.paths {
 		if path.Base(known) != "tsconfig.json" && path.Base(known) != "jsconfig.json" {
 			continue
 		}
@@ -493,18 +503,23 @@ func (a *analyzer) tsconfigResolve(spec string) []string {
 				Paths   map[string][]string `json:"paths"`
 			} `json:"compilerOptions"`
 		}
-		if err := json.Unmarshal([]byte(content), &cfg); err != nil {
+		if err := json.Unmarshal([]byte(a.byPath[known]), &cfg); err != nil {
 			continue
 		}
 		root := path.Dir(known)
 		base := path.Join(root, cfg.CompilerOptions.BaseURL)
-		for pattern, subs := range cfg.CompilerOptions.Paths {
+		patterns := make([]string, 0, len(cfg.CompilerOptions.Paths))
+		for pattern := range cfg.CompilerOptions.Paths {
+			patterns = append(patterns, pattern)
+		}
+		sort.Strings(patterns)
+		for _, pattern := range patterns {
 			prefix := strings.TrimSuffix(pattern, "*")
 			if !strings.HasPrefix(spec, prefix) {
 				continue
 			}
 			rest := strings.TrimPrefix(spec, prefix)
-			for _, sub := range subs {
+			for _, sub := range cfg.CompilerOptions.Paths[pattern] {
 				out = append(out, path.Join(base, strings.TrimSuffix(sub, "*")+rest))
 			}
 		}
