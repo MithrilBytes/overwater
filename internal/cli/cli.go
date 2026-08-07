@@ -165,13 +165,14 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
+	// One report, one volume: resolved across every root before the first
+	// is scanned, so the header can never name a volume the body did not
+	// use.
+	callsPerMonth := p.volumeAcross(plans, *volume, stderr)
+	p.meta.CallsPerMonth = callsPerMonth
 	var findings []rules.Finding
 	var overBudgets []string
 	for _, pl := range plans {
-		callsPerMonth := p.volumeFor(pl, *volume)
-		if pl.cfg != nil && pl.cfg.Volume > 0 {
-			p.meta.CallsPerMonth = callsPerMonth
-		}
 		rf, overBudget, err := p.scanRoot(pl, only, callsPerMonth)
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
@@ -205,8 +206,6 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stderr, "incremental: scanned %d of %d candidate files\n", scannedFiles, len(only))
 	}
-	// Read after the roots loop so a config supplied volume shows in the
-	// rendered header.
 	meta := p.meta
 	switch {
 	case *jsonOut:
@@ -392,6 +391,29 @@ func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) int {
 		return pl.cfg.Volume
 	}
 	return p.base.Est.Volume.CallsPerMonth
+}
+
+// volumeAcross picks the one volume a merged report is priced and
+// headed at. A report carries a single header, so per root volumes are
+// honored only when every root resolves to the same number; otherwise
+// the header would name a volume the body does not use. Roots that
+// disagree fall back to the estimate default and are named on stderr.
+func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writer) int {
+	def := p.base.Est.Volume.CallsPerMonth
+	agreed := def
+	for i, pl := range plans {
+		v := p.volumeFor(pl, flagVolume)
+		if i == 0 {
+			agreed = v
+			continue
+		}
+		if v != agreed {
+			fmt.Fprintf(stderr, "%s: %s volume %d disagrees with %d elsewhere; pricing every root at %d\n",
+				pl.root, configName, v, agreed, def)
+			return def
+		}
+	}
+	return agreed
 }
 
 // newPipeline picks the effective catalog (embedded or a newer cache,

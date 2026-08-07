@@ -148,6 +148,16 @@ printf '%s\n%s\n' "$iso/svc-b" "$iso/svc-a" > "$iso/ba.txt"
 check fleet-no-leak-ab 1 "fleet: 2 repos, 1 findings" "$bin" fleet -fail-on any "$iso/ab.txt"
 check fleet-no-leak-ba 1 "fleet: 2 repos, 1 findings" "$bin" fleet -fail-on any "$iso/ba.txt"
 
+# A per repo volume cannot head a merged report at a volume the body was
+# not priced at: roots that disagree all fall back to the default.
+printf 'volume: 1000000\n' > "$iso/svc-a/.overwater.yaml"
+check volume-header-honest 0 "estimates at 10,000 calls" "$bin" scan "$iso/svc-a" "$iso/svc-b"
+check volume-body-honest 0 "text-davinci-003 at ~\$120/mo" "$bin" scan "$iso/svc-b" "$iso/svc-a"
+printf 'volume: 1000000\n' > "$iso/svc-b/.overwater.yaml"
+check volume-agreed-header 0 "estimates at 1,000,000 calls" "$bin" scan "$iso/svc-a" "$iso/svc-b"
+check volume-agreed-body 0 "text-davinci-003 at ~\$12000/mo" "$bin" scan "$iso/svc-a" "$iso/svc-b"
+rm "$iso/svc-a/.overwater.yaml" "$iso/svc-b/.overwater.yaml"
+
 # Diff over two reports.
 "$bin" scan -json fixtures/clean-app > "$work/old.json" 2> /dev/null
 "$bin" scan -json fixtures/py-extraction > "$work/new.json" 2> /dev/null

@@ -95,6 +95,68 @@ func TestFleetConfigDoesNotLeakBetweenRepos(t *testing.T) {
 	}
 }
 
+// A per repo volume leaked into the shared estimates too, so a merged
+// report could print a header at one root's volume over a body priced
+// at another's. One report gets one volume, whatever the order.
+func TestVolumeHeaderNeverContradictsTheBody(t *testing.T) {
+	a, b := configuredRoots(t, "volume: 1000000\n", "")
+	_, solo, _ := scanJSON(t, b)
+	if len(solo.Findings) != 1 || solo.CallsPerMonth != 10000 {
+		t.Fatalf("control run: calls %d, findings %+v", solo.CallsPerMonth, solo.Findings)
+	}
+	for _, order := range [][]string{{a, b}, {b, a}} {
+		code, report, stderr := scanJSON(t, order...)
+		if code != ExitClean {
+			t.Fatalf("scan %v exit = %d, stderr = %q", order, code, ExitClean)
+		}
+		if report.CallsPerMonth != solo.CallsPerMonth {
+			t.Errorf("scan %v header = %d calls, want the default %d once the roots disagree",
+				order, report.CallsPerMonth, solo.CallsPerMonth)
+		}
+		if len(report.Findings) != 2 {
+			t.Fatalf("scan %v findings = %+v, want one per root", order, report.Findings)
+		}
+		for _, f := range report.Findings {
+			if f.MonthlyUSD != solo.Findings[0].MonthlyUSD {
+				t.Errorf("scan %v priced %s at $%d under a $%d header basis; the header must match the body",
+					order, f.File, f.MonthlyUSD, solo.Findings[0].MonthlyUSD)
+			}
+		}
+		if !strings.Contains(stderr, "disagrees") {
+			t.Errorf("stderr = %q, want the ignored per root volume named", stderr)
+		}
+	}
+}
+
+// Roots that all want the same volume still get it: the header names it
+// and every number under it uses it.
+func TestVolumeHonoredWhenEveryRootAgrees(t *testing.T) {
+	cfg := "volume: 1000000\n"
+	a, b := configuredRoots(t, cfg, cfg)
+	_, solo, _ := scanJSON(t, a)
+	if solo.CallsPerMonth != 1000000 || len(solo.Findings) != 1 {
+		t.Fatalf("single root: calls %d, findings %+v", solo.CallsPerMonth, solo.Findings)
+	}
+	code, report, stderr := scanJSON(t, a, b)
+	if code != ExitClean {
+		t.Fatalf("exit = %d, stderr = %q", code, stderr)
+	}
+	if report.CallsPerMonth != solo.CallsPerMonth {
+		t.Errorf("header = %d calls, want %d from the agreeing configs", report.CallsPerMonth, solo.CallsPerMonth)
+	}
+	if len(report.Findings) != 2 {
+		t.Fatalf("findings = %+v, want one per root", report.Findings)
+	}
+	for _, f := range report.Findings {
+		if f.MonthlyUSD != solo.Findings[0].MonthlyUSD {
+			t.Errorf("priced %s at $%d, want $%d at the agreed volume", f.File, f.MonthlyUSD, solo.Findings[0].MonthlyUSD)
+		}
+	}
+	if strings.Contains(stderr, "disagrees") {
+		t.Errorf("stderr = %q, want no disagreement note when the roots agree", stderr)
+	}
+}
+
 // A threshold is a per repo knob like any other and must not survive
 // into the next root.
 func TestConfigThresholdStaysInsideItsOwnRoot(t *testing.T) {
