@@ -139,16 +139,16 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 // resolveSchemaRef follows a schema: or tools: identifier to the
 // constant it names, so a schema defined above the call still informs
 // the shape.
-func (a *analyzer) resolveSchemaRef(p, region string) string {
-	m := reSchemaRef.FindStringSubmatch(region)
+func (a *analyzer) resolveSchemaRef(p, text string) string {
+	m := reSchemaRef.FindStringSubmatch(text)
 	if m == nil {
 		return ""
 	}
-	return a.constExtent(p, m[1])
+	return a.constValue(p, m[1])
 }
 
-// constExtent returns the bracketed value assigned to name in file p.
-func (a *analyzer) constExtent(p, name string) string {
+// constValue returns the bracketed value assigned to name in file p.
+func (a *analyzer) constValue(p, name string) string {
 	content := a.byPath[p]
 	src := a.masked(p)
 	re := regexp.MustCompile(`(?m)^[ \t]*(?:const|let|var)?[ \t]*` + regexp.QuoteMeta(name) + `\s*=`)
@@ -179,7 +179,7 @@ func schemaFacts(text string) (enumOnly, multiField bool) {
 		enums := strings.Count(text, "z.enum(")
 		return enums >= fields, fields >= 2 && enums < fields
 	}
-	props := propertiesExtent(text)
+	props := propertiesBlock(text)
 	if props == "" {
 		return false, false
 	}
@@ -191,7 +191,7 @@ func schemaFacts(text string) (enumOnly, multiField bool) {
 	return enums >= fields, fields >= 2 && enums < fields
 }
 
-func propertiesExtent(text string) string {
+func propertiesBlock(text string) string {
 	idx := strings.Index(text, `"properties"`)
 	if idx < 0 {
 		return ""

@@ -127,33 +127,33 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 					continue
 				}
 			}
-			for _, r := range a.findEnvReaders(key, cfgPath) {
-				if only != nil && !only[r.path] {
+			for _, reader := range a.findEnvReaders(key, cfgPath) {
+				if only != nil && !only[reader.path] {
 					continue
 				}
-				loc := r.path + ":" + strconv.Itoa(r.line)
+				loc := reader.path + ":" + strconv.Itoa(reader.line)
 				if existing[loc] {
 					continue
 				}
 				existing[loc] = true
 				site := Site{
-					File: r.path, Line: r.line, Col: r.col,
+					File: reader.path, Line: reader.line, Col: reader.col,
 					Ref: value, ViaConfig: cfgPath + " " + key,
 				}
 				if model != nil {
 					site.Known = true
 					site.ModelID = model.ID
 				}
-				reg := a.regionFor(r.path, r.line, r.col)
-				site.Shape = a.extractShape(r.path, reg)
-				site.Hash = a.siteHash(r.path, r.line, reg)
+				r := a.regionFor(reader.path, reader.line, reader.col)
+				site.Shape = a.extractShape(reader.path, r)
+				site.Hash = a.siteHash(reader.path, reader.line, r)
 				tier := ""
 				if model != nil {
 					tier = model.Tier
 				}
-				site.Archetype, site.ArchetypeConfidence = a.classify(r.path, site.Shape, reg, tier)
-				site.Ignored, site.VolumeOverride = a.pragmas(r.path, reg)
-				site.NearbyStrings = a.nearbyStrings(r.path, reg)
+				site.Archetype, site.ArchetypeConfidence = a.classify(reader.path, site.Shape, r, tier)
+				site.Ignored, site.VolumeOverride = a.pragmas(reader.path, r)
+				site.NearbyStrings = a.nearbyStrings(reader.path, r)
 				report.Sites = append(report.Sites, site)
 			}
 		}

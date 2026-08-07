@@ -202,12 +202,12 @@ var funcNameStopwords = map[string]bool{
 // in. It reads the prose view, so names inside prompts do not qualify.
 func enclosingFuncName(prose string, before int) string {
 	from := max(0, before-2000)
-	region := prose[from:before]
+	text := prose[from:before]
 	best := ""
 	bestPos := -1
 	for _, re := range reFuncDefs {
-		for _, m := range re.FindAllStringSubmatchIndex(region, -1) {
-			name := region[m[2]:m[3]]
+		for _, m := range re.FindAllStringSubmatchIndex(text, -1) {
+			name := text[m[2]:m[3]]
 			if funcNameStopwords[name] {
 				continue
 			}
