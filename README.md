@@ -188,10 +188,11 @@ parsers, and a files per second benchmark.
 
 ### Speed
 
+The numbers that ordered this list predate parallel analysis and the
+quadratic fixes in v2. Profile before optimizing.
+
 - [ ] fail the CI benchmark on a 2x regression instead of printing it
-- [ ] profile before optimizing further; the serial numbers that ordered
-      this list predate parallel analysis
-- [ ] Aho-Corasick over the dictionary, if the profile still says so
+- [ ] Aho-Corasick over the dictionary, if a profile still says so
 - [ ] cap peak memory on monorepo scans; stream instead of holding
       every file
 
@@ -205,9 +206,9 @@ parsers, and a files per second benchmark.
 
 ### Detection
 
-- [ ] structural parsing for Python, matching the TypeScript path
-- [ ] resolve calls through user wrappers
-- [ ] corpus past 200 cases; per archetype floors, not one number
+- [ ] follow a call through a project's own helper into the SDK call
+- [ ] corpus past 200 cases
+- [ ] enforce a floor per archetype; today only the total is a ratchet
 - [ ] cost ranges instead of point estimates
 - [ ] schema field counts bound the output token estimate
 - [ ] machine readable tripwires that generated evals exit on
@@ -216,14 +217,15 @@ parsers, and a files per second benchmark.
 
 - [ ] rename stable fingerprints; a moved file should read as moved
 - [ ] `overwater explain <rule-id>`
-- [ ] single file scan mode
+- [ ] accept a file path, not just a directory; today it fails with a
+      message about a missing config file
 - [ ] a sixth fixture covering the newer rules end to end
 
 ### Catalog
 
 - [ ] reverse diff: report models LiteLLM knows and we do not
-- [ ] per provider batch rates instead of one multiplier
-- [ ] dated price history queryable from the CLI
+- [ ] query the dated price history from the CLI; the snapshots are
+      already written on every price change
 
 Never: hosted service, telemetry, model calls from the scanner.
 
