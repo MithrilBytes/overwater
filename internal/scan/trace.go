@@ -52,8 +52,17 @@ func (a *analyzer) spansFor(p string) []span {
 // else here.
 func (a *analyzer) nearbyStrings(p string, regionStart, regionEnd int) []string {
 	content := a.byPath[p]
+	spans := a.spansFor(p)
+	// Spans come out of the scanner in increasing, non overlapping start
+	// order, so the region's first candidate is a binary search away.
+	// Walking the whole file's spans per call site is quadratic in a file
+	// that holds thousands of strings.
+	first := sort.Search(len(spans), func(i int) bool { return spans[i].end > regionStart })
 	var out []string
-	for _, s := range a.spansFor(p) {
+	for _, s := range spans[first:] {
+		if s.start >= regionEnd {
+			break
+		}
 		if s.kind != spanString || s.interiorEnd <= regionStart || s.interiorStart >= regionEnd {
 			continue
 		}
@@ -159,7 +168,7 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 				if model != nil {
 					tier = model.Tier
 				}
-				hit := hitOffset(a.byPath[r.path], r.line, r.col)
+				hit := a.hitOffsetIn(r.path, r.line, r.col)
 				site.Archetype, site.ArchetypeConfidence = a.classify(r.path, site.Shape, rs, re, hit, tier)
 				site.Ignored, site.VolumeOverride = a.pragmas(r.path, rs, re)
 				site.NearbyStrings = a.nearbyStrings(r.path, rs, re)

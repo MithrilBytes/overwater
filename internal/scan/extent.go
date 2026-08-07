@@ -13,6 +13,13 @@ import (
 const (
 	extentAscendMax = 8
 	extentMaxBytes  = 16000
+	// lookbackMaxBytes bounds every "n lines above" hop. In ordinary
+	// source three lines is a few hundred bytes, but a minified file is
+	// one enormous line, so an unbounded hop lands on byte zero and hands
+	// every call site a region as long as its own offset. That is
+	// quadratic in references per file, the same trap as running a file
+	// wide regex per site.
+	lookbackMaxBytes = 2000
 )
 
 // Case insensitive so Go's Model: and C#'s Model = count too.
@@ -106,15 +113,16 @@ func innermostExtent(masked string, hit int) (int, int, bool) {
 
 // headExpand pulls the region start up two lines above the opener so
 // call names like streamText( or .stream( stay visible to the shape
-// regexes.
+// regexes, never reaching back further than lookbackMaxBytes.
 func headExpand(content string, from int) int {
+	limit := max(0, from-lookbackMaxBytes)
 	i := from
 	for k := 0; k < 3; k++ {
-		nl := strings.LastIndexByte(content[:i], '\n')
+		nl := strings.LastIndexByte(content[limit:i], '\n')
 		if nl < 0 {
-			return 0
+			return limit
 		}
-		i = nl
+		i = limit + nl
 	}
 	return i + 1
 }

@@ -230,15 +230,17 @@ func promptIdents(region string) []string {
 	return names
 }
 
-// linesAbove returns the offset n line starts above from.
+// linesAbove returns the offset n line starts above from, bounded by
+// lookbackMaxBytes for the same reason headExpand is.
 func linesAbove(content string, from, n int) int {
+	limit := max(0, from-lookbackMaxBytes)
 	i := from
 	for k := 0; k <= n; k++ {
-		nl := strings.LastIndexByte(content[:i], '\n')
+		nl := strings.LastIndexByte(content[limit:i], '\n')
 		if nl < 0 {
-			return 0
+			return limit
 		}
-		i = nl
+		i = limit + nl
 	}
 	return i + 1
 }

@@ -90,7 +90,7 @@ func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 		if site.Known {
 			tier = names[site.Ref].Tier
 		}
-		hit := hitOffset(string(f.data), site.Line, site.Col)
+		hit := a.hitOffsetIn(f.path, site.Line, site.Col)
 		site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, regionStart, regionEnd, hit, tier)
 		site.Ignored, site.VolumeOverride = a.pragmas(f.path, regionStart, regionEnd)
 		site.NearbyStrings = a.nearbyStrings(f.path, regionStart, regionEnd)

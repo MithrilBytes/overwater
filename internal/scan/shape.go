@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"unicode/utf8"
 )
 
@@ -17,6 +18,11 @@ import (
 // be found (config files, env files, languages the extent walker does
 // not understand). Extent scoped extraction is the primary path.
 const windowLines = 30
+
+// windowMaxBytes bounds that same window in bytes on each side of the
+// hit. Thirty lines of real config or source stays well under it, so
+// ordinary files keep the window they had.
+const windowMaxBytes = 2000
 
 var (
 	reTemperature = regexp.MustCompile(`(?i)["']?temperature["']?\s*[:=]\s*([0-9]*\.?[0-9]+)`)
@@ -38,6 +44,16 @@ var (
 	reDetailHigh  = regexp.MustCompile(`(?i)["']?detail["']?\s*[:=]\s*["']high["']`)
 )
 
+// fileFacts are the shape facts a call site inherits from its whole
+// file rather than from its own extent. Nothing in here reads the
+// region, so it is computed once per file: evaluating it per site made
+// scan cost quadratic in the number of model references, and a minified
+// config full of model ids took minutes.
+type fileFacts struct {
+	batchContext bool
+	batchAPI     bool
+}
+
 // analyzer carries the walked files so shape extraction and prompt
 // resolution can follow one import hop inside the scanned repo, and
 // caches the masked view of each file.
@@ -49,6 +65,12 @@ type analyzer struct {
 	mu    sync.Mutex
 	masks map[string]masked
 	spans map[string][]span
+	lines map[string][]int
+	facts map[string]fileFacts
+	// factsRuns counts fileFacts evaluations so a test can prove the file
+	// scoped regexes run per file, not per site. An atomic add on a path
+	// that already runs two regexes costs nothing in production.
+	factsRuns atomic.Int64
 }
 
 func newAnalyzer(files []file) *analyzer {
@@ -56,6 +78,8 @@ func newAnalyzer(files []file) *analyzer {
 		byPath: make(map[string]string, len(files)),
 		masks:  map[string]masked{},
 		spans:  map[string][]span{},
+		lines:  map[string][]int{},
+		facts:  map[string]fileFacts{},
 	}
 	for _, f := range files {
 		a.byPath[f.path] = string(f.data)
@@ -84,6 +108,44 @@ func (a *analyzer) masked(p string) masked {
 	return m
 }
 
+// factsFor returns the file scoped shape facts, computing them at most
+// once per file in the common case.
+func (a *analyzer) factsFor(p string) fileFacts {
+	a.mu.Lock()
+	f, ok := a.facts[p]
+	a.mu.Unlock()
+	if ok {
+		return f
+	}
+	prose := a.masked(p).prose
+	f = fileFacts{
+		batchContext: reBatchCtx.MatchString(prose),
+		batchAPI:     reBatchAPI.MatchString(prose),
+	}
+	a.factsRuns.Add(1)
+	a.mu.Lock()
+	a.facts[p] = f
+	a.mu.Unlock()
+	return f
+}
+
+// lineStartsFor caches the line index of a file. Rebuilding it per call
+// site is a full pass over the file each time, which is the same
+// quadratic trap as the file wide regexes.
+func (a *analyzer) lineStartsFor(p string) []int {
+	a.mu.Lock()
+	s, ok := a.lines[p]
+	a.mu.Unlock()
+	if ok {
+		return s
+	}
+	s = lineStarts(a.byPath[p])
+	a.mu.Lock()
+	a.lines[p] = s
+	a.mu.Unlock()
+	return s
+}
+
 // siteHash fingerprints the call site's own text so the baseline
 // ratchet survives line drift. Extent sites hash the prose masked
 // extent with whitespace collapsed: moving the call or editing prompt
@@ -95,7 +157,7 @@ func (a *analyzer) siteHash(p string, line, regionStart, regionEnd int, hasExten
 		text = a.masked(p).prose[regionStart:regionEnd]
 	} else {
 		content := a.byPath[p]
-		starts := lineStarts(content)
+		starts := a.lineStartsFor(p)
 		if line-1 < len(starts) {
 			end := len(content)
 			if line < len(starts) {
@@ -110,7 +172,15 @@ func (a *analyzer) siteHash(p string, line, regionStart, regionEnd int, hasExten
 
 // hitOffset converts a one based line and column to a byte offset.
 func hitOffset(content string, line, col int) int {
-	starts := lineStarts(content)
+	return offsetIn(content, lineStarts(content), line, col)
+}
+
+// hitOffsetIn is hitOffset over the analyzer's cached line index.
+func (a *analyzer) hitOffsetIn(p string, line, col int) int {
+	return offsetIn(a.byPath[p], a.lineStartsFor(p), line, col)
+}
+
+func offsetIn(content string, starts []int, line, col int) int {
 	if line-1 >= len(starts) {
 		return 0
 	}
@@ -125,7 +195,7 @@ func hitOffset(content string, line, col int) int {
 // with no model key fall back to the innermost balanced extent.
 func (a *analyzer) regionFor(p string, line, col int) (regionStart, regionEnd, extStart int, hasExtent bool) {
 	content := a.byPath[p]
-	hit := hitOffset(content, line, col)
+	hit := a.hitOffsetIn(p, line, col)
 	m := a.masked(p)
 	if builderFamily(p) {
 		if s, e, ok := builderExtent(m.all, hit); ok {
@@ -138,7 +208,7 @@ func (a *analyzer) regionFor(p string, line, col int) (regionStart, regionEnd, e
 	if s, e, ok := innermostExtent(m.all, hit); ok {
 		return headExpand(content, s), e, s, true
 	}
-	s, e := windowBounds(content, line)
+	s, e := windowBounds(content, a.lineStartsFor(p), line, hit)
 	return s, e, 0, false
 }
 
@@ -147,8 +217,9 @@ func (a *analyzer) extractShape(p string, regionStart, regionEnd, extStart int, 
 	region := m.prose[regionStart:regionEnd]
 
 	var s Shape
-	s.BatchContext = reBatchCtx.MatchString(m.prose)
-	s.BatchAPI = reBatchAPI.MatchString(m.prose)
+	facts := a.factsFor(p)
+	s.BatchContext = facts.batchContext
+	s.BatchAPI = facts.batchAPI
 
 	if match := reTemperature.FindStringSubmatch(region); match != nil {
 		if v, err := strconv.ParseFloat(match[1], 64); err == nil {
@@ -286,9 +357,12 @@ func propertiesExtent(text string) string {
 }
 
 // windowBounds returns the byte range of the fallback detection window
-// around a one based line number.
-func windowBounds(content string, line int) (int, int) {
-	starts := lineStarts(content)
+// around the hit at a one based line number. Lines are the wrong unit in
+// a minified file, which is one line however large, so the window is
+// also bounded in bytes around the hit; without that bound every
+// reference in such a file reads the whole file and scan cost is
+// quadratic in references per file.
+func windowBounds(content string, starts []int, line, hit int) (int, int) {
 	startLine := max(0, line-1-windowLines)
 	endLine := min(len(starts), line+windowLines)
 	winStart := starts[startLine]
@@ -296,7 +370,7 @@ func windowBounds(content string, line int) (int, int) {
 	if endLine < len(starts) {
 		winEnd = starts[endLine]
 	}
-	return winStart, winEnd
+	return max(winStart, hit-windowMaxBytes), min(winEnd, hit+windowMaxBytes)
 }
 
 func lineStarts(s string) []int {
