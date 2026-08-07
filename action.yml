@@ -67,16 +67,25 @@ runs:
     - name: scan
       id: scan
       shell: bash
+      # Inputs reach the script only through env: a value interpolated
+      # into the script text would be re parsed as shell. The fences are
+      # four backticks so a repo controlled path containing ``` cannot
+      # break out of the report block.
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_INCREMENTAL: ${{ inputs.incremental }}
       run: |
         set -uo pipefail
-        args=(scan --fail-on "${{ inputs.fail-on }}")
-        if [ -n "${{ inputs.baseline }}" ]; then
-          args+=(--baseline "${{ inputs.baseline }}")
+        args=(scan --fail-on "$INPUT_FAIL_ON")
+        if [ -n "$INPUT_BASELINE" ]; then
+          args+=(--baseline "$INPUT_BASELINE")
         fi
-        if [ "${{ inputs.incremental }}" = "true" ]; then
+        if [ "$INPUT_INCREMENTAL" = "true" ]; then
           args+=(--incremental)
         fi
-        args+=("${{ inputs.path }}")
+        args+=("$INPUT_PATH")
         out="${RUNNER_TEMP}/overwater-out.txt"
         errout="${RUNNER_TEMP}/overwater-err.txt"
         set +e
@@ -89,14 +98,14 @@ runs:
         {
           echo "## overwater"
           echo
-          echo '```'
+          echo '````'
           cat "$out"
-          echo '```'
+          echo '````'
           if [ -s "$errout" ]; then
             echo
-            echo '```'
+            echo '````'
             cat "$errout"
-            echo '```'
+            echo '````'
           fi
         } > "$report"
         cat "$report" >> "$GITHUB_STEP_SUMMARY"
