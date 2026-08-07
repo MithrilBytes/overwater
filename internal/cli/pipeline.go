@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	"github.com/MithrilBytes/overwater/catalog"
@@ -155,4 +156,33 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, volume int) ([]ru
 		}
 	}
 	return findings, overBudget, nil
+}
+
+// scanPlans scans every planned root at one volume and merges the
+// results. With more than one root, findings are prefixed with the
+// root's base name so they stay attributable and each root's count goes
+// to stderr; a single root keeps today's byte identical output. Each
+// over budget root contributes one line.
+func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, volume int, stderr io.Writer) ([]rules.Finding, []string, error) {
+	multi := len(plans) > 1
+	var findings []rules.Finding
+	var overBudgets []string
+	for _, pl := range plans {
+		rf, overBudget, err := p.scanRoot(pl, only, volume)
+		if err != nil {
+			return nil, nil, err
+		}
+		if overBudget != "" {
+			overBudgets = append(overBudgets, overBudget)
+		}
+		if multi {
+			prefix := filepath.Base(filepath.Clean(pl.root)) + "/"
+			for i := range rf {
+				rf[i].File = prefix + rf[i].File
+			}
+			fmt.Fprintf(stderr, "%s: %d findings\n", pl.root, len(rf))
+		}
+		findings = append(findings, rf...)
+	}
+	return findings, overBudgets, nil
 }
