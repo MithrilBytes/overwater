@@ -155,6 +155,59 @@ func TestIncrementalUpdateKeepsUnscannedEntries(t *testing.T) {
 	}
 }
 
+// Every incremental scan says how many files it covered, so a null
+// verdict over zero files cannot read as a clean bill of health.
+func TestIncrementalNoteCountsScannedFiles(t *testing.T) {
+	gitOrSkip(t)
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	initRepo(t, repo)
+	bl := filepath.Join(dir, ".overwater.json")
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("update exit = %d, stderr = %q", code, stderr)
+	}
+
+	// Nothing changed: the scan covered zero files and says so, while
+	// stdout still carries the null verdict.
+	code, stdout, stderr := runScanArgs(t, "-baseline", bl, "-incremental", repo)
+	if code != ExitClean {
+		t.Fatalf("exit = %d, stderr = %q", code, stderr)
+	}
+	if !strings.Contains(stderr, "incremental: scanned 0 of 0 candidate files") {
+		t.Errorf("stderr = %q, want the zero coverage note", stderr)
+	}
+	if !strings.Contains(stdout, "Keep the models you have.") {
+		t.Errorf("stdout = %q, want the null verdict untouched", stdout)
+	}
+
+	// One new file: one of one.
+	writeRepoFile(t, repo, "fresh.js", legacyCall)
+	code, _, stderr = runScanArgs(t, "-baseline", bl, "-incremental", repo)
+	if code != ExitFindings {
+		t.Fatalf("exit = %d, want %d; stderr = %q", code, ExitFindings, stderr)
+	}
+	if !strings.Contains(stderr, "incremental: scanned 1 of 1 candidate files") {
+		t.Errorf("stderr = %q, want a one of one note", stderr)
+	}
+
+	// A deleted file is a candidate git names but nothing to scan.
+	if err := os.Remove(filepath.Join(repo, "fresh.js")); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, repo, "rm", "-q", "classify.js")
+	code, _, stderr = runScanArgs(t, "-baseline", bl, "-incremental", repo)
+	if code != ExitClean {
+		t.Fatalf("exit = %d, stderr = %q", code, stderr)
+	}
+	if !strings.Contains(stderr, "incremental: scanned 0 of 1 candidate files") {
+		t.Errorf("stderr = %q, want a zero of one note for the deleted file", stderr)
+	}
+}
+
 // Without a recorded commit the scan falls back to a full one with a
 // single stderr note. No git repository is needed to exercise this.
 func TestIncrementalFallsBackWithoutCommit(t *testing.T) {

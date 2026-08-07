@@ -182,6 +182,19 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		}
 		findings = append(findings, rf...)
 	}
+	if only != nil {
+		// Say how much the restricted scan actually covered, so a null
+		// verdict over zero files cannot read as a clean bill of health.
+		// Changed files that no longer exist were not scanned; stdout
+		// stays untouched.
+		scannedFiles := 0
+		for f := range only {
+			if info, err := os.Stat(filepath.Join(roots[0], filepath.FromSlash(f))); err == nil && info.Mode().IsRegular() {
+				scannedFiles++
+			}
+		}
+		fmt.Fprintf(stderr, "incremental: scanned %d of %d candidate files\n", scannedFiles, len(only))
+	}
 	// Read after the roots loop so a config supplied volume shows in the
 	// rendered header.
 	meta := p.meta
