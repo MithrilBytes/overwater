@@ -760,6 +760,21 @@
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
+      "id": "gpt-4o-2024-05-13",
+      "provider": "openai",
+      "input_per_mtok": 5,
+      "output_per_mtok": 15,
+      "batch_multiplier": 0.5,
+      "capabilities": [
+        "vision",
+        "tools"
+      ],
+      "context_window": 128000,
+      "tier": "mid",
+      "released": "2024-05-13",
+      "source": "https://platform.openai.com/docs/pricing"
+    },
+    {
       "id": "gpt-4o-mini",
       "provider": "openai",
       "aliases": [

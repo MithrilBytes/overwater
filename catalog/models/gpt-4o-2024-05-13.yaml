@@ -1,0 +1,10 @@
+id: gpt-4o-2024-05-13
+provider: openai
+input_per_mtok: 5.00
+output_per_mtok: 15.00
+context_window: 128000
+tier: mid
+released: "2024-05-13"
+source: https://platform.openai.com/docs/pricing
+batch_multiplier: 0.5
+capabilities: [vision, tools]
