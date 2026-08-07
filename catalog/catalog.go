@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -52,22 +53,9 @@ var Capabilities = []string{
 	"vision", "tools", "caching", "structured_output", "audio", "dimensions",
 }
 
-var validCapabilities = func() map[string]bool {
-	m := make(map[string]bool, len(Capabilities))
-	for _, c := range Capabilities {
-		m[c] = true
-	}
-	return m
-}()
-
 // HasCapability reports whether the entry declares a capability.
 func (m Model) HasCapability(c string) bool {
-	for _, have := range m.Capabilities {
-		if have == c {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(m.Capabilities, c)
 }
 
 // Catalog is the emitted artifact. Version is the date the prices were
@@ -95,13 +83,7 @@ func (m Model) validate() error {
 	if m.ContextWindow <= 0 {
 		return fmt.Errorf("%s: context_window must be positive", m.ID)
 	}
-	valid := false
-	for _, t := range Tiers {
-		if m.Tier == t {
-			valid = true
-		}
-	}
-	if !valid {
+	if !slices.Contains(Tiers, m.Tier) {
 		return fmt.Errorf("%s: tier %q is not one of %s", m.ID, m.Tier, strings.Join(Tiers, ", "))
 	}
 	if _, err := time.Parse(dateLayout, m.Released); err != nil {
@@ -122,7 +104,7 @@ func (m Model) validate() error {
 		return fmt.Errorf("%s: batch_multiplier must be between 0 and 1", m.ID)
 	}
 	for _, c := range m.Capabilities {
-		if !validCapabilities[c] {
+		if !slices.Contains(Capabilities, c) {
 			return fmt.Errorf("%s: unknown capability %q", m.ID, c)
 		}
 	}

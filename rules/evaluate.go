@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -84,16 +85,16 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 }
 
 func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dupPos int) bool {
-	if len(w.Archetype) > 0 && !contains(w.Archetype, site.Archetype) {
+	if len(w.Archetype) > 0 && !slices.Contains(w.Archetype, site.Archetype) {
 		return false
 	}
-	if contains(w.ArchetypeNot, site.Archetype) {
+	if slices.Contains(w.ArchetypeNot, site.Archetype) {
 		return false
 	}
-	if len(w.Tier) > 0 && !contains(w.Tier, m.Tier) {
+	if len(w.Tier) > 0 && !slices.Contains(w.Tier, m.Tier) {
 		return false
 	}
-	if len(w.Provider) > 0 && !contains(w.Provider, m.Provider) {
+	if len(w.Provider) > 0 && !slices.Contains(w.Provider, m.Provider) {
 		return false
 	}
 	if w.Deprecated != nil && (m.Deprecated != "") != *w.Deprecated {
@@ -120,7 +121,7 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dup
 	if w.MinInputPerMtok > 0 && m.InputPerMtok < w.MinInputPerMtok {
 		return false
 	}
-	if len(w.Effort) > 0 && !contains(w.Effort, site.Shape.Effort) {
+	if len(w.Effort) > 0 && !slices.Contains(w.Effort, site.Shape.Effort) {
 		return false
 	}
 	if w.MinRetries > 0 && (site.Shape.MaxRetries == nil || *site.Shape.MaxRetries < w.MinRetries) {

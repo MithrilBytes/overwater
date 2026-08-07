@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -456,7 +457,7 @@ func TestCloneIsolates(t *testing.T) {
 		ids = append(ids, f.RuleID)
 	}
 	for _, want := range []string{"deprecated-model", "retry-amplification"} {
-		if !contains(ids, want) {
+		if !slices.Contains(ids, want) {
 			t.Errorf("origin findings = %v, want %s still firing after the clone changed", ids, want)
 		}
 	}

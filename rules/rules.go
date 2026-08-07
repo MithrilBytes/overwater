@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 
@@ -196,7 +197,7 @@ func (r Rule) validate() error {
 	// Providers are the exception: the catalog owns that namespace, so a
 	// name today's catalog lacks may be valid against tomorrow's.
 	for _, tier := range r.When.Tier {
-		if !contains(catalog.Tiers, tier) {
+		if !slices.Contains(catalog.Tiers, tier) {
 			return fmt.Errorf("%s: unknown tier %q in when.tier", r.ID, tier)
 		}
 	}
@@ -215,7 +216,7 @@ func (r Rule) validate() error {
 			return fmt.Errorf("%s: unknown effort %q in when.effort", r.ID, ef)
 		}
 	}
-	if c := r.When.ModelCapability; c != "" && !contains(catalog.Capabilities, c) {
+	if c := r.When.ModelCapability; c != "" && !slices.Contains(catalog.Capabilities, c) {
 		return fmt.Errorf("%s: unknown model_capability %q", r.ID, c)
 	}
 	if r.Candidate.Strategy == "price_multiplier" && (r.Candidate.Multiplier <= 0 || r.Candidate.Multiplier > 1) {
@@ -276,13 +277,4 @@ func (e *Engine) SetThreshold(ruleID, field string, value float64) error {
 		return nil
 	}
 	return fmt.Errorf("no rule %q to set a threshold on", ruleID)
-}
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
