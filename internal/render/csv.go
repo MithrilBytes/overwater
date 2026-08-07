@@ -38,10 +38,10 @@ func CSV(findings []rules.Finding) []byte {
 	return b.Bytes()
 }
 
-// neutralize defuses spreadsheet formula injection. File paths, model
+// neutralize defuses spreadsheet formula injection. Paths, model
 // strings, and evidence are repo controlled, and a cell starting with
-// =, +, -, @, tab, or carriage return executes as a formula when the
-// CSV opens in a spreadsheet app. A leading single quote keeps it text.
+// =, +, -, @, tab, or carriage return runs as a formula on open. A
+// leading single quote keeps it text.
 func neutralize(cell string) string {
 	if cell == "" {
 		return cell

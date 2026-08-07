@@ -9,9 +9,9 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// htmlHead is the fixed page shell: inline CSS only, a system font
-// stack, and a dark variant behind prefers-color-scheme. No scripts and
-// no external assets, so the page stays self contained.
+// htmlHead is the fixed page shell: inline CSS, a system font stack, and
+// a dark variant behind prefers-color-scheme. No scripts and no external
+// assets; the page must stay self contained.
 const htmlHead = `<!doctype html>
 <html lang="en">
 <head>
@@ -59,8 +59,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
 
 const htmlFoot = "</body>\n</html>\n"
 
-// HTML renders the verdict as one self contained page: the same header
-// facts as the markdown surface, then one card per finding.
+// HTML renders the verdict as one page: the same header facts as the
+// markdown surface, then one card per finding.
 func HTML(findings []rules.Finding, meta Meta) []byte {
 	var b bytes.Buffer
 	b.WriteString(htmlHead)
@@ -81,8 +81,8 @@ func HTML(findings []rules.Finding, meta Meta) []byte {
 	return b.Bytes()
 }
 
-// card renders the five field contract for one finding as a definition
-// list inside a bordered section, in the same order as block.
+// card renders one finding as a definition list, same field order as
+// block.
 func card(f rules.Finding) string {
 	var b strings.Builder
 	head := f.Archetype

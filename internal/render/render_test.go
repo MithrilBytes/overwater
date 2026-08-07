@@ -24,7 +24,7 @@ func sampleFinding() rules.Finding {
 	}
 }
 
-func TestBlockRendersFiveFieldsInOrder(t *testing.T) {
+func TestBlockFieldOrder(t *testing.T) {
 	f := sampleFinding()
 	f.Flags = []string{"No prompt caching on a 1,800-token repeated system prompt"}
 	got := block(f)
@@ -38,7 +38,7 @@ func TestBlockRendersFiveFieldsInOrder(t *testing.T) {
 	}
 }
 
-func TestBlockWithoutFlagsSaysNone(t *testing.T) {
+func TestBlockNoFlags(t *testing.T) {
 	if got := block(sampleFinding()); !strings.Contains(got, "Flag:      None\n") {
 		t.Errorf("block = %q, want a None flag line", got)
 	}
@@ -53,7 +53,7 @@ func TestTerminalNullVerdict(t *testing.T) {
 	}
 }
 
-func TestJSONFindingsAlwaysAnArray(t *testing.T) {
+func TestJSONFindingsArray(t *testing.T) {
 	out, err := JSON(nil, Meta{CatalogVersion: "2026-08-05", CallsPerMonth: 10000})
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestJSONCarriesCandidateModel(t *testing.T) {
 	}
 }
 
-func TestCommaFormatting(t *testing.T) {
+func TestComma(t *testing.T) {
 	cases := map[int]string{0: "0", 999: "999", 1000: "1,000", 10000: "10,000", 1234567: "1,234,567"}
 	for n, want := range cases {
 		if got := comma(n); got != want {

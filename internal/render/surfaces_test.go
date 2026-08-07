@@ -39,7 +39,7 @@ func TestSummaryLine(t *testing.T) {
 	}
 }
 
-func TestCSVHeaderAndQuoting(t *testing.T) {
+func TestCSVHeaderAndQuotes(t *testing.T) {
 	out := string(CSV([]rules.Finding{sampleFinding()}))
 	header := "rule,confidence,file,line,archetype,evidence,model,monthly_usd,candidate,candidate_model,tripwire,flags\n"
 	if !strings.HasPrefix(out, header) {
@@ -56,7 +56,7 @@ func TestCSVHeaderAndQuoting(t *testing.T) {
 
 // Cells the repo controls must never open as formulas in a spreadsheet
 // app: a leading =, +, -, @, tab, or carriage return gets a quote prefix.
-func TestCSVNeutralizesFormulaLeadingChars(t *testing.T) {
+func TestCSVNeutralizesFormulas(t *testing.T) {
 	leads := []string{
 		`=HYPERLINK("http://evil.example","click")`,
 		"+cmd|' /C calc'!A0",

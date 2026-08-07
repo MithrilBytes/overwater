@@ -1,7 +1,7 @@
 // Package render turns findings into each output surface: terminal text
-// for humans, MODELS.md for the scanned repo, and JSON for machines.
-// Renderers only format; every fact arrives precomputed on the finding,
-// which is what makes byte for byte golden matching possible.
+// for humans, MODELS.md for the scanned repo, JSON, CSV, SARIF, and HTML
+// for everything else. Renderers only format; every fact arrives
+// precomputed on the finding.
 package render
 
 import (
@@ -21,8 +21,7 @@ type Meta struct {
 	CallsPerMonth  int
 }
 
-// KeepVerdict is the exact null verdict. When no finding clears the bar,
-// this sentence is the entire judgment.
+// KeepVerdict is the null verdict, rendered verbatim when nothing fires.
 const KeepVerdict = "Keep the models you have."
 
 // Terminal writes the human readable verdict.
@@ -104,8 +103,8 @@ func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
 	return append(out, '\n'), nil
 }
 
-// block renders the five field verdict contract for one finding, in the
-// fixed order: Call site, Current, Candidate, Tripwire, Flag.
+// block renders the verdict contract for one finding, in the fixed
+// order: Call site, Current, Candidate, Tripwire, Flag.
 func block(f rules.Finding) string {
 	var b strings.Builder
 	head := f.Archetype
