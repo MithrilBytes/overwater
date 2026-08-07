@@ -140,7 +140,7 @@ func TestMaxCompletionTokensRegexFallback(t *testing.T) {
 // Prompt size is measured in runes: a non ASCII prompt must not count
 // three bytes per letter against token thresholds.
 func TestSystemPromptCharsCountsRunes(t *testing.T) {
-	prompt := strings.Repeat("Résumez les décisions clés en français. ", 3)
+	prompt := strings.Repeat("R\u00e9sumez les d\u00e9cisions cl\u00e9s en fran\u00e7ais. ", 3)
 	r := analyzeTemp(t, map[string]string{"recap.py": `def recap_reunion(text):
     return client.messages.create(
         model="claude-haiku-4-5",
