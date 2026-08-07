@@ -45,6 +45,20 @@ type file struct {
 	data []byte
 }
 
+// normalizeNewlines folds CRLF to LF at the one point where file content
+// enters the scanner, so every offset, line number, span, hash, and
+// measurement downstream sees one canonical form. Left in, the carriage
+// returns count as prompt characters, and the same commit gets a
+// different verdict on a Windows checkout than on a Unix one. Lone
+// carriage returns are left alone: they are not line breaks to any of
+// the languages here, and rewriting them would change line numbering.
+func normalizeNewlines(data []byte) []byte {
+	if !bytes.Contains(data, []byte("\r\n")) {
+		return data
+	}
+	return bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
+}
+
 // Directories that never hold first party call sites.
 var skipDirs = map[string]bool{
 	".git":           true,
@@ -136,7 +150,7 @@ func walk(root string) ([]file, error) {
 		if strings.HasSuffix(d.Name(), ".ipynb") {
 			data = notebookToPython(data)
 		}
-		files = append(files, file{path: rel, data: data})
+		files = append(files, file{path: rel, data: normalizeNewlines(data)})
 		return nil
 	})
 	return files, err
