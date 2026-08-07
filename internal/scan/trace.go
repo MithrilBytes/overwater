@@ -144,16 +144,11 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 					site.Known = true
 					site.ModelID = model.ID
 				}
-				r := a.regionFor(reader.path, reader.line, reader.col)
-				site.Shape = a.extractShape(reader.path, r)
-				site.Hash = a.siteHash(reader.path, reader.line, r)
 				tier := ""
 				if model != nil {
 					tier = model.Tier
 				}
-				site.Archetype, site.ArchetypeConfidence = a.classify(reader.path, site.Shape, r, tier)
-				site.Ignored, site.VolumeOverride = a.pragmas(reader.path, r)
-				site.NearbyStrings = a.nearbyStrings(reader.path, r)
+				a.describe(&site, tier)
 				report.Sites = append(report.Sites, site)
 			}
 		}

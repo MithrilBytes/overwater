@@ -107,6 +107,18 @@ func (a *analyzer) lineStarts(p string) []int {
 	return s
 }
 
+// describe fills in everything layers 3 and 4 can read about a site
+// whose File, Line and Col are already set. tier is the catalog tier of
+// the referenced model, empty when the model is unknown.
+func (a *analyzer) describe(site *Site, tier string) {
+	r := a.regionFor(site.File, site.Line, site.Col)
+	site.Shape = a.extractShape(site.File, r)
+	site.Hash = a.siteHash(site.File, site.Line, r)
+	site.Archetype, site.ArchetypeConfidence = a.classify(site.File, site.Shape, r, tier)
+	site.Ignored, site.VolumeOverride = a.pragmas(site.File, r)
+	site.NearbyStrings = a.nearbyStrings(site.File, r)
+}
+
 // siteHash fingerprints a call site so the baseline ratchet survives
 // line drift. An extent site hashes its prose masked extent with
 // whitespace collapsed, so moving the call or editing prompt prose

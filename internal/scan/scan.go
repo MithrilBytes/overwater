@@ -78,16 +78,11 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 	var sites []Site
 	for _, site := range findModelRefs(f.path, f.data, names) {
-		r := a.regionFor(f.path, site.Line, site.Col)
-		site.Shape = a.extractShape(f.path, r)
-		site.Hash = a.siteHash(f.path, site.Line, r)
 		tier := ""
 		if site.Known {
 			tier = names[site.Ref].Tier
 		}
-		site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, r, tier)
-		site.Ignored, site.VolumeOverride = a.pragmas(f.path, r)
-		site.NearbyStrings = a.nearbyStrings(f.path, r)
+		a.describe(&site, tier)
 		sites = append(sites, site)
 	}
 	return sites
