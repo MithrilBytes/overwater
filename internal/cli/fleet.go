@@ -70,6 +70,12 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 		rollup += fmt.Sprintf(", %d failed", failed)
 	}
 	fmt.Fprintln(stdout, rollup)
+	// Partial failures are stderr lines and the run continues, but a
+	// fleet that scanned nothing learned nothing: that is operational.
+	if len(repos) > 0 && scanned == 0 {
+		fmt.Fprintf(stderr, "overwater: all %d repos failed to scan\n", failed)
+		return ExitError
+	}
 	if *failOn == "any" && totalFindings > 0 {
 		fmt.Fprintf(stderr, "%d findings across the fleet; failing under --fail-on any\n", totalFindings)
 		return ExitFindings

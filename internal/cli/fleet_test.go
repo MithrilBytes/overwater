@@ -84,6 +84,37 @@ func TestFleetFailOnAnyPassesWhenAllClean(t *testing.T) {
 	}
 }
 
+// A fleet where every listed repo fails to scan learned nothing: that
+// is an operational error, not a clean rollup. Partial failures keep
+// the run green (covered above); an empty list stays clean too.
+func TestFleetAllReposFailIsNonZero(t *testing.T) {
+	dir := t.TempDir()
+	list := filepath.Join(dir, "repos.txt")
+	content := filepath.Join(dir, "gone-a") + "\n" + filepath.Join(dir, "gone-b") + "\n"
+	if err := os.WriteFile(list, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := runFleetArgs(t, list)
+	if code != ExitError {
+		t.Fatalf("exit = %d, want %d when zero repos scanned; stderr = %q", code, ExitError, stderr)
+	}
+	if !strings.Contains(stdout, "fleet: 0 repos") {
+		t.Errorf("stdout = %q, want the rollup still printed", stdout)
+	}
+	if !strings.Contains(stderr, "all 2 repos failed to scan") {
+		t.Errorf("stderr = %q, want the total failure named", stderr)
+	}
+
+	// An empty list is a no-op, not a failure.
+	empty := filepath.Join(dir, "empty.txt")
+	if err := os.WriteFile(empty, []byte("# nothing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, _, stderr := runFleetArgs(t, empty); code != ExitClean {
+		t.Errorf("empty list exit = %d, want clean; stderr = %q", code, stderr)
+	}
+}
+
 func TestFleetOperationalErrors(t *testing.T) {
 	_, _, list := fleetFixture(t)
 	cases := []struct {
