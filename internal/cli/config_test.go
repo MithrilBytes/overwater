@@ -30,6 +30,7 @@ type jsonReport struct {
 	CallsPerMonth int `json:"calls_per_month"`
 	Findings      []struct {
 		Rule       string `json:"rule"`
+		File       string `json:"file"`
 		MonthlyUSD int    `json:"monthly_usd"`
 	} `json:"findings"`
 }

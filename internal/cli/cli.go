@@ -160,10 +160,19 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
+	plans, err := planRoots(roots)
+	if err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
 	var findings []rules.Finding
 	var overBudgets []string
-	for _, r := range roots {
-		rf, overBudget, err := p.scanRoot(r, only, *volume)
+	for _, pl := range plans {
+		callsPerMonth := p.volumeFor(pl, *volume)
+		if pl.cfg != nil && pl.cfg.Volume > 0 {
+			p.meta.CallsPerMonth = callsPerMonth
+		}
+		rf, overBudget, err := p.scanRoot(pl, only, callsPerMonth)
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			return ExitError
@@ -175,11 +184,11 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 			// Prefix with the root's base name so merged findings stay
 			// attributable; a single root keeps today's byte identical
 			// output.
-			prefix := filepath.Base(filepath.Clean(r)) + "/"
+			prefix := filepath.Base(filepath.Clean(pl.root)) + "/"
 			for i := range rf {
 				rf[i].File = prefix + rf[i].File
 			}
-			fmt.Fprintf(stderr, "%s: %d findings\n", r, len(rf))
+			fmt.Fprintf(stderr, "%s: %d findings\n", pl.root, len(rf))
 		}
 		findings = append(findings, rf...)
 	}
@@ -309,9 +318,9 @@ func gitChangedFiles(root, sha string) (map[string]bool, error) {
 		return nil, fmt.Errorf("git ls-files: %w", err)
 	}
 	only := map[string]bool{}
-	for _, line := range strings.Split(string(diff)+string(untracked), "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			only[line] = true
+	for _, name := range strings.Split(string(diff)+string(untracked), "\n") {
+		if name = strings.TrimSpace(name); name != "" {
+			only[name] = true
 		}
 	}
 	return only, nil
@@ -337,12 +346,52 @@ func incrementalSet(root, baselinePath string, stderr io.Writer) map[string]bool
 	return only
 }
 
-// pipeline is the loaded catalog and rules shared by every root in one
-// invocation, so multi root scans price and judge consistently.
+// pipeline is the loaded catalog and the pristine rule set of one
+// invocation. The catalog load is the expensive part and happens once;
+// base is never evaluated or mutated after load, because every root
+// scans with its own clone.
 type pipeline struct {
-	cat    *catalog.Catalog
-	engine *rules.Engine
-	meta   render.Meta
+	cat  *catalog.Catalog
+	base *rules.Engine
+	meta render.Meta
+}
+
+// rootPlan pairs a root with its own .overwater.yaml, nil when the root
+// has none. Configs load before any scanning so a malformed one fails
+// the run before it prints half a report.
+type rootPlan struct {
+	root string
+	cfg  *repoConfig
+}
+
+func planRoot(root string) (rootPlan, error) {
+	cfg, err := loadRepoConfig(root)
+	if err != nil {
+		return rootPlan{}, err
+	}
+	return rootPlan{root: root, cfg: cfg}, nil
+}
+
+func planRoots(roots []string) ([]rootPlan, error) {
+	plans := make([]rootPlan, 0, len(roots))
+	for _, r := range roots {
+		pl, err := planRoot(r)
+		if err != nil {
+			return nil, err
+		}
+		plans = append(plans, pl)
+	}
+	return plans, nil
+}
+
+// volumeFor is one root's own calls per month: its config's volume, or
+// the estimate default. An explicit --volume already sits in the base
+// estimates and beats both.
+func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) int {
+	if flagVolume == 0 && pl.cfg != nil && pl.cfg.Volume > 0 {
+		return pl.cfg.Volume
+	}
+	return p.base.Est.Volume.CallsPerMonth
 }
 
 // newPipeline picks the effective catalog (embedded or a newer cache,
@@ -367,58 +416,54 @@ func newPipeline(volume int, stderr io.Writer) (*pipeline, error) {
 		engine.Est.Volume.CallsPerMonth = volume
 	}
 	return &pipeline{
-		cat:    cat,
-		engine: engine,
-		meta:   render.Meta{CatalogVersion: cat.Version, CallsPerMonth: engine.Est.Volume.CallsPerMonth},
+		cat:  cat,
+		base: engine,
+		meta: render.Meta{CatalogVersion: cat.Version, CallsPerMonth: engine.Est.Volume.CallsPerMonth},
 	}, nil
 }
 
-// applyRepoConfig folds the root's .overwater.yaml into the shared
-// engine. The flag beats the config, and the config beats the estimate
-// default. With several roots each config applies as its root is
-// scanned, last one winning the shared knobs; budgets are judged per
-// root. Returns the root's budget_monthly_usd, zero when unset.
-func (p *pipeline) applyRepoConfig(root string, flagVolume int) (float64, error) {
-	cfg, err := loadRepoConfig(root)
-	if err != nil {
-		return 0, err
+// engineFor builds the engine that judges one root: a fresh clone with
+// that root's config folded in and nothing from any other root. The
+// clone is what keeps a disabled rule or a moved threshold inside the
+// repository that asked for it.
+func (p *pipeline) engineFor(pl rootPlan, volume int) (*rules.Engine, error) {
+	eng := p.base.Clone()
+	eng.Est.Volume.CallsPerMonth = volume
+	if pl.cfg == nil {
+		return eng, nil
 	}
-	if cfg == nil {
-		return 0, nil
-	}
-	if flagVolume == 0 && cfg.Volume > 0 {
-		p.engine.Est.Volume.CallsPerMonth = cfg.Volume
-		p.meta.CallsPerMonth = cfg.Volume
-	}
-	p.engine.Disable(cfg.Disable)
-	for ruleID, fields := range cfg.Thresholds {
+	eng.Disable(pl.cfg.Disable)
+	for ruleID, fields := range pl.cfg.Thresholds {
 		for field, value := range fields {
-			if err := p.engine.SetThreshold(ruleID, field, value); err != nil {
-				return 0, fmt.Errorf("%s: %v", configName, err)
+			if err := eng.SetThreshold(ruleID, field, value); err != nil {
+				return nil, fmt.Errorf("%s: %v", configName, err)
 			}
 		}
 	}
-	return cfg.BudgetMonthlyUSD, nil
+	return eng, nil
 }
 
 // scanRoot runs the scanner and rules over one root under that root's
-// own config. A non nil only set restricts the scan to those root
-// relative files. overBudget is one line naming total and budget when
-// the config's budget_monthly_usd is exceeded, empty otherwise.
-func (p *pipeline) scanRoot(root string, only map[string]bool, flagVolume int) ([]rules.Finding, string, error) {
-	budget, err := p.applyRepoConfig(root, flagVolume)
+// own config and nothing else. volume is the calls per month this root
+// is priced at, resolved by the caller. A non nil only set restricts
+// the scan to those root relative files. overBudget is one line naming
+// total and budget when the config's budget_monthly_usd is exceeded,
+// empty otherwise.
+func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, volume int) ([]rules.Finding, string, error) {
+	eng, err := p.engineFor(pl, volume)
 	if err != nil {
 		return nil, "", err
 	}
-	report, err := scan.AnalyzeOnly(root, p.cat, only)
+	report, err := scan.AnalyzeOnly(pl.root, p.cat, only)
 	if err != nil {
 		return nil, "", err
 	}
-	findings := p.engine.Evaluate(report, p.cat)
+	findings := eng.Evaluate(report, p.cat)
 	overBudget := ""
-	if budget > 0 {
-		if total := p.engine.TotalMonthlyUSD(report, p.cat); total > budget {
-			overBudget = fmt.Sprintf("estimated ~$%.0f/mo across all known call sites exceeds budget_monthly_usd %g", total, budget)
+	if pl.cfg != nil && pl.cfg.BudgetMonthlyUSD > 0 {
+		if total := eng.TotalMonthlyUSD(report, p.cat); total > pl.cfg.BudgetMonthlyUSD {
+			overBudget = fmt.Sprintf("estimated ~$%.0f/mo across all known call sites exceeds budget_monthly_usd %g",
+				total, pl.cfg.BudgetMonthlyUSD)
 		}
 	}
 	return findings, overBudget, nil
@@ -431,7 +476,12 @@ func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, [
 	if err != nil {
 		return nil, nil, render.Meta{}, err
 	}
-	findings, _, err := p.scanRoot(root, nil, volume)
+	pl, err := planRoot(root)
+	if err != nil {
+		return nil, nil, render.Meta{}, err
+	}
+	p.meta.CallsPerMonth = p.volumeFor(pl, volume)
+	findings, _, err := p.scanRoot(pl, nil, p.meta.CallsPerMonth)
 	if err != nil {
 		return nil, nil, render.Meta{}, err
 	}

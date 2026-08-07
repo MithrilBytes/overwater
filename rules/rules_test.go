@@ -439,6 +439,36 @@ func TestDisableRemovesRules(t *testing.T) {
 	}
 }
 
+// A clone is what lets one repository's config disable a rule or move a
+// threshold without any other repository inheriting it, so nothing done
+// to the clone may reach the engine it came from.
+func TestCloneIsolatesDisableAndThresholds(t *testing.T) {
+	engine, cat := loadEngine(t)
+	clone := engine.Clone()
+	clone.Disable([]string{"deprecated-model"})
+	if err := clone.SetThreshold("retry-amplification", "min_retries", 99); err != nil {
+		t.Fatal(err)
+	}
+	clone.Est.Volume.CallsPerMonth = 1000000
+
+	report := &scan.Report{Sites: []scan.Site{
+		site("text-davinci-003", scan.ArchetypeSummarization, scan.Shape{}),
+		site("claude-opus-5", scan.ArchetypeChat, scan.Shape{MaxRetries: intPtr(6)}),
+	}}
+	var ids []string
+	for _, f := range engine.Evaluate(report, cat) {
+		ids = append(ids, f.RuleID)
+	}
+	for _, want := range []string{"deprecated-model", "retry-amplification"} {
+		if !contains(ids, want) {
+			t.Errorf("origin findings = %v, want %s still firing after the clone changed", ids, want)
+		}
+	}
+	if engine.Est.Volume.CallsPerMonth == 1000000 {
+		t.Error("the clone's volume reached the engine it came from")
+	}
+}
+
 func TestSetThresholdOverridesWhen(t *testing.T) {
 	engine, cat := loadEngine(t)
 	if err := engine.SetThreshold("retry-amplification", "min_retries", 6); err != nil {

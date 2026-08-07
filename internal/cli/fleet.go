@@ -47,7 +47,16 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 	}
 	scanned, failed, totalFindings, totalUSD := 0, 0, 0, 0
 	for _, repo := range repos {
-		findings, overBudget, err := p.scanRoot(repo, nil, 0)
+		// Each repo is planned and judged on its own: a fleet line is its
+		// own report, so a repo's volume and disabled rules stay with it
+		// however the list file is ordered.
+		pl, err := planRoot(repo)
+		if err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			failed++
+			continue
+		}
+		findings, overBudget, err := p.scanRoot(pl, nil, p.volumeFor(pl, 0))
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			failed++

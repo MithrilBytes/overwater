@@ -233,14 +233,27 @@ func (r Rule) validate() error {
 	return nil
 }
 
+// Clone returns an engine that shares nothing mutable with this one, so
+// a caller can disable rules or move thresholds for one repository
+// without touching any other's judgment. Copying the slice is enough
+// separation because the mutators replace whole fields rather than
+// writing through the slices and pointers a Rule holds.
+func (e *Engine) Clone() *Engine {
+	c := &Engine{Est: e.Est, Rules: make([]Rule, len(e.Rules))}
+	copy(c.Rules, e.Rules)
+	return c
+}
+
 // Disable removes the named rules from the engine. Removing a rule
-// that does not exist is a no-op, so configs survive rule renames.
+// that does not exist is a no-op, so configs survive rule renames. The
+// kept rules land in a fresh slice: filtering in place would also
+// rewrite the backing array of any engine this one was cloned from.
 func (e *Engine) Disable(ids []string) {
 	drop := map[string]bool{}
 	for _, id := range ids {
 		drop[id] = true
 	}
-	kept := e.Rules[:0]
+	kept := make([]Rule, 0, len(e.Rules))
 	for _, r := range e.Rules {
 		if !drop[r.ID] {
 			kept = append(kept, r)

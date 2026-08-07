@@ -122,6 +122,32 @@ rm "$guard/.overwater.yaml"
 # Multi root merge.
 check multi-root 0 "Call site:" "$bin" scan fixtures/py-extraction fixtures/clean-app
 
+# Config isolation. Two identical repos, one carrying a config: whatever
+# it disables or prices must stay inside it, in either argument order and
+# in either list order, or the same fleet reports two different verdicts.
+iso="$work/iso"
+mkdir -p "$iso/svc-a" "$iso/svc-b"
+for svc in svc-a svc-b; do
+  cat > "$iso/$svc/legacy.js" <<'JS'
+const client = new (require("openai"))();
+
+async function fetchLegacy(text) {
+  return client.completions.create({
+    model: "text-davinci-003",
+    max_tokens: 100,
+    prompt: text,
+  });
+}
+JS
+done
+printf 'disable:\n  - deprecated-model\n' > "$iso/svc-a/.overwater.yaml"
+check config-no-leak-ab 1 "svc-b/legacy.js" "$bin" scan -fail-on any "$iso/svc-a" "$iso/svc-b"
+check config-no-leak-ba 1 "svc-b/legacy.js" "$bin" scan -fail-on any "$iso/svc-b" "$iso/svc-a"
+printf '%s\n%s\n' "$iso/svc-a" "$iso/svc-b" > "$iso/ab.txt"
+printf '%s\n%s\n' "$iso/svc-b" "$iso/svc-a" > "$iso/ba.txt"
+check fleet-no-leak-ab 1 "fleet: 2 repos, 1 findings" "$bin" fleet -fail-on any "$iso/ab.txt"
+check fleet-no-leak-ba 1 "fleet: 2 repos, 1 findings" "$bin" fleet -fail-on any "$iso/ba.txt"
+
 # Diff over two reports.
 "$bin" scan -json fixtures/clean-app > "$work/old.json" 2> /dev/null
 "$bin" scan -json fixtures/py-extraction > "$work/new.json" 2> /dev/null
