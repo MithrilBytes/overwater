@@ -247,10 +247,11 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		scanned:      only,
 	}, stderr)
 	// A blown budget is a findings failure, never an operational error,
-	// and never masks one.
+	// and never masks one. Recording a baseline stays exempt: that run's
+	// contract is to write the file and exit clean, budget or not.
 	for _, line := range overBudgets {
 		fmt.Fprintln(stderr, line)
-		if code == ExitClean {
+		if code == ExitClean && !*updateBaseline {
 			code = ExitFindings
 		}
 	}

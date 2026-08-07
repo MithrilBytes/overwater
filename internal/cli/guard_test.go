@@ -225,6 +225,29 @@ func TestInvalidBaselineIsOperationalError(t *testing.T) {
 	}
 }
 
+// Recording a baseline never fails, even when the repo's config budget
+// is blown: the budget line still prints, the file still lands, exit 0.
+func TestUpdateBaselineNeverFailsOnBlownBudget(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	writeRepoFile(t, repo, ".overwater.yaml", "budget_monthly_usd: 1\n")
+	bl := filepath.Join(dir, ".overwater.json")
+	code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo)
+	if code != ExitClean {
+		t.Fatalf("update-baseline exit = %d, want %d; stderr = %q", code, ExitClean, stderr)
+	}
+	if !strings.Contains(stderr, "exceeds budget_monthly_usd") {
+		t.Errorf("stderr = %q, want the budget line to still print", stderr)
+	}
+	if _, err := os.Stat(bl); err != nil {
+		t.Errorf("baseline was not written: %v", err)
+	}
+}
+
 func TestMissingBaselineIsOperationalError(t *testing.T) {
 	dir := t.TempDir()
 	code, _, stderr := runScanArgs(t, "-baseline", filepath.Join(dir, "absent.json"), fixturePath("clean-app"))
