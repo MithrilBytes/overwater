@@ -335,7 +335,16 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 				flagRules = append(flagRules, r)
 				continue
 			}
-			siteFindings = append(siteFindings, e.finding(r, site, model, cat))
+			f := e.finding(r, site, model, cat)
+			// cheapest_embedding exists solely to name a cheaper same
+			// provider sibling. When nothing cheaper exists, a finding
+			// would only restate the price with no move to make, so it
+			// is dropped instead of shipped with the no-candidate
+			// wording.
+			if r.Candidate.Strategy == "cheapest_embedding" && f.CandidateModel == "" {
+				continue
+			}
+			siteFindings = append(siteFindings, f)
 		}
 		if len(siteFindings) == 0 {
 			// A flag with no host finding still deserves a verdict block.

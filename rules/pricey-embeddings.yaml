@@ -1,10 +1,13 @@
 # Embeddings priced at the top of the tier when the same provider sells
-# a standard tier that usually retrieves just as well.
+# a standard tier that usually retrieves just as well. The engine drops
+# the finding entirely when no cheaper same provider embedding exists:
+# a provider's only embedding is not "pricey", it is the price.
 id: pricey-embeddings
 kind: finding
 confidence: high
 when:
   archetype: [embedding]
+  # Inclusive: a model at exactly 0.10 per Mtok trips the rule.
   min_input_per_mtok: 0.10
 candidate:
   strategy: cheapest_embedding

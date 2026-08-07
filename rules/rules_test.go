@@ -632,6 +632,31 @@ func TestTranscriptionOnCronTripsBatchOnRealtime(t *testing.T) {
 	}
 }
 
+// pricey-embeddings needs a cheaper same provider embedding to point
+// at. mistral-embed and gemini-embedding-001 are their providers' only
+// embeddings, and cohere's alternative costs more; none may draw a
+// finding. The openai pair keeps its nomination.
+func TestPriceyEmbeddingsSilentWithoutCheaperCandidate(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("mistral-embed", scan.ArchetypeEmbedding, scan.Shape{}),
+		site("gemini-embedding-001", scan.ArchetypeEmbedding, scan.Shape{Dimensions: intPtr(256)}),
+		site("embed-english-v3.0", scan.ArchetypeEmbedding, scan.Shape{}),
+	}}
+	for _, f := range engine.Evaluate(report, cat) {
+		if f.RuleID == "pricey-embeddings" {
+			t.Errorf("pricey-embeddings fired on %s with no cheaper sibling to name", f.Model)
+		}
+	}
+	report = &scan.Report{Sites: []scan.Site{
+		site("text-embedding-3-large", scan.ArchetypeEmbedding, scan.Shape{Dimensions: intPtr(256)}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "pricey-embeddings" || got[0].CandidateModel != "text-embedding-3-small" {
+		t.Errorf("got %+v, want pricey-embeddings nominating text-embedding-3-small", got)
+	}
+}
+
 // The price_multiplier strategy prefers the model's own published
 // batch_multiplier over the rule's flat yaml multiplier, which stays
 // the fallback for entries without one. Both are 0.5 in shipped data,
