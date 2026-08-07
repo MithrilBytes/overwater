@@ -39,9 +39,12 @@ func runDiff(args []string, stdout, stderr io.Writer) int {
 	return ExitClean
 }
 
-// scanReport is the subset of scan --json output the diff reads.
+// scanReport is the subset of scan --json output the diff reads. The
+// catalog version is the tell: every scan --json carries one, so its
+// absence means the file is some other JSON entirely.
 type scanReport struct {
-	Findings []scanFinding `json:"findings"`
+	CatalogVersion string        `json:"catalog_version"`
+	Findings       []scanFinding `json:"findings"`
 }
 
 type scanFinding struct {
@@ -59,6 +62,9 @@ func readScanJSON(path string) (*scanReport, error) {
 	var r scanReport
 	if err := json.Unmarshal(raw, &r); err != nil {
 		return nil, fmt.Errorf("%s is not scan --json output: %w", path, err)
+	}
+	if r.CatalogVersion == "" {
+		return nil, fmt.Errorf("%s is not scan --json output: it has no catalog_version", path)
 	}
 	return &r, nil
 }

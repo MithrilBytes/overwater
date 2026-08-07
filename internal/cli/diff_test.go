@@ -72,7 +72,7 @@ func TestDiffIdenticalReportsOnlyTotal(t *testing.T) {
 func TestDiffCostDropShowsNegativeDelta(t *testing.T) {
 	dir := t.TempDir()
 	oldPath := writeDoc(t, dir, "old.json", oldDoc)
-	empty := writeDoc(t, dir, "empty.json", `{"findings": []}`)
+	empty := writeDoc(t, dir, "empty.json", `{"catalog_version": "2026-08-06", "findings": []}`)
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"diff", oldPath, empty}, &stdout, &stderr)
 	if code != ExitClean {
@@ -84,6 +84,29 @@ func TestDiffCostDropShowsNegativeDelta(t *testing.T) {
 	}
 	if !strings.Contains(out, "total: ~$160/mo -> ~$0/mo (-$160/mo)") {
 		t.Errorf("stdout = %q, want a negative delta total", out)
+	}
+}
+
+// Valid JSON that is not a scan report ({}) must not diff as an empty
+// report and pass: it exits 2 and names the file.
+func TestDiffRejectsNonReportJSON(t *testing.T) {
+	dir := t.TempDir()
+	good := writeDoc(t, dir, "good.json", oldDoc)
+	for name, doc := range map[string]string{
+		"empty object": `{}`,
+		"other schema": `{"widgets": [1, 2, 3]}`,
+		"null":         `null`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			bad := writeDoc(t, dir, "bad.json", doc)
+			var stdout, stderr bytes.Buffer
+			if code := Run([]string{"diff", bad, good}, &stdout, &stderr); code != ExitError {
+				t.Fatalf("exit = %d, want %d; stdout = %q", code, ExitError, stdout.String())
+			}
+			if !strings.Contains(stderr.String(), bad) || !strings.Contains(stderr.String(), "not scan --json output") {
+				t.Errorf("stderr = %q, want the file named as not scan --json output", stderr.String())
+			}
+		})
 	}
 }
 
