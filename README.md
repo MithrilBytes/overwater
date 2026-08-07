@@ -21,7 +21,7 @@ file. The installer verifies it for you:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.1.0
+sh install.sh v2.2.0
 ```
 
 ## Usage
@@ -124,7 +124,7 @@ Record a baseline once, commit it, and only new findings fail:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: MithrilBytes/overwater@v2.1.0
+- uses: MithrilBytes/overwater@v2.2.0
   with:
     baseline: .overwater.json
 ```
@@ -238,15 +238,20 @@ config, baseline aging, incremental scans, `diff`, `fleet`, multi root
 scans, HTML, CSV, SARIF, and summary output, eight provider eval
 templates with an optional judge, and 88 catalog entries.
 
-**v2.1** is the current line. Measured volumes: a volumes file keyed by
-call site or model, an importer for provider usage exports, and
-provenance on every dollar figure. A rebuilt archetype scorer that reads
-the SDK method, the token cap as intent, schema shape, and negation, so
-a prompt saying "never reply to the customer" no longer scores as a
-chat. Call sites now carry fan in and the models their callers pass, so
-a helper wrapping the SDK is visible as one site with many callers. A
-scan root may be a single file, for editors and pre commit hooks, and
-`explain` prints a rule from its own YAML.
+**v2.1** added measured volumes: a volumes file keyed by call site or
+model, an importer for provider usage exports, and provenance on every
+dollar figure. A rebuilt archetype scorer that reads the SDK method, the
+token cap as intent, schema shape, and negation, so a prompt saying
+"never reply to the customer" no longer scores as a chat. Call sites
+gained fan in and the models their callers pass.
+
+**v2.2** is the current line. A helper that wraps the SDK is now priced
+for the callers it serves, not as one call: a wrapper with two hundred
+callers costs two hundred times a leaf call. Only an exactly resolved
+helper multiplies, and a caller that passes its own model is billed to
+itself rather than twice. A scan root may be a single file, for editors
+and pre commit hooks. `explain <rule-id>` prints a rule from its own
+YAML.
 
 Verified by 274 labeled corpus cases at 0.99 accuracy on a holdout split
 assigned before any tuning, 79 black box smoke checks through the real
