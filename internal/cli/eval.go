@@ -14,7 +14,7 @@ import (
 // analyzeRepo scans one root for eval. A blown budget is a guard
 // concern; eval ignores it.
 func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, error) {
-	p, err := newPipeline(volume, stderr)
+	p, err := newPipeline(volume, nil, stderr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -22,11 +22,11 @@ func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, [
 	if err != nil {
 		return nil, nil, err
 	}
-	findings, _, err := p.scanRoot(pl, nil, p.volumeFor(pl, volume))
+	res, err := p.scanRoot(pl, nil, p.volumeFor(pl, volume))
 	if err != nil {
 		return nil, nil, err
 	}
-	return p.cat, findings, nil
+	return p.cat, res.findings, nil
 }
 
 // runEval generates one A/B eval script per finding that nominates a

@@ -38,6 +38,7 @@ var commands = []command{
 	{"diff", "compare two scan --json reports", runDiff},
 	{"fleet", "scan every repository in a list file", runFleet},
 	{"eval", "generate A/B eval scripts for scan findings", runEval},
+	{"volumes", "import a provider usage export into a volumes file", runVolumes},
 	{"catalog", "show or refresh the model catalog", runCatalog},
 	{"version", "print the overwater version", runVersion},
 }

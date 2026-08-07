@@ -55,6 +55,7 @@ condition under which you should not switch.
 | `diff` | compare two `scan --json` reports, with delta dollars |
 | `fleet` | scan a list of repositories into one rollup |
 | `eval` | generate a runnable A/B script per finding |
+| `volumes` | import a provider usage export into a volumes file |
 | `catalog` | show, build, refresh, or diff the model catalog |
 | `version` | print the build |
 
@@ -69,7 +70,43 @@ condition under which you should not switch.
 | `--incremental` | scan only files changed since the baseline commit |
 | `--max-baseline-age-days` | nag about findings baselined too long |
 | `--volume` | calls per month per call site, default 10,000 |
+| `--volumes` | JSON file of measured monthly calls, by site or model |
 | `--refresh`, `--offline` | catalog fetch, and forbidding it |
+
+### Measured volumes
+
+Without measured traffic every dollar figure is the default assumption
+times a price, and says so: `at estimated volume`. Feed real numbers in
+and the findings priced from them read `at measured volume` instead,
+with `volume` and `volume_source` on each `--json` finding.
+
+```json
+{
+  "sites": {"src/classify.ts:57": 250000},
+  "models": {"gpt-5.1": 1200000}
+}
+```
+
+```bash
+overwater scan --volumes volumes.json path/to/repo
+```
+
+A site key is `file:line`, relative to the scan root. A model key
+covers every call site on that model, split evenly, and loses to a site
+key. Both beat an `overwater:volume` pragma. Keys that match no call
+site are named on stderr; a malformed file is exit 2.
+
+Provider usage exports become a volumes file keyed by model:
+
+```bash
+overwater volumes import -o volumes.json usage.csv
+```
+
+Both a CSV with a model column and a request count column and a JSON
+array of records work; the columns are matched by name, and which ones
+were read and how many rows print on stderr. Models the catalog does
+not carry are reported and kept. The file is read locally; overwater
+never calls a provider API.
 
 ### CI
 

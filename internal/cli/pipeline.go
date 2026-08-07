@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/MithrilBytes/overwater/catalog"
@@ -18,6 +19,9 @@ type pipeline struct {
 	cat  *catalog.Catalog
 	base *rules.Engine
 	meta render.Meta
+	// volumesPath labels the stderr notes about the volumes file; empty
+	// when the run has none.
+	volumesPath string
 }
 
 // rootPlan pairs a root with its own .overwater.yaml, nil when it has
@@ -48,22 +52,33 @@ func planRoots(roots []string) ([]rootPlan, error) {
 	return plans, nil
 }
 
-// volumeFor is one root's calls per month: its config's volume, or the
-// estimate default. An explicit --volume is already in the base
-// estimates and beats both.
-func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) int {
-	if flagVolume == 0 && pl.cfg != nil && pl.cfg.Volume > 0 {
-		return pl.cfg.Volume
+// volumeChoice is the fallback volume for the call sites no volumes
+// file covers, and where that number came from.
+type volumeChoice struct {
+	calls  int
+	source string
+}
+
+// volumeFor is one root's fallback calls per month and its provenance:
+// an explicit --volume, already folded into the base estimates, beats
+// the root's config, which beats the estimate default. A volumes file
+// overrides all three per call site.
+func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) volumeChoice {
+	if flagVolume > 0 {
+		return volumeChoice{p.base.Est.Volume.CallsPerMonth, rules.VolumeFlag}
 	}
-	return p.base.Est.Volume.CallsPerMonth
+	if pl.cfg != nil && pl.cfg.Volume > 0 {
+		return volumeChoice{pl.cfg.Volume, rules.VolumeConfig}
+	}
+	return volumeChoice{p.base.Est.Volume.CallsPerMonth, rules.VolumeEstimate}
 }
 
 // volumeAcross picks the one volume a merged report is priced and
 // headed at. A report carries a single header, so per root volumes hold
 // only when every root resolves to the same number; disagreeing roots
 // fall back to the estimate default and are named on stderr.
-func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writer) int {
-	def := p.base.Est.Volume.CallsPerMonth
+func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writer) volumeChoice {
+	def := volumeChoice{p.base.Est.Volume.CallsPerMonth, rules.VolumeEstimate}
 	agreed := def
 	for i, pl := range plans {
 		v := p.volumeFor(pl, flagVolume)
@@ -71,9 +86,9 @@ func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writ
 			agreed = v
 			continue
 		}
-		if v != agreed {
+		if v.calls != agreed.calls {
 			fmt.Fprintf(stderr, "%s: %s volume %d disagrees with %d elsewhere; pricing every root at %d\n",
-				pl.root, configName, v, agreed, def)
+				pl.root, configName, v.calls, agreed.calls, def.calls)
 			return def
 		}
 	}
@@ -83,7 +98,7 @@ func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writ
 // newPipeline loads the effective catalog (embedded or a newer cache,
 // no network) and the rules. Notes such as a bad cache or stale prices
 // go to stderr; stdout belongs to the renderers.
-func newPipeline(volume int, stderr io.Writer) (*pipeline, error) {
+func newPipeline(volume int, vols *volumesFile, stderr io.Writer) (*pipeline, error) {
 	cat, note, err := catalog.Effective()
 	if err != nil {
 		return nil, err
@@ -101,19 +116,25 @@ func newPipeline(volume int, stderr io.Writer) (*pipeline, error) {
 	if volume > 0 {
 		engine.Est.Volume.CallsPerMonth = volume
 	}
-	return &pipeline{
+	p := &pipeline{
 		cat:  cat,
 		base: engine,
 		meta: render.Meta{CatalogVersion: cat.Version, CallsPerMonth: engine.Est.Volume.CallsPerMonth},
-	}, nil
+	}
+	if vols != nil {
+		engine.Volumes = vols.volumes
+		p.volumesPath = vols.path
+	}
+	return p, nil
 }
 
 // engineFor clones the base engine and folds in one root's config, so a
 // disabled rule or a moved threshold stays inside the repo that asked
 // for it.
-func (p *pipeline) engineFor(pl rootPlan, volume int) (*rules.Engine, error) {
+func (p *pipeline) engineFor(pl rootPlan, vol volumeChoice) (*rules.Engine, error) {
 	eng := p.base.Clone()
-	eng.Est.Volume.CallsPerMonth = volume
+	eng.Est.Volume.CallsPerMonth = vol.calls
+	eng.DefaultVolumeSource = vol.source
 	if pl.cfg == nil {
 		return eng, nil
 	}
@@ -128,46 +149,61 @@ func (p *pipeline) engineFor(pl rootPlan, volume int) (*rules.Engine, error) {
 	return eng, nil
 }
 
+// rootResult is one root's contribution to the merged report.
+// overBudget is one line naming total and budget when the config's
+// budget_monthly_usd is exceeded, empty otherwise; unmatched names the
+// volumes file keys no call site in this root used.
+type rootResult struct {
+	findings   []rules.Finding
+	overBudget string
+	unmatched  []string
+}
+
 // scanRoot scans one root under its own config and nothing else. A non
 // nil only set restricts the scan to those root relative files.
-// overBudget is one line naming total and budget when the config's
-// budget_monthly_usd is exceeded, empty otherwise.
-func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, volume int) ([]rules.Finding, string, error) {
-	eng, err := p.engineFor(pl, volume)
+func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice) (rootResult, error) {
+	eng, err := p.engineFor(pl, vol)
 	if err != nil {
-		return nil, "", err
+		return rootResult{}, err
 	}
 	report, err := scan.AnalyzeOnly(pl.root, p.cat, only)
 	if err != nil {
-		return nil, "", err
+		return rootResult{}, err
 	}
-	findings := eng.Evaluate(report, p.cat)
-	overBudget := ""
+	res := rootResult{
+		findings:  eng.Evaluate(report, p.cat),
+		unmatched: eng.UnmatchedVolumeKeys(report, p.cat),
+	}
 	if pl.cfg != nil && pl.cfg.BudgetMonthlyUSD > 0 {
 		if total := eng.TotalMonthlyUSD(report, p.cat); total > pl.cfg.BudgetMonthlyUSD {
-			overBudget = fmt.Sprintf("estimated ~$%.0f/mo across all known call sites exceeds budget_monthly_usd %g",
+			res.overBudget = fmt.Sprintf("~$%.0f/mo across all known call sites exceeds budget_monthly_usd %g",
 				total, pl.cfg.BudgetMonthlyUSD)
 		}
 	}
-	return findings, overBudget, nil
+	return res, nil
 }
 
 // scanPlans scans every planned root at one volume and merges the
 // results. Several roots prefix their findings with the root's base
 // name to stay attributable and report their counts on stderr; a single
 // root is left alone. Each over budget root contributes one line.
-func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, volume int, stderr io.Writer) ([]rules.Finding, []string, error) {
+func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeChoice, stderr io.Writer) ([]rules.Finding, []string, error) {
 	multi := len(plans) > 1
 	var findings []rules.Finding
 	var overBudgets []string
+	misses := map[string]int{}
 	for _, pl := range plans {
-		rf, overBudget, err := p.scanRoot(pl, only, volume)
+		res, err := p.scanRoot(pl, only, vol)
 		if err != nil {
 			return nil, nil, err
 		}
-		if overBudget != "" {
-			overBudgets = append(overBudgets, overBudget)
+		if res.overBudget != "" {
+			overBudgets = append(overBudgets, res.overBudget)
 		}
+		for _, key := range res.unmatched {
+			misses[key]++
+		}
+		rf := res.findings
 		if multi {
 			prefix := filepath.Base(filepath.Clean(pl.root)) + "/"
 			for i := range rf {
@@ -177,5 +213,22 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, volume int,
 		}
 		findings = append(findings, rf...)
 	}
+	p.reportUnmatched(misses, len(plans), stderr)
 	return findings, overBudgets, nil
+}
+
+// reportUnmatched names the volumes file keys that matched nothing
+// anywhere. A key is only unknown when every root missed it: under
+// several roots each key belongs to one of them.
+func (p *pipeline) reportUnmatched(misses map[string]int, roots int, stderr io.Writer) {
+	var lines []string
+	for key, n := range misses {
+		if n == roots {
+			lines = append(lines, key)
+		}
+	}
+	sort.Strings(lines)
+	for _, line := range lines {
+		fmt.Fprintf(stderr, "%s: %s\n", p.volumesPath, line)
+	}
 }

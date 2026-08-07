@@ -16,6 +16,7 @@ import (
 type scanFlags struct {
 	roots          []string
 	volume         int
+	volumesPath    string
 	jsonOut        bool
 	summary        bool
 	sarif          string
@@ -44,6 +45,7 @@ func parseScanFlags(args []string, stderr io.Writer) (scanFlags, bool) {
 	fs.StringVar(&f.sarif, "sarif", "", "write findings as SARIF 2.1.0 to this path")
 	fs.BoolVar(&f.modelsMD, "models-md", false, "write MODELS.md into the scanned repo")
 	fs.IntVar(&f.volume, "volume", 0, "estimated calls per month per call site")
+	fs.StringVar(&f.volumesPath, "volumes", "", "JSON file of measured monthly calls by call site or model")
 	fs.StringVar(&f.baselinePath, "baseline", "", "baseline file for the ratchet")
 	fs.BoolVar(&f.updateBaseline, "update-baseline", false, "record this scan's findings as the baseline")
 	fs.IntVar(&f.maxAgeDays, "max-baseline-age-days", 0, "nag when a matched baseline entry is older than this many days (0 disables)")
@@ -95,7 +97,16 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 			only = incrementalSet(f.roots[0], defaultBaselinePath(f.baselinePath), stderr)
 		}
 	}
-	p, err := newPipeline(f.volume, stderr)
+	var vols *volumesFile
+	if f.volumesPath != "" {
+		loaded, err := loadVolumes(f.volumesPath)
+		if err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		vols = loaded
+	}
+	p, err := newPipeline(f.volume, vols, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
@@ -105,8 +116,9 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	p.meta.CallsPerMonth = p.volumeAcross(plans, f.volume, stderr)
-	findings, overBudgets, err := p.scanPlans(plans, only, p.meta.CallsPerMonth, stderr)
+	vol := p.volumeAcross(plans, f.volume, stderr)
+	p.meta.CallsPerMonth = vol.calls
+	findings, overBudgets, err := p.scanPlans(plans, only, vol, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError

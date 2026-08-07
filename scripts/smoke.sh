@@ -119,6 +119,32 @@ printf 'no_such_key: 1\n' > "$guard/.overwater.yaml"
 check config-unknown-key 2 - "$bin" scan "$guard"
 rm "$guard/.overwater.yaml"
 
+# Measured volumes: the dollars move, the wording moves with them, and
+# keys that match nothing are named rather than dropped.
+vol="$work/volumes.json"
+printf '{"sites": {"extract.py:24": 100000}, "models": {"gpt-4o": 5}}\n' > "$vol"
+check volumes-measured 0 "at measured volume" "$bin" scan -volumes "$vol" fixtures/py-extraction
+check volumes-priced 0 "claude-opus-5 at ~\$1258/mo" "$bin" scan -volumes "$vol" fixtures/py-extraction
+check volumes-unknown-key 0 "no call site uses model gpt-4o" "$bin" scan -volumes "$vol" fixtures/py-extraction
+check volumes-json 0 '"volume_source": "measured"' "$bin" scan -json -volumes "$vol" fixtures/py-extraction
+check volumes-estimate-untouched 0 "at estimated volume" "$bin" scan fixtures/py-extraction
+printf 'not json' > "$work/bad-volumes.json"
+check volumes-malformed 2 - "$bin" scan -volumes "$work/bad-volumes.json" fixtures/py-extraction
+check volumes-missing 2 - "$bin" scan -volumes "$work/absent-volumes.json" fixtures/py-extraction
+
+# Importing a provider usage export, in both shapes, into a file the
+# scan reads back.
+printf 'Date,Model Name,N_Requests\n2026-07-01,claude-opus-5,60000\n2026-07-02,claude-opus-5,40000\n' > "$work/usage.csv"
+check volumes-import-csv 0 'model column "Model Name"' "$bin" volumes import -o "$work/imported.json" "$work/usage.csv"
+check volumes-import-sum 0 '"claude-opus-5": 100000' grep claude-opus-5 "$work/imported.json"
+check volumes-import-scan 0 "claude-opus-5 at ~\$1258/mo" "$bin" scan -volumes "$work/imported.json" fixtures/py-extraction
+printf '[{"model":"claude-opus-5","requests":25},{"model":"nope-1","requests":1}]\n' > "$work/usage.json"
+check volumes-import-json 0 'model field "model"' "$bin" volumes import -o - "$work/usage.json"
+check volumes-import-unknown-model 0 "not in the catalog" "$bin" volumes import -o - "$work/usage.json"
+check volumes-import-bad 2 - "$bin" volumes import -o - "$work/nothing-here.csv"
+check volumes-no-subcommand 2 "volumes import" "$bin" volumes
+check volumes-unknown-subcommand 2 "unknown subcommand" "$bin" volumes export
+
 # Multi root merge.
 check multi-root 0 "Call site:" "$bin" scan fixtures/py-extraction fixtures/clean-app
 

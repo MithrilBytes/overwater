@@ -50,7 +50,7 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	p, err := newPipeline(0, stderr)
+	p, err := newPipeline(0, nil, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
@@ -65,15 +65,16 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 			failed++
 			continue
 		}
-		findings, overBudget, err := p.scanRoot(pl, nil, p.volumeFor(pl, 0))
+		res, err := p.scanRoot(pl, nil, p.volumeFor(pl, 0))
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			failed++
 			continue
 		}
-		if overBudget != "" {
-			fmt.Fprintf(stderr, "%s: %s\n", repo, overBudget)
+		if res.overBudget != "" {
+			fmt.Fprintf(stderr, "%s: %s\n", repo, res.overBudget)
 		}
+		findings := res.findings
 		usd := 0
 		for _, f := range findings {
 			usd += f.MonthlyUSD
