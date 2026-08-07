@@ -8,6 +8,24 @@ import (
 	"strings"
 )
 
+// readRepoList reads a fleet list file: one repo path per line, blank
+// lines and # comments skipped.
+func readRepoList(path string) ([]string, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var repos []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		repos = append(repos, line)
+	}
+	return repos, nil
+}
+
 // runFleet scans every repository named in a list file with the default
 // advisor settings: one stdout line per repo, then a rollup. A repo
 // that fails is a stderr line and the run continues; only an unreadable
@@ -27,18 +45,10 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "overwater: fleet expects one list file: overwater fleet LISTFILE (one repo path per line, # comments)")
 		return ExitError
 	}
-	raw, err := os.ReadFile(fs.Arg(0))
+	repos, err := readRepoList(fs.Arg(0))
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
-	}
-	var repos []string
-	for _, line := range strings.Split(string(raw), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		repos = append(repos, line)
 	}
 	p, err := newPipeline(0, stderr)
 	if err != nil {
