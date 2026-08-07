@@ -45,9 +45,9 @@ func printCatalogUsage(w io.Writer) {
 }
 
 // runCatalogDiff compares the catalog sources against a local copy of
-// LiteLLM's pricing file, and with -write applies the drifted prices,
-// bumps VERSION, and rebuilds catalog.json. Maintainer tooling; the
-// nightly price-watch workflow drives it.
+// LiteLLM's pricing file; -write applies the drifted prices, bumps
+// VERSION, and rebuilds catalog.json. Maintainer tooling, driven by the
+// nightly price-watch workflow.
 func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("catalog diff", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -77,8 +77,8 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 	}
 	drifts, notes, missing := catalog.DiffLitellm(c, prices)
 	for _, d := range drifts {
-		// An upstream record without an output price shows "?", never a
-		// zero that reads like a real price.
+		// A missing upstream output price prints "?", never a zero that
+		// reads like a real price.
 		theirsOut := "?"
 		if d.TheirsOutKnown {
 			theirsOut = strconv.FormatFloat(d.TheirsOut, 'g', -1, 64)

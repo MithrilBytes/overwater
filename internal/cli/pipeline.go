@@ -12,19 +12,17 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// pipeline is the loaded catalog and the pristine rule set of one
-// invocation. The catalog load is the expensive part and happens once;
-// base is never evaluated or mutated after load, because every root
-// scans with its own clone.
+// pipeline is the catalog and rule set of one invocation. base is never
+// mutated after load: every root scans with its own clone.
 type pipeline struct {
 	cat  *catalog.Catalog
 	base *rules.Engine
 	meta render.Meta
 }
 
-// rootPlan pairs a root with its own .overwater.yaml, nil when the root
-// has none. Configs load before any scanning so a malformed one fails
-// the run before it prints half a report.
+// rootPlan pairs a root with its own .overwater.yaml, nil when it has
+// none. Configs load before any scanning, so a malformed one fails the
+// run before half a report is printed.
 type rootPlan struct {
 	root string
 	cfg  *repoConfig
@@ -50,8 +48,8 @@ func planRoots(roots []string) ([]rootPlan, error) {
 	return plans, nil
 }
 
-// volumeFor is one root's own calls per month: its config's volume, or
-// the estimate default. An explicit --volume already sits in the base
+// volumeFor is one root's calls per month: its config's volume, or the
+// estimate default. An explicit --volume is already in the base
 // estimates and beats both.
 func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) int {
 	if flagVolume == 0 && pl.cfg != nil && pl.cfg.Volume > 0 {
@@ -61,10 +59,9 @@ func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) int {
 }
 
 // volumeAcross picks the one volume a merged report is priced and
-// headed at. A report carries a single header, so per root volumes are
-// honored only when every root resolves to the same number; otherwise
-// the header would name a volume the body does not use. Roots that
-// disagree fall back to the estimate default and are named on stderr.
+// headed at. A report carries a single header, so per root volumes hold
+// only when every root resolves to the same number; disagreeing roots
+// fall back to the estimate default and are named on stderr.
 func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writer) int {
 	def := p.base.Est.Volume.CallsPerMonth
 	agreed := def
@@ -83,9 +80,9 @@ func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writ
 	return agreed
 }
 
-// newPipeline picks the effective catalog (embedded or a newer cache,
-// zero network) and loads the rules. Advisory notes such as a bad cache
-// or stale prices go to stderr; stdout belongs to the renderers.
+// newPipeline loads the effective catalog (embedded or a newer cache,
+// no network) and the rules. Notes such as a bad cache or stale prices
+// go to stderr; stdout belongs to the renderers.
 func newPipeline(volume int, stderr io.Writer) (*pipeline, error) {
 	cat, note, err := catalog.Effective()
 	if err != nil {
@@ -111,10 +108,9 @@ func newPipeline(volume int, stderr io.Writer) (*pipeline, error) {
 	}, nil
 }
 
-// engineFor builds the engine that judges one root: a fresh clone with
-// that root's config folded in and nothing from any other root. The
-// clone is what keeps a disabled rule or a moved threshold inside the
-// repository that asked for it.
+// engineFor clones the base engine and folds in one root's config, so a
+// disabled rule or a moved threshold stays inside the repo that asked
+// for it.
 func (p *pipeline) engineFor(pl rootPlan, volume int) (*rules.Engine, error) {
 	eng := p.base.Clone()
 	eng.Est.Volume.CallsPerMonth = volume
@@ -132,12 +128,10 @@ func (p *pipeline) engineFor(pl rootPlan, volume int) (*rules.Engine, error) {
 	return eng, nil
 }
 
-// scanRoot runs the scanner and rules over one root under that root's
-// own config and nothing else. volume is the calls per month this root
-// is priced at, resolved by the caller. A non nil only set restricts
-// the scan to those root relative files. overBudget is one line naming
-// total and budget when the config's budget_monthly_usd is exceeded,
-// empty otherwise.
+// scanRoot scans one root under its own config and nothing else. A non
+// nil only set restricts the scan to those root relative files.
+// overBudget is one line naming total and budget when the config's
+// budget_monthly_usd is exceeded, empty otherwise.
 func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, volume int) ([]rules.Finding, string, error) {
 	eng, err := p.engineFor(pl, volume)
 	if err != nil {
@@ -159,10 +153,9 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, volume int) ([]ru
 }
 
 // scanPlans scans every planned root at one volume and merges the
-// results. With more than one root, findings are prefixed with the
-// root's base name so they stay attributable and each root's count goes
-// to stderr; a single root keeps today's byte identical output. Each
-// over budget root contributes one line.
+// results. Several roots prefix their findings with the root's base
+// name to stay attributable and report their counts on stderr; a single
+// root is left alone. Each over budget root contributes one line.
 func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, volume int, stderr io.Writer) ([]rules.Finding, []string, error) {
 	multi := len(plans) > 1
 	var findings []rules.Finding

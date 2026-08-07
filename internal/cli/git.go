@@ -10,8 +10,8 @@ import (
 )
 
 // gitHead returns the commit sha of the repository containing root, or
-// "" when git or a repository is absent. Baselines record it so
-// --incremental knows what to diff against. Local git only, no network.
+// "" when git or a repository is absent. Baselines record it for
+// --incremental to diff against. Local git only, no network.
 func gitHead(root string) string {
 	if root == "" {
 		return ""
@@ -27,11 +27,9 @@ func gitHead(root string) string {
 // files, relative to root. Any git failure is returned so the caller
 // can fall back to a full scan.
 //
-// Both commands run with -z. Under the default core.quotePath, git
-// hands back a path holding any non-ASCII byte wrapped in quotes and
-// octal escaped, which matches no real file and would drop it from the
-// scan without a word. NUL terminated output is the raw bytes, so the
-// names line up with what the walker sees.
+// -z is required: under the default core.quotePath git octal escapes
+// any path with a non-ASCII byte, which matches no real file and would
+// drop it from the scan without a word.
 func gitChangedFiles(root, sha string) (map[string]bool, error) {
 	diff, err := exec.Command("git", "-C", root, "diff", "--relative", "--name-only", "-z", sha).Output()
 	if err != nil {
@@ -42,8 +40,8 @@ func gitChangedFiles(root, sha string) (map[string]bool, error) {
 		return nil, fmt.Errorf("git ls-files: %w", err)
 	}
 	only := map[string]bool{}
-	// A path may legitimately begin or end with a space, so the only
-	// trimming a NUL split needs is dropping the empty final record.
+	// Paths may begin or end with a space, so do not trim; a NUL split
+	// only needs its empty final record dropped.
 	for _, name := range strings.Split(string(diff)+string(untracked), "\x00") {
 		if name != "" {
 			only[name] = true

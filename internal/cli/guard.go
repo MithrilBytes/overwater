@@ -9,8 +9,6 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// defaultBaselinePath applies the conventional baseline location when
-// the flag is unset.
 func defaultBaselinePath(path string) string {
 	if path == "" {
 		return ".overwater.json"
@@ -30,9 +28,8 @@ type guardOpts struct {
 }
 
 // guardExit applies the failure policy. Recording a baseline never
-// fails; findings fail only when the policy says so; and anything wrong
-// with the baseline itself is an operational error, exit 2, never 1.
-// Aged baseline entries nag on stderr and never move the exit code.
+// fails; anything wrong with the baseline itself is exit 2, never 1;
+// aging nags go to stderr and never move the exit code.
 func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 	if o.update {
 		path := defaultBaselinePath(o.baselinePath)
@@ -50,9 +47,7 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "wrote %s: %d findings baselined\n", path, len(entries))
 		return ExitClean
 	}
-	// Aging nags run under every failure policy: a provided baseline
-	// with --max-baseline-age-days set gets its aged entries named even
-	// when the policy is any or none.
+	// Aging nags run under every failure policy, not just fail-on new.
 	var bl *baseline.File
 	if o.baselinePath != "" && (o.failOn == "new" || o.maxAgeDays > 0) {
 		var err error

@@ -1,6 +1,5 @@
-// Package cli routes overwater's subcommands and owns the exit code
-// contract. CI scripts branch on these codes, so findings (1) and
-// operational errors (2) are never conflated.
+// Package cli routes overwater's subcommands. CI branches on the exit
+// codes, so findings (1) and operational errors (2) never mix.
 package cli
 
 import (
@@ -10,34 +9,30 @@ import (
 	"time"
 )
 
-// httpClient is the only way any command reaches the network, and only
-// the catalog fetch ever uses it. Tests swap the transport to prove
-// exactly that.
+// httpClient is the binary's only network path, and only the catalog
+// fetch uses it.
 var httpClient = &http.Client{Timeout: 15 * time.Second}
 
 const (
-	// ExitClean means the run finished and nothing violates the failure policy.
+	// ExitClean means nothing violates the failure policy.
 	ExitClean = 0
-	// ExitFindings means the run finished with findings that violate the
-	// failure policy.
+	// ExitFindings means findings violate the failure policy.
 	ExitFindings = 1
 	// ExitError means the run itself failed: bad invocation, unreadable
 	// repo, invalid baseline, malformed catalog.
 	ExitError = 2
 )
 
-// buildVersion is stamped by the release workflow via ldflags; source
-// builds say dev.
+// buildVersion is stamped by the release workflow via ldflags.
 var buildVersion = "dev"
 
-// A command is one subcommand of the overwater binary.
 type command struct {
 	name    string
 	summary string
 	run     func(args []string, stdout, stderr io.Writer) int
 }
 
-// commands is the router table. Order here is the order printed in usage.
+// commands is the router table, in the order usage prints them.
 var commands = []command{
 	{"scan", "report overwatered LLM call sites in a repository", runScan},
 	{"diff", "compare two scan --json reports", runDiff},
@@ -52,7 +47,7 @@ func runVersion(_ []string, stdout, _ io.Writer) int {
 	return ExitClean
 }
 
-// Run executes the subcommand named in args and returns the process exit code.
+// Run executes the subcommand named in args and returns the exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		printUsage(stderr)

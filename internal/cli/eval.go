@@ -11,8 +11,8 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// analyzeRepo keeps the one root pipeline shape eval uses. A blown
-// budget is a guard concern; eval ignores it.
+// analyzeRepo scans one root for eval. A blown budget is a guard
+// concern; eval ignores it.
 func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, error) {
 	p, err := newPipeline(volume, stderr)
 	if err != nil {
@@ -30,8 +30,8 @@ func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, [
 }
 
 // runEval generates one A/B eval script per finding that nominates a
-// different model. The user supplies prompts and keys and runs the
-// scripts themselves; the scanner never does.
+// different model. The user supplies the prompts and keys and runs the
+// scripts; overwater never does.
 func runEval(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)

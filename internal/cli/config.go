@@ -1,6 +1,3 @@
-// Per repo configuration: an .overwater.yaml at the scan root. The
-// decode is strict; an unknown field is an operational error, exit 2,
-// so a typo fails loudly instead of silently scanning unconfigured.
 package cli
 
 import (
@@ -17,10 +14,11 @@ import (
 
 const configName = ".overwater.yaml"
 
-// repoConfig is everything a repo may pin about its own scan. Volume
-// loses to an explicit --volume flag; thresholds override numeric When
-// fields on the named rules; budget_monthly_usd turns the total
-// estimated spend into a findings failure when exceeded.
+// repoConfig is everything a repo may pin about its own scan, from an
+// .overwater.yaml at the scan root. Volume loses to an explicit
+// --volume; thresholds override numeric When fields on the named rules;
+// budget_monthly_usd turns total estimated spend into a findings
+// failure when exceeded.
 type repoConfig struct {
 	Volume           int                           `yaml:"volume"`
 	BudgetMonthlyUSD float64                       `yaml:"budget_monthly_usd"`
@@ -29,7 +27,8 @@ type repoConfig struct {
 }
 
 // loadRepoConfig reads root/.overwater.yaml. A missing file is not an
-// error; a malformed or unknown field is.
+// error. The decode is strict so a typo fails the run, exit 2, instead
+// of silently scanning unconfigured.
 func loadRepoConfig(root string) (*repoConfig, error) {
 	raw, err := os.ReadFile(filepath.Join(root, configName))
 	if errors.Is(err, fs.ErrNotExist) {

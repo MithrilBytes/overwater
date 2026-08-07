@@ -10,8 +10,8 @@ import (
 
 // runFleet scans every repository named in a list file with the default
 // advisor settings: one stdout line per repo, then a rollup. A repo
-// that cannot be scanned is a stderr line and the run continues; only
-// an unreadable list file is an operational error.
+// that fails is a stderr line and the run continues; only an unreadable
+// list file is operational.
 func runFleet(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("fleet", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -47,9 +47,8 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 	}
 	scanned, failed, totalFindings, totalUSD := 0, 0, 0, 0
 	for _, repo := range repos {
-		// Each repo is planned and judged on its own: a fleet line is its
-		// own report, so a repo's volume and disabled rules stay with it
-		// however the list file is ordered.
+		// Each repo is planned on its own, so volume and disabled rules
+		// never leak between fleet lines.
 		pl, err := planRoot(repo)
 		if err != nil {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
@@ -79,8 +78,7 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 		rollup += fmt.Sprintf(", %d failed", failed)
 	}
 	fmt.Fprintln(stdout, rollup)
-	// Partial failures are stderr lines and the run continues, but a
-	// fleet that scanned nothing learned nothing: that is operational.
+	// A fleet that scanned nothing learned nothing: that is operational.
 	if len(repos) > 0 && scanned == 0 {
 		fmt.Fprintf(stderr, "overwater: all %d repos failed to scan\n", failed)
 		return ExitError

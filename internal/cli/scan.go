@@ -77,9 +77,8 @@ func parseScanFlags(args []string, stderr io.Writer) (scanFlags, bool) {
 	return f, true
 }
 
-// runScan is the advisor: it prints findings and exits 0 whenever the
-// scan itself succeeds. The failure policy that turns findings into a
-// nonzero exit arrives with the baseline ratchet.
+// runScan reports on the given roots. It prints the findings; scanExit
+// decides what they do to the exit code.
 func runScan(args []string, stdout, stderr io.Writer) int {
 	f, ok := parseScanFlags(args, stderr)
 	if !ok {
@@ -106,9 +105,6 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	// One report, one volume: resolved across every root before the first
-	// is scanned, so the header can never name a volume the body did not
-	// use.
 	p.meta.CallsPerMonth = p.volumeAcross(plans, f.volume, stderr)
 	findings, overBudgets, err := p.scanPlans(plans, only, p.meta.CallsPerMonth, stderr)
 	if err != nil {
@@ -146,10 +142,9 @@ func refreshCatalog(offline bool, stderr io.Writer) {
 	}
 }
 
-// noteCoverage says how much a restricted scan actually covered, so a
-// null verdict over zero files cannot read as a clean bill of health.
-// Changed files that no longer exist were not scanned; stdout stays
-// untouched.
+// noteCoverage says how much a restricted scan covered, so a null
+// verdict over zero files cannot read as a clean bill of health.
+// Changed files that no longer exist were not scanned.
 func noteCoverage(root string, only map[string]bool, stderr io.Writer) {
 	scanned := 0
 	for f := range only {
@@ -160,8 +155,7 @@ func noteCoverage(root string, only map[string]bool, stderr io.Writer) {
 	fmt.Fprintf(stderr, "incremental: scanned %d of %d candidate files\n", scanned, len(only))
 }
 
-// writeVerdict prints the report to stdout in the shape the flags asked
-// for.
+// writeVerdict prints the report to stdout in the shape the flags asked for.
 func writeVerdict(f scanFlags, findings []rules.Finding, meta render.Meta, stdout io.Writer) error {
 	switch {
 	case f.jsonOut:
@@ -216,10 +210,9 @@ func writeReport(path string, data []byte, stderr io.Writer) error {
 }
 
 // scanExit is the guard's verdict plus the budget lines. A blown budget
-// is a findings failure, never an operational error, and never masks
-// one. Two runs stay exempt: recording a baseline, whose contract is to
-// write the file and exit clean, and --fail-on none, which promises
-// never to fail. The line prints either way.
+// is a findings failure, never an operational error and never masking
+// one. Recording a baseline and --fail-on none stay exempt; the line
+// prints either way.
 func scanExit(f scanFlags, findings []rules.Finding, only map[string]bool, overBudgets []string, stderr io.Writer) int {
 	shaRoot := ""
 	if !f.multi() {

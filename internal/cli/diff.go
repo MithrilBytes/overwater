@@ -8,10 +8,9 @@ import (
 	"sort"
 )
 
-// runDiff compares two scan --json reports and narrates what moved
-// between them: call sites that appeared, disappeared, or changed cost,
-// then the total monthly delta. Differences never affect the exit code;
-// only an unreadable or invalid input does.
+// runDiff compares two scan --json reports: call sites that appeared,
+// disappeared, or changed cost, then the total monthly delta.
+// Differences never move the exit code; only a bad input does.
 func runDiff(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
 		fmt.Fprintln(stderr, "overwater: diff expects two files: overwater diff OLD.json NEW.json (both from scan --json)")
@@ -39,9 +38,9 @@ func runDiff(args []string, stdout, stderr io.Writer) int {
 	return ExitClean
 }
 
-// scanReport is the subset of scan --json output the diff reads. The
-// catalog version is the tell: every scan --json carries one, so its
-// absence means the file is some other JSON entirely.
+// scanReport is the subset of scan --json output the diff reads. Every
+// scan --json carries a catalog version, so its absence means the file
+// is some other JSON entirely.
 type scanReport struct {
 	CatalogVersion string        `json:"catalog_version"`
 	Findings       []scanFinding `json:"findings"`
@@ -69,9 +68,8 @@ func readScanJSON(path string) (*scanReport, error) {
 	return &r, nil
 }
 
-// siteKey identifies a call site across scans without the line number,
-// which drifts: rule, file, and the nominated model pin it well enough
-// to track cost movement.
+// siteKey identifies a call site across scans. Line numbers drift, so
+// the key is rule, file, and the nominated model.
 type siteKey struct {
 	rule, file, candidate string
 }
@@ -119,8 +117,8 @@ func cancelCommon(o, n []int) ([]int, []int) {
 }
 
 // diffLines renders one line per change, keys sorted by file, rule, and
-// candidate so the output is deterministic. Leftover costs pair up as
-// cost changes; the unpaired remainder appeared or disappeared.
+// candidate for determinism. Leftover costs pair up as cost changes;
+// the unpaired remainder appeared or disappeared.
 func diffLines(oldR, newR *scanReport) []string {
 	oldM, newM := groupByKey(oldR), groupByKey(newR)
 	seen := map[siteKey]bool{}
