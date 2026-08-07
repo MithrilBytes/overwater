@@ -169,7 +169,10 @@ func (a *analyzer) extractShape(p string, regionStart, regionEnd, extStart int, 
 	s.JSONSchema = reSchema.MatchString(region) || reSchema.MatchString(refText)
 	schemaText := refText
 	if schemaText == "" {
-		schemaText = a.byPath[p][regionStart:regionEnd]
+		// Fall back to the prose masked region, never the raw one:
+		// long string interiors are blank there, so a schema example
+		// inside prompt prose cannot fake schema facts.
+		schemaText = region
 	}
 	s.SchemaEnumOnly, s.SchemaMultiField = schemaFacts(schemaText)
 

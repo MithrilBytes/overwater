@@ -100,7 +100,9 @@ type readerLoc struct {
 // the findings; the config site stays as the record of where the value
 // lives. This is also the only detection path for Azure OpenAI style
 // deployments, whose names are user chosen and never in the dictionary.
-func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.Model) {
+// A non nil only set restricts which reader files may produce sites;
+// config files are read regardless, so incremental scans keep tracing.
+func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.Model, only map[string]bool) {
 	existing := map[string]bool{}
 	for _, s := range report.Sites {
 		existing[s.File+":"+strconv.Itoa(s.Line)] = true
@@ -129,6 +131,9 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 				continue
 			}
 			for _, r := range a.findEnvReaders(key, cfgPath) {
+				if only != nil && !only[r.path] {
+					continue
+				}
 				loc := r.path + ":" + strconv.Itoa(r.line)
 				if existing[loc] {
 					continue

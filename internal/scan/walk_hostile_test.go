@@ -40,7 +40,7 @@ func TestWalkSkipsHostileEntries(t *testing.T) {
 	}
 
 	start := time.Now()
-	files, err := walk(root, nil)
+	files, err := walk(root)
 	if err != nil {
 		t.Fatalf("walk: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestWalkSkipsUnreadableDir(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
 
-	files, err := walk(root, nil)
+	files, err := walk(root)
 	if err != nil {
 		t.Fatalf("walk: %v, want the unreadable dir skipped", err)
 	}
@@ -93,7 +93,7 @@ func TestWalkSkipsUnreadableDir(t *testing.T) {
 // A missing root is still an error; only entries below a healthy root
 // are skippable.
 func TestWalkMissingRootErrors(t *testing.T) {
-	if _, err := walk(filepath.Join(t.TempDir(), "absent"), nil); err == nil {
+	if _, err := walk(filepath.Join(t.TempDir(), "absent")); err == nil {
 		t.Error("walk of a missing root returned nil error")
 	}
 }

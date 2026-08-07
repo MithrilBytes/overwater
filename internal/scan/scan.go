@@ -79,9 +79,14 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 
 // AnalyzeOnly is Analyze restricted to the files named in only (slash
 // separated, root relative); nil scans everything the walker visits.
-// Incremental callers pass the set git reports changed.
+// Incremental callers pass the set git reports changed. The whole repo
+// still loads as analyzer context either way: import hop prompt
+// resolution, tsconfig aliases, and config tracing must see the same
+// files a full scan sees, or the ratchet would compare findings
+// produced under different resolution power. The only set restricts
+// which files produce output, not which files inform it.
 func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Report, error) {
-	files, err := walk(root, only)
+	files, err := walk(root)
 	if err != nil {
 		return nil, fmt.Errorf("scan %s: %w", root, err)
 	}
@@ -109,6 +114,9 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 			defer wg.Done()
 			for i := range work {
 				f := files[i]
+				if only != nil && !only[f.path] {
+					continue // context only, no output
+				}
 				r := &results[i]
 				r.sdks = scanManifest(f.path, f.data)
 				for _, site := range findModelRefs(f.path, f.data, names) {
@@ -137,7 +145,7 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 		report.SDKs = append(report.SDKs, r.sdks...)
 		report.Sites = append(report.Sites, r.sites...)
 	}
-	a.traceConfigModels(report, names)
+	a.traceConfigModels(report, names, only)
 	// Total order: Col separates two models on one line, Ref breaks the
 	// residual tie, so equal sites can never swap between runs.
 	sort.Slice(report.Sites, func(i, j int) bool {
