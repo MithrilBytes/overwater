@@ -458,7 +458,14 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 			f.CandidateText = fmt.Sprintf("%s, ~$%d/mo", r.Candidate.Note, round(e.cachedMonthlyUSD(m, site)))
 		}
 	case "price_multiplier":
-		cost := round(current * r.Candidate.Multiplier)
+		// The model's own published batch discount beats the rule's
+		// flat assumption; the yaml multiplier is the fallback for
+		// entries that do not carry one.
+		mult := r.Candidate.Multiplier
+		if m.BatchMultiplier > 0 {
+			mult = m.BatchMultiplier
+		}
+		cost := round(current * mult)
 		f.CandidateText = fmt.Sprintf("%s %s, ~$%d/mo", m.ID, r.Candidate.Note, cost)
 	case "tier_downgrade":
 		f.CandidateText, f.CandidateModel = e.nominate(cat, m, r.Candidate.Tier, r.Candidate.Note, site)

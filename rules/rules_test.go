@@ -632,6 +632,51 @@ func TestTranscriptionOnCronTripsBatchOnRealtime(t *testing.T) {
 	}
 }
 
+// The price_multiplier strategy prefers the model's own published
+// batch_multiplier over the rule's flat yaml multiplier, which stays
+// the fallback for entries without one. Both are 0.5 in shipped data,
+// so this only shows on a synthetic catalog.
+func TestPriceMultiplierPrefersModelBatchMultiplier(t *testing.T) {
+	engine, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := catalog.Model{
+		Provider: "testco", InputPerMtok: 2, OutputPerMtok: 10,
+		ContextWindow: 100000, Tier: "mid", Released: "2025-01-01",
+		Source: "https://example.com/pricing",
+	}
+	discounted := entry
+	discounted.ID = "deep-discount"
+	discounted.BatchMultiplier = 0.4
+	flat := entry
+	flat.ID = "no-discount"
+	cat := &catalog.Catalog{Version: "2026-01-01", Models: []catalog.Model{discounted, flat}}
+	report := &scan.Report{Sites: []scan.Site{
+		site("deep-discount", scan.ArchetypeSummarization, scan.Shape{BatchContext: true}),
+		site("no-discount", scan.ArchetypeSummarization, scan.Shape{BatchContext: true}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 2 {
+		t.Fatalf("got %+v, want two batch-on-realtime findings", got)
+	}
+	// Each site runs (500 in at $2 + 300 out at $10) x 10,000 calls =
+	// $40/mo; 0.4 of that is $16, the 0.5 yaml fallback gives $20.
+	byModel := map[string]string{}
+	for _, f := range got {
+		if f.RuleID != "batch-on-realtime" {
+			t.Fatalf("finding = %+v, want batch-on-realtime", f)
+		}
+		byModel[f.Model] = f.CandidateText
+	}
+	if want := "deep-discount through the batch endpoint at half price, ~$16/mo"; byModel["deep-discount"] != want {
+		t.Errorf("candidate = %q, want %q (model's 0.4 multiplier)", byModel["deep-discount"], want)
+	}
+	if want := "no-discount through the batch endpoint at half price, ~$20/mo"; byModel["no-discount"] != want {
+		t.Errorf("candidate = %q, want %q (yaml 0.5 fallback)", byModel["no-discount"], want)
+	}
+}
+
 // A savings nomination must never cost more than staying put. Cohere's
 // only active embedding besides embed-english-v3.0 is embed-v4.0, and
 // it is pricier; nominate must fall back to the no-candidate wording
