@@ -263,6 +263,45 @@ if git diff --quiet -- catalog/catalog.json; then pass=$((pass + 1)); else
   echo "FAIL catalog-build-idempotent"; fail=$((fail + 1)); git checkout -- catalog/catalog.json
 fi
 
+# Packaging manifests. sync-manifests is maintainer tooling and ships
+# with the source, not with the release binaries, so it is exercised
+# through its own binary. That the manifests in the tree describe the
+# pinned release is internal/packaging's job, not this suite's.
+sync="$work/sync-manifests"
+go build -o "$sync" ./tools/sync-manifests || { echo "FAIL build sync-manifests"; exit 1; }
+pkgdir="$work/packaging"
+mkdir -p "$pkgdir"
+cp flake.nix "$pkgdir/flake.nix"
+fixture="internal/packaging/testdata/SHA256SUMS"
+check sync-usage 2 "Usage:" "$sync"
+check sync-bad-version 2 "not vX.Y.Z" "$sync" -version latest -sums "$fixture" -dir "$pkgdir"
+
+# A release missing a platform must stop the run: a manifest with an
+# empty checksum installs whatever the URL happens to serve.
+grep -v overwater_linux_arm64 "$fixture" > "$work/partial-sums"
+check sync-missing-platform 2 "overwater_linux_arm64" \
+  "$sync" -version v9.9.9 -sums "$work/partial-sums" -dir "$pkgdir"
+if [ -e "$pkgdir/Formula/overwater.rb" ]; then
+  echo "FAIL sync-missing-platform-wrote-anyway: a rejected release left manifests behind"
+  fail=$((fail + 1))
+else
+  pass=$((pass + 1))
+fi
+
+check sync-writes 0 "updated 6 files" "$sync" -version v9.9.9 -sums "$fixture" -dir "$pkgdir"
+check sync-idempotent 0 "already describe" "$sync" -version v9.9.9 -sums "$fixture" -dir "$pkgdir"
+check sync-winget-uppercases-hash 0 "EEEEEEEE" \
+  grep InstallerSha256 "$pkgdir/winget/MithrilBytes.Overwater.installer.yaml"
+check sync-formula-pins-darwin-arm64 0 'sha256 "bbbbbbbb' \
+  grep -A1 overwater_darwin_arm64 "$pkgdir/Formula/overwater.rb"
+check sync-bumps-flake 0 'version = "9.9.9";' grep version "$pkgdir/flake.nix"
+
+# The flake, on machines that have nix. CI runs the same evaluation.
+if command -v nix > /dev/null 2>&1; then
+  check flake-eval 0 - nix --extra-experimental-features "nix-command flakes" \
+    flake check --no-build --all-systems
+fi
+
 echo
 echo "smoke: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
