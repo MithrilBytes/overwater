@@ -16,7 +16,8 @@ func CSV(findings []rules.Finding) []byte {
 	w := csv.NewWriter(&b)
 	w.Write([]string{
 		"rule", "confidence", "file", "line", "archetype", "evidence",
-		"model", "monthly_usd", "candidate", "candidate_model", "tripwire", "flags",
+		"model", "monthly_usd", "volume", "volume_source",
+		"candidate", "candidate_model", "tripwire", "flags",
 	})
 	for _, f := range findings {
 		w.Write([]string{
@@ -28,6 +29,8 @@ func CSV(findings []rules.Finding) []byte {
 			neutralize(f.Evidence),
 			neutralize(f.Model),
 			strconv.Itoa(f.MonthlyUSD),
+			strconv.Itoa(f.Volume),
+			volumeSource(f),
 			neutralize(f.CandidateText),
 			neutralize(f.CandidateModel),
 			neutralize(f.Tripwire),

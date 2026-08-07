@@ -16,6 +16,15 @@ func SummaryLine(findings []rules.Finding, meta Meta) string {
 	for _, f := range findings {
 		total += f.MonthlyUSD
 	}
-	return fmt.Sprintf("overwater: %d findings, ~$%s/mo estimated at %s calls/mo, catalog %s",
-		len(findings), comma(total), comma(meta.CallsPerMonth), meta.CatalogVersion)
+	switch measured := measuredCount(findings); {
+	case measured == 0:
+		return fmt.Sprintf("overwater: %d findings, ~$%s/mo estimated at %s calls/mo, catalog %s",
+			len(findings), comma(total), comma(meta.CallsPerMonth), meta.CatalogVersion)
+	case measured == len(findings):
+		return fmt.Sprintf("overwater: %d findings, ~$%s/mo at measured volumes, catalog %s",
+			len(findings), comma(total), meta.CatalogVersion)
+	default:
+		return fmt.Sprintf("overwater: %d findings, ~$%s/mo, %d of %d at measured volumes, catalog %s",
+			len(findings), comma(total), measured, len(findings), meta.CatalogVersion)
+	}
 }

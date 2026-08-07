@@ -7,26 +7,28 @@ import (
 	"github.com/MithrilBytes/overwater/internal/scan"
 )
 
-// TotalMonthlyUSD sums the estimated monthly spend of every known call
-// site at its own model, for the repo budget check. Ignored sites still
-// count: ignore pragmas silence findings, not spend.
+// TotalMonthlyUSD sums the monthly spend of every known call site at
+// its own model, for the repo budget check. Ignored sites still count:
+// ignore pragmas silence findings, not spend. Volumes resolve exactly
+// as they do in Evaluate, or the budget would disagree with the report.
 func (e *Engine) TotalMonthlyUSD(report *scan.Report, cat *catalog.Catalog) float64 {
 	names := cat.Names()
+	vols := e.bindVolumes(report, cat)
 	var total float64
 	for _, site := range report.Sites {
 		if !site.Known {
 			continue
 		}
 		if m := names[site.Ref]; m != nil {
-			total += e.monthlyUSD(m, site)
+			total += e.monthlyUSD(m, site, vols.forSite(site, m).calls)
 		}
 	}
 	return total
 }
 
-// monthlyUSD estimates the monthly spend for one call site on one model,
-// using only the assumptions in estimates.yaml.
-func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site) float64 {
+// monthlyUSD prices one call site on one model at the given monthly
+// call count, using only the assumptions in estimates.yaml.
+func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site, calls int) float64 {
 	t := e.Est.Tokens
 	var in, out int
 	if site.Archetype == scan.ArchetypeEmbedding {
@@ -39,14 +41,14 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site) float64 {
 		}
 	}
 	perCall := (float64(in)*m.InputPerMtok + float64(out)*m.OutputPerMtok) / 1e6
-	return perCall * float64(e.callsPerMonth(site))
+	return perCall * float64(calls)
 }
 
 // cachedMonthlyUSD prices the same call with the system prompt served
 // from the provider cache: the steady state fraction of system tokens
 // at the cache read rate, the rest at the write rate. Callers gate on
 // the model publishing cache rates at all.
-func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site) float64 {
+func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site, calls int) float64 {
 	t := e.Est.Tokens
 	sys := float64(e.systemTokens(site))
 	out := t.DefaultOutput
@@ -58,16 +60,7 @@ func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site) float64 {
 	perCall := (float64(t.DefaultInput)*m.InputPerMtok +
 		read*m.CacheReadPerMtok + write*m.CacheWritePerMtok +
 		float64(out)*m.OutputPerMtok) / 1e6
-	return perCall * float64(e.callsPerMonth(site))
-}
-
-// callsPerMonth is the volume for one site: a volume pragma wins over
-// the estimate default.
-func (e *Engine) callsPerMonth(site scan.Site) int {
-	if site.VolumeOverride > 0 {
-		return site.VolumeOverride
-	}
-	return e.Est.Volume.CallsPerMonth
+	return perCall * float64(calls)
 }
 
 func (e *Engine) systemTokens(site scan.Site) int {

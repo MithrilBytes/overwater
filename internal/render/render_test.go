@@ -85,6 +85,66 @@ func TestJSONCarriesCandidateModel(t *testing.T) {
 	}
 }
 
+// Provenance reaches the reader: a measured number never reads as an
+// estimate, and a number from anywhere else always does.
+func TestBlockSaysWhereTheVolumeCameFrom(t *testing.T) {
+	cases := map[string]string{
+		"measured": "at ~$340/mo at measured volume",
+		"pragma":   "at ~$340/mo at estimated volume",
+		"config":   "at ~$340/mo at estimated volume",
+		"flag":     "at ~$340/mo at estimated volume",
+		"estimate": "at ~$340/mo at estimated volume",
+		"":         "at ~$340/mo at estimated volume",
+	}
+	for source, want := range cases {
+		f := sampleFinding()
+		f.VolumeSource = source
+		if got := block(f); !strings.Contains(got, want) {
+			t.Errorf("source %q: block = %q, want it to contain %q", source, got, want)
+		}
+	}
+}
+
+func TestHeaderCountsMeasuredSites(t *testing.T) {
+	meta := Meta{CatalogVersion: "2026-08-05", CallsPerMonth: 10000}
+	measured, estimated := sampleFinding(), sampleFinding()
+	measured.VolumeSource = "measured"
+	estimated.VolumeSource = "estimate"
+	cases := []struct {
+		name     string
+		findings []rules.Finding
+		want     string
+	}{
+		{"none measured", []rules.Finding{estimated}, "Costs are estimates at 10,000 calls per"},
+		{"all measured", []rules.Finding{measured}, "Costs use measured volumes for every"},
+		{"mixed", []rules.Finding{measured, estimated}, "measured volumes for 1 of 2"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			Terminal(&out, tc.findings, meta)
+			if !strings.Contains(out.String(), tc.want) {
+				t.Errorf("header = %q, want it to contain %q", out.String(), tc.want)
+			}
+		})
+	}
+}
+
+func TestJSONCarriesVolumeProvenance(t *testing.T) {
+	f := sampleFinding()
+	f.Volume = 250000
+	f.VolumeSource = "measured"
+	out, err := JSON([]rules.Finding{f}, Meta{CatalogVersion: "2026-08-05", CallsPerMonth: 10000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"volume": 250000`, `"volume_source": "measured"`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("JSON = %s, want %s", out, want)
+		}
+	}
+}
+
 func TestComma(t *testing.T) {
 	cases := map[int]string{0: "0", 999: "999", 1000: "1,000", 10000: "10,000", 1234567: "1,234,567"}
 	for n, want := range cases {

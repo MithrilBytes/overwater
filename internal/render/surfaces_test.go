@@ -41,7 +41,7 @@ func TestSummaryLine(t *testing.T) {
 
 func TestCSVHeaderAndQuotes(t *testing.T) {
 	out := string(CSV([]rules.Finding{sampleFinding()}))
-	header := "rule,confidence,file,line,archetype,evidence,model,monthly_usd,candidate,candidate_model,tripwire,flags\n"
+	header := "rule,confidence,file,line,archetype,evidence,model,monthly_usd,volume,volume_source,candidate,candidate_model,tripwire,flags\n"
 	if !strings.HasPrefix(out, header) {
 		t.Errorf("CSV = %q, want it to start with the header row", out)
 	}

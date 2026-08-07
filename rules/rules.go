@@ -115,15 +115,20 @@ type Rule struct {
 // the scanner's content hash, the drift stable part of the baseline
 // fingerprint.
 type Finding struct {
-	RuleID        string
-	Confidence    string
-	File          string
-	Line          int
-	SiteHash      string
-	Archetype     string
-	Evidence      string
-	Model         string
-	MonthlyUSD    int
+	RuleID     string
+	Confidence string
+	File       string
+	Line       int
+	SiteHash   string
+	Archetype  string
+	Evidence   string
+	Model      string
+	MonthlyUSD int
+	// Volume is the calls per month MonthlyUSD was priced at, and
+	// VolumeSource is where that number came from: measured, pragma,
+	// config, flag, or estimate.
+	Volume        int
+	VolumeSource  string
 	CandidateText string // the full clause rendered after "Candidate:"
 	// CandidateModel is the nominated model id, empty for same model or
 	// shape only candidates. The eval generator keys off it.
@@ -132,10 +137,15 @@ type Finding struct {
 	Flags          []string
 }
 
-// Engine evaluates the loaded rules against a scan report.
+// Engine evaluates the loaded rules against a scan report. Volumes is
+// the measured traffic file when one was given, nil otherwise;
+// DefaultVolumeSource names where Est.Volume.CallsPerMonth came from,
+// for the sites the file does not cover.
 type Engine struct {
-	Rules []Rule
-	Est   Estimates
+	Rules               []Rule
+	Est                 Estimates
+	Volumes             *Volumes
+	DefaultVolumeSource string
 }
 
 // Load reads the embedded rule and estimate files.
@@ -144,7 +154,7 @@ func Load() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &Engine{}
+	e := &Engine{DefaultVolumeSource: VolumeEstimate}
 	for _, entry := range entries {
 		raw, err := ruleFiles.ReadFile(entry.Name())
 		if err != nil {
@@ -228,8 +238,14 @@ func (r Rule) validate() error {
 // Clone returns an engine one repository's config can retune without
 // reaching any other's. A slice copy is enough separation: the mutators
 // replace whole fields rather than writing through a Rule's pointers.
+// Volumes is shared, not copied; nothing writes to it after parsing.
 func (e *Engine) Clone() *Engine {
-	c := &Engine{Est: e.Est, Rules: make([]Rule, len(e.Rules))}
+	c := &Engine{
+		Est:                 e.Est,
+		Rules:               make([]Rule, len(e.Rules)),
+		Volumes:             e.Volumes,
+		DefaultVolumeSource: e.DefaultVolumeSource,
+	}
 	copy(c.Rules, e.Rules)
 	return c
 }

@@ -13,15 +13,15 @@ import (
 // caller is a savings strategy, so a candidate costing more than the
 // current model at this site is rejected. When none survives, the
 // clause says so rather than guessing.
-func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, note string, site scan.Site) (string, string) {
-	budget := e.monthlyUSD(current, site)
+func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, note string, site scan.Site, calls int) (string, string) {
+	budget := e.monthlyUSD(current, site, calls)
 	var best *catalog.Model
 	for i := range cat.Models {
 		m := &cat.Models[i]
 		if m.Provider != current.Provider || m.Tier != tier || m.ID == current.ID || m.Deprecated != "" {
 			continue
 		}
-		if e.monthlyUSD(m, site) > budget {
+		if e.monthlyUSD(m, site, calls) > budget {
 			continue
 		}
 		if best == nil || newer(m, best) {
@@ -31,7 +31,7 @@ func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, no
 	if best == nil {
 		return fmt.Sprintf("no active %s tier model from %s in the catalog", tier, current.Provider), ""
 	}
-	cost := round(e.monthlyUSD(best, site))
+	cost := round(e.monthlyUSD(best, site, calls))
 	return fmt.Sprintf("%s, %s, ~$%d/mo", best.ID, note, cost), best.ID
 }
 

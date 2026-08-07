@@ -20,6 +20,7 @@ type dupKey struct{ hash, model string }
 func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 	names := cat.Names()
 	counts := duplicateCounts(report, names)
+	vols := e.bindVolumes(report, cat)
 	seen := map[dupKey]int{}
 	var findings []Finding
 	for _, site := range report.Sites {
@@ -36,7 +37,7 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 			dupCount, dupPos = counts[k], seen[k]
 			seen[k]++
 		}
-		findings = append(findings, e.siteFindings(site, model, cat, dupCount, dupPos)...)
+		findings = append(findings, e.siteFindings(site, model, cat, dupCount, dupPos, vols.forSite(site, model))...)
 	}
 	sort.Slice(findings, func(i, j int) bool {
 		a, b := findings[i], findings[j]
@@ -66,7 +67,7 @@ func duplicateCounts(report *scan.Report, names map[string]*catalog.Model) map[d
 // siteFindings runs every rule against one call site. Flag rules attach
 // a line to the first finding; with no finding to host them, they become
 // findings of their own.
-func (e *Engine) siteFindings(site scan.Site, m *catalog.Model, cat *catalog.Catalog, dupCount, dupPos int) []Finding {
+func (e *Engine) siteFindings(site scan.Site, m *catalog.Model, cat *catalog.Catalog, dupCount, dupPos int, vol volume) []Finding {
 	var found []Finding
 	var flagRules []Rule
 	for _, r := range e.Rules {
@@ -77,7 +78,7 @@ func (e *Engine) siteFindings(site scan.Site, m *catalog.Model, cat *catalog.Cat
 			flagRules = append(flagRules, r)
 			continue
 		}
-		f := e.finding(r, site, m, cat)
+		f := e.finding(r, site, m, cat, vol)
 		// With no cheaper sibling to name, a cheapest_embedding finding
 		// would only restate the price. Drop it.
 		if r.Candidate.Strategy == "cheapest_embedding" && f.CandidateModel == "" {
@@ -87,7 +88,7 @@ func (e *Engine) siteFindings(site scan.Site, m *catalog.Model, cat *catalog.Cat
 	}
 	if len(found) == 0 {
 		for _, r := range flagRules {
-			found = append(found, e.finding(r, site, m, cat))
+			found = append(found, e.finding(r, site, m, cat, vol))
 		}
 		return found
 	}
@@ -158,24 +159,26 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dup
 	return true
 }
 
-func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.Catalog) Finding {
-	current := e.monthlyUSD(m, site)
+func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.Catalog, vol volume) Finding {
+	current := e.monthlyUSD(m, site, vol.calls)
 	confidence := r.Confidence
 	// A rule that leans on the archetype inherits the classifier's doubt.
 	if (len(r.When.Archetype) > 0 || len(r.When.ArchetypeNot) > 0) && site.ArchetypeConfidence == "low" {
 		confidence = demote(confidence)
 	}
 	f := Finding{
-		RuleID:     r.ID,
-		Confidence: confidence,
-		File:       site.File,
-		Line:       site.Line,
-		SiteHash:   site.Hash,
-		Archetype:  site.Archetype,
-		Evidence:   evidence(site),
-		Model:      m.ID,
-		MonthlyUSD: round(current),
-		Tripwire:   r.Tripwire,
+		RuleID:       r.ID,
+		Confidence:   confidence,
+		File:         site.File,
+		Line:         site.Line,
+		SiteHash:     site.Hash,
+		Archetype:    site.Archetype,
+		Evidence:     evidence(site),
+		Model:        m.ID,
+		MonthlyUSD:   round(current),
+		Volume:       vol.calls,
+		VolumeSource: vol.source,
+		Tripwire:     r.Tripwire,
 	}
 	if r.Flag != "" {
 		f.Flags = append(f.Flags, e.template(r.Flag, site, m))
@@ -188,7 +191,7 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 		// otherwise the nomination stays a shape suggestion.
 		f.CandidateText = r.Candidate.Note
 		if m.CacheReadPerMtok > 0 {
-			f.CandidateText = fmt.Sprintf("%s, ~$%d/mo", r.Candidate.Note, round(e.cachedMonthlyUSD(m, site)))
+			f.CandidateText = fmt.Sprintf("%s, ~$%d/mo", r.Candidate.Note, round(e.cachedMonthlyUSD(m, site, vol.calls)))
 		}
 	case "price_multiplier":
 		// The model's published batch discount wins; the yaml multiplier
@@ -200,11 +203,11 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 		cost := round(current * mult)
 		f.CandidateText = fmt.Sprintf("%s %s, ~$%d/mo", m.ID, r.Candidate.Note, cost)
 	case "tier_downgrade":
-		f.CandidateText, f.CandidateModel = e.nominate(cat, m, r.Candidate.Tier, r.Candidate.Note, site)
+		f.CandidateText, f.CandidateModel = e.nominate(cat, m, r.Candidate.Tier, r.Candidate.Note, site, vol.calls)
 	case "successor":
-		f.CandidateText, f.CandidateModel = e.nominate(cat, m, m.Tier, r.Candidate.Note, site)
+		f.CandidateText, f.CandidateModel = e.nominate(cat, m, m.Tier, r.Candidate.Note, site, vol.calls)
 	case "cheapest_embedding":
-		f.CandidateText, f.CandidateModel = e.nominate(cat, m, "embedding", r.Candidate.Note, site)
+		f.CandidateText, f.CandidateModel = e.nominate(cat, m, "embedding", r.Candidate.Note, site, vol.calls)
 	}
 	return f
 }

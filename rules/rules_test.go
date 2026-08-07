@@ -69,6 +69,8 @@ func TestEvaluateTsChatFirehose(t *testing.T) {
 			Evidence:      "streaming, no max_tokens",
 			Model:         "claude-opus-5",
 			MonthlyUSD:    126,
+			Volume:        10000,
+			VolumeSource:  "estimate",
 			CandidateText: "same model with a max_tokens cap; cost unchanged until a response runs long",
 			Tripwire:      "None; a cap only fires when a response tries to exceed it",
 			Flags:         []string{"No max_tokens set; worst case spend is unbounded"},
@@ -82,6 +84,8 @@ func TestEvaluateTsChatFirehose(t *testing.T) {
 			Evidence:       "temp 0, JSON schema",
 			Model:          "claude-opus-5",
 			MonthlyUSD:     135,
+			Volume:         10000,
+			VolumeSource:   "estimate",
 			CandidateText:  "claude-haiku-4-5, same capability tier for this task class, ~$27/mo",
 			CandidateModel: "claude-haiku-4-5",
 			Tripwire:       "If eval agreement drops below 97%, stay put",
@@ -105,6 +109,8 @@ func TestEvaluatePyExtraction(t *testing.T) {
 			Evidence:       "temp 0, JSON schema",
 			Model:          "claude-opus-5",
 			MonthlyUSD:     126,
+			Volume:         10000,
+			VolumeSource:   "estimate",
 			CandidateText:  "claude-haiku-4-5, same capability tier for this task class, ~$25/mo",
 			CandidateModel: "claude-haiku-4-5",
 			Tripwire:       "If eval agreement drops below 97%, stay put",
@@ -127,6 +133,8 @@ func TestEvaluateNodeCronSummarizer(t *testing.T) {
 			Evidence:       "",
 			Model:          "text-davinci-003",
 			MonthlyUSD:     151,
+			Volume:         10000,
+			VolumeSource:   "estimate",
 			CandidateText:  "gpt-5-mini, current replacement in the same tier, ~$6/mo",
 			CandidateModel: "gpt-5-mini",
 			Tripwire:       "None; there is no configuration in which a retired model id keeps working",
@@ -141,6 +149,8 @@ func TestEvaluateNodeCronSummarizer(t *testing.T) {
 			Evidence:      "cron scheduled",
 			Model:         "gpt-5.1",
 			MonthlyUSD:    48,
+			Volume:        10000,
+			VolumeSource:  "estimate",
 			CandidateText: "gpt-5.1 through the batch endpoint at half price, ~$24/mo",
 			Tripwire:      "If results are needed in under an hour, stay put",
 		},
@@ -162,6 +172,8 @@ func TestEvaluateRagFrontierEmbeddings(t *testing.T) {
 			Evidence:       "embeddings API",
 			Model:          "text-embedding-3-large",
 			MonthlyUSD:     13,
+			Volume:         10000,
+			VolumeSource:   "estimate",
 			CandidateText:  "text-embedding-3-small, same provider at the standard embedding tier, ~$2/mo",
 			CandidateModel: "text-embedding-3-small",
 			Tripwire:       "If retrieval quality drops on your eval set, stay put",
@@ -677,14 +689,14 @@ func TestCachedMonthlyUSDWriteRate(t *testing.T) {
 	// 2,000 system tokens: 1,600 read at $0.30, 400 written at $3.75,
 	// plus 500 input at $3 and 400 output at $15, at 10,000 calls:
 	// (1500 + 480 + 1500 + 6000) / 1e6 x 10000 = $94.80.
-	got := e.cachedMonthlyUSD(m, s)
+	got := e.cachedMonthlyUSD(m, s, 10000)
 	if math.Abs(got-94.8) > 1e-9 {
 		t.Errorf("cachedMonthlyUSD = %g, want 94.8", got)
 	}
 	// At fraction 1.0 the write term vanishes; the difference is the
 	// write rate's contribution.
 	e.Est.Cache.SteadyStateReadFraction = 1
-	if allRead := e.cachedMonthlyUSD(m, s); math.Abs(allRead-81) > 1e-9 {
+	if allRead := e.cachedMonthlyUSD(m, s, 10000); math.Abs(allRead-81) > 1e-9 {
 		t.Errorf("cachedMonthlyUSD at fraction 1.0 = %g, want 81", allRead)
 	}
 }
@@ -769,7 +781,7 @@ func TestNominateNeverRaisesCost(t *testing.T) {
 		t.Fatal("embed-english-v3.0 is missing from the catalog")
 	}
 	s := site("embed-english-v3.0", scan.ArchetypeEmbedding, scan.Shape{})
-	text, model := engine.nominate(cat, current, "embedding", "same provider at the standard embedding tier", s)
+	text, model := engine.nominate(cat, current, "embedding", "same provider at the standard embedding tier", s, 10000)
 	if model != "" {
 		t.Fatalf("nominated %q, want no candidate when every sibling costs more", model)
 	}
@@ -779,7 +791,7 @@ func TestNominateNeverRaisesCost(t *testing.T) {
 	// The guard rejects raises, not downgrades: a pricier current model
 	// still draws its cheaper sibling.
 	pricier := cat.ByName("text-embedding-3-large")
-	_, model = engine.nominate(cat, pricier, "embedding", "same provider at the standard embedding tier", s)
+	_, model = engine.nominate(cat, pricier, "embedding", "same provider at the standard embedding tier", s, 10000)
 	if model != "text-embedding-3-small" {
 		t.Errorf("nominated %q, want text-embedding-3-small for text-embedding-3-large", model)
 	}

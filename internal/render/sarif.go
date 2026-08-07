@@ -86,8 +86,8 @@ func SARIF(findings []rules.Finding, meta Meta) ([]byte, error) {
 			RuleID: f.RuleID,
 			Level:  sarifLevel(f.Confidence),
 			Message: sarifMessage{Text: fmt.Sprintf(
-				"Current: %s at ~$%d/mo at estimated volume. Candidate: %s. Tripwire: %s.",
-				f.Model, f.MonthlyUSD, f.CandidateText, f.Tripwire)},
+				"Current: %s at ~$%d/mo at %s volume. Candidate: %s. Tripwire: %s.",
+				f.Model, f.MonthlyUSD, volumeWord(f), f.CandidateText, f.Tripwire)},
 			Locations: []sarifLocation{{
 				PhysicalLocation: sarifPhysicalLocation{
 					ArtifactLocation: sarifArtifactLocation{URI: f.File},

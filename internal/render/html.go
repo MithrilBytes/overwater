@@ -71,9 +71,8 @@ func HTML(findings []rules.Finding, meta Meta) []byte {
 		b.WriteString(htmlFoot)
 		return b.Bytes()
 	}
-	fmt.Fprintf(&b,
-		"<p class=\"assumption\">Prices from catalog %s. Costs are estimates at %s calls per month per call site; override with --volume.</p>\n",
-		html.EscapeString(meta.CatalogVersion), comma(meta.CallsPerMonth))
+	fmt.Fprintf(&b, "<p class=\"assumption\">%s</p>\n",
+		html.EscapeString(strings.ReplaceAll(strings.TrimSuffix(costHeader(findings, meta), "\n"), "\n", " ")))
 	for _, f := range findings {
 		b.WriteString(card(f))
 	}
@@ -91,7 +90,7 @@ func card(f rules.Finding) string {
 	}
 	b.WriteString("<section class=\"finding\">\n<dl>\n")
 	row(&b, "Call site", fmt.Sprintf("%s:%d (%s; %s confidence)", f.File, f.Line, head, f.Confidence))
-	row(&b, "Current", fmt.Sprintf("%s at ~$%d/mo at estimated volume", f.Model, f.MonthlyUSD))
+	row(&b, "Current", fmt.Sprintf("%s at ~$%d/mo at %s volume", f.Model, f.MonthlyUSD, volumeWord(f)))
 	row(&b, "Candidate", f.CandidateText)
 	row(&b, "Tripwire", f.Tripwire)
 	if len(f.Flags) == 0 {
