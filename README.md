@@ -21,7 +21,7 @@ file. The installer verifies it for you:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.0.0
+sh install.sh v2.1.0
 ```
 
 ## Usage
@@ -114,7 +114,7 @@ Record a baseline once, commit it, and only new findings fail:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: MithrilBytes/overwater@v2.0.0
+- uses: MithrilBytes/overwater@v2.1.0
   with:
     baseline: .overwater.json
 ```
@@ -171,8 +171,16 @@ Four layers feed a rules engine.
 4. **Archetype.** Extraction, classification, summarization, chat,
    agentic, embedding, translation, reranking, moderation,
    transcription, vision, codegen. Scored from the enclosing function
-   name, the resolved prompt, schema semantics, and call shape, with a
-   graded confidence that demotes any finding leaning on a narrow call.
+   name, the resolved prompt, the SDK method called, schema semantics,
+   and the token cap read as intent. A phrase the prompt negates does
+   not score. Below the evidence floor the answer is unknown rather than
+   a guess, and confidence is graded so a finding leaning on a narrow
+   call is demoted.
+
+Call sites also carry fan in, the number of places that call the
+enclosing function, and the models those callers pass. A helper
+wrapping the SDK reports as one site with many callers rather than as
+one call.
 
 Every rule, threshold, and price lives in `rules/*.yaml` and `catalog/`.
 The engine holds no numbers.
@@ -207,17 +215,25 @@ with `--offline`, and generated eval scripts.
 **v1.5** added structural parsing for TypeScript, a labeled corpus with
 an accuracy floor, the nightly price watch, and PR comments.
 
-**v2.0** is the current line: nine parsed language families plus
-notebooks and shell, six more manifests, config tracing for env vars and
-Azure deployment names, six more archetypes, twelve rules, exact cache
-pricing, per repo config, baseline aging, incremental scans, `diff`,
-`fleet`, multi root scans, HTML, CSV, SARIF, and summary output, eight
-provider eval templates with an optional judge, and 88 catalog entries.
+**v2.0** added nine parsed language families plus notebooks and shell,
+six more manifests, config tracing for env vars and Azure deployment
+names, six more archetypes, twelve rules, exact cache pricing, per repo
+config, baseline aging, incremental scans, `diff`, `fleet`, multi root
+scans, HTML, CSV, SARIF, and summary output, eight provider eval
+templates with an optional judge, and 88 catalog entries.
 
-Verified by 106 labeled corpus cases at 0.87 accuracy against a 0.85
-floor, 45 black box smoke checks through the real binary, byte for byte
-golden output for five fixture repositories, fuzz targets over the
-parsers, and a files per second benchmark.
+**v2.1** is the current line. Measured volumes: a volumes file keyed by
+call site or model, an importer for provider usage exports, and
+provenance on every dollar figure. A rebuilt archetype scorer that reads
+the SDK method, the token cap as intent, schema shape, and negation, so
+a prompt saying "never reply to the customer" no longer scores as a
+chat. Call sites now carry fan in and the models their callers pass, so
+a helper wrapping the SDK is visible as one site with many callers.
+
+Verified by 274 labeled corpus cases at 0.99 accuracy on a holdout split
+assigned before any tuning, 66 black box smoke checks through the real
+binary, byte for byte golden output for five fixture repositories, fuzz
+targets over the parsers, and a files per second benchmark.
 
 ## Next
 
@@ -241,9 +257,9 @@ quadratic fixes in v2. Profile before optimizing.
 
 ### Detection
 
-- [ ] follow a call through a project's own helper into the SDK call
-- [ ] corpus past 200 cases
-- [ ] enforce a floor per archetype; today only the total is a ratchet
+- [ ] price a wrapper by its fan in without double counting the callers
+      that already scan as their own sites
+- [ ] corpus cases from real repositories, not written for the corpus
 - [ ] cost ranges instead of point estimates
 - [ ] schema field counts bound the output token estimate
 - [ ] machine readable tripwires that generated evals exit on
