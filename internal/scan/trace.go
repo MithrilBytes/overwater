@@ -33,16 +33,14 @@ func (a *analyzer) pragmas(p string, r region) (bool, int) {
 	return ignored, volume
 }
 
-// nearbyStrings collects short string literals inside the call region,
-// raw material for drafted eval prompts. Local only, like everything
-// else here.
+// nearbyStrings collects short string literals inside the region, raw
+// material for drafted eval prompts.
 func (a *analyzer) nearbyStrings(p string, r region) []string {
 	content := a.byPath[p]
 	spans := a.spans(p)
-	// Spans come out of the scanner in increasing, non overlapping start
-	// order, so the region's first candidate is a binary search away.
-	// Walking the whole file's spans per call site is quadratic in a file
-	// that holds thousands of strings.
+	// Spans come out sorted and non overlapping, so the first candidate
+	// is a binary search away. Walking every span per call site is
+	// quadratic in a file that holds thousands of strings.
 	first := sort.Search(len(spans), func(i int) bool { return spans[i].end > r.start })
 	var out []string
 	for _, s := range spans[first:] {
@@ -91,12 +89,11 @@ type readerLoc struct {
 }
 
 // traceConfigModels ties a MODEL or DEPLOYMENT value in a config file
-// back to the calls that read it. The reader site carries the shape and
-// the findings; the config site stays as the record of where the value
-// lives. This is also the only detection path for Azure OpenAI style
-// deployments, whose names are user chosen and never in the dictionary.
-// A non nil only set restricts which reader files may produce sites;
-// config files are read regardless, so incremental scans keep tracing.
+// back to the calls that read it; the reader site carries the shape and
+// the findings. This is the only detection path for Azure OpenAI style
+// deployments, whose names are user chosen and never in the catalog. A
+// non nil only set restricts which readers may produce sites, but
+// config files are read regardless so incremental scans keep tracing.
 func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.Model, only map[string]bool) {
 	existing := map[string]bool{}
 	for _, s := range report.Sites {

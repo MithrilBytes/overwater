@@ -49,9 +49,8 @@ done:
 	return start, end, true
 }
 
-// builderParse reads a builder statement into callInfo: each
-// .method(args) pair becomes a property, and the leading chain the
-// callee.
+// builderParse reads a builder statement into a callInfo: each
+// .method(args) pair becomes a property, the leading chain the callee.
 func builderParse(content string, src maskedFile, start, end int) *callInfo {
 	region := src.all[start:end]
 	info := &callInfo{Props: map[string]string{}}

@@ -15,10 +15,10 @@ func isWS(b byte) bool {
 }
 
 // parseCall reads the call whose argument extent spans [objStart,
-// objEnd) in the original content. The extent may be an object literal
-// or the call's own parenthesized arguments. Structure comes from the
-// fully masked view so braces in strings cannot mislead it; values come
-// from the original so prompt literals stay intact.
+// objEnd), either an object literal or the call's own parenthesized
+// arguments. Structure comes from the all view so braces in strings
+// cannot mislead it; values come from the original content so prompt
+// literals stay intact.
 func parseCall(content string, src maskedFile, objStart, objEnd int) *callInfo {
 	if objStart >= len(content) {
 		return nil
@@ -79,9 +79,9 @@ func chainBefore(all string, from int) string {
 }
 
 // parseProps extracts the top level key value pairs of an argument
-// region. Separators are ':' and '=', guarded against comparisons,
-// arrows, and walrus assignments. Depth counting uses the fully masked
-// text, key names the prose view, values the original.
+// list. Separators are ':' and '=', guarded against comparisons,
+// arrows, and walrus assignments. Depth counting reads the all view,
+// key names the prose view, values the original content.
 func parseProps(content, all, prose string, start, end int) map[string]string {
 	props := map[string]string{}
 	if start < 0 || end > len(all) || start >= end {
@@ -161,8 +161,8 @@ func keyBefore(prose string, limit, sep int) string {
 var reConstructorCall = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)*\s*\(`)
 
 // wrapperProps reads the properties out of a config wrapper value,
-// whether it is an object literal or a typed constructor call. Nil means
-// the value is neither, and the caller leaves the wrapper alone.
+// object literal or typed constructor call. Nil means it is neither and
+// the caller leaves the wrapper alone.
 func wrapperProps(value string) map[string]string {
 	v := strings.TrimSpace(value)
 	open := 0

@@ -38,10 +38,10 @@ var archetypePriority = []string{
 	ArchetypeChat,
 }
 
-// A family's codeWords are matched against identifiers near the call
-// (function name, masked code in the extent); promptWords are matched
-// against the resolved system prompt, where conversational words like
-// "assistant" are evidence rather than noise.
+// codeWords are matched against identifiers near the call (the function
+// name, the code in the region); promptWords against the resolved system
+// prompt, where a conversational word like "assistant" is evidence
+// rather than noise.
 type archetypeKeywords struct {
 	archetype   string
 	codeWords   []string
@@ -84,8 +84,7 @@ var archetypeWords = []archetypeKeywords{
 		[]string{"write code", "generate code", "unit test", "sql"}},
 }
 
-// Callee level signals for the narrow archetypes: an endpoint name is
-// stronger evidence than any keyword.
+// Endpoint names, which are stronger evidence than any keyword.
 var calleeSignals = []struct {
 	marker    string
 	archetype string
@@ -100,9 +99,9 @@ var calleeSignals = []struct {
 	{"inlinedata", ArchetypeVision},
 }
 
-// Signal weights: the enclosing function name is the strongest single
-// signal, the prompt states the task in its own words, and stray code
-// identifiers count least.
+// The enclosing function name is the strongest single signal, the
+// prompt states the task in its own words, and stray code identifiers
+// count least.
 const (
 	weightFuncName = 5
 	weightPrompt   = 3

@@ -9,22 +9,21 @@ import (
 	"sync/atomic"
 )
 
-// analyzer carries the walked files so shape extraction and prompt
-// resolution can follow one import hop inside the scanned repo, and
-// caches the masked view of each file.
+// analyzer holds every walked file for the whole pass, so resolution can
+// follow imports across the repo, and caches the per file views the
+// layers keep asking for.
 type analyzer struct {
 	byPath map[string]string
 	paths  []string // sorted byPath keys; candidate walks stay deterministic
-	// mu guards the lazy caches below; byPath is complete before any
-	// worker starts and is then read only.
+	// mu guards the caches below. byPath is complete before any worker
+	// starts and is read only from then on.
 	mu        sync.Mutex
 	maskCache map[string]maskedFile
 	spanCache map[string][]span
 	lineCache map[string][]int
 	factCache map[string]fileFacts
-	// factsRuns counts fileFacts evaluations so a test can prove the file
-	// scoped regexes run per file, not per site. An atomic add on a path
-	// that already runs two regexes costs nothing in production.
+	// factsRuns counts fileFacts evaluations, so a test can prove the
+	// file scoped regexes run per file and not per site.
 	factsRuns atomic.Int64
 }
 
@@ -54,8 +53,8 @@ func (a *analyzer) masked(p string) maskedFile {
 	if ok {
 		return m
 	}
-	// Computed outside the lock; a rare duplicate computation when two
-	// workers cross into the same file beats serializing all masking.
+	// Masked outside the lock: a rare duplicate when two workers cross
+	// into the same file beats serializing all masking.
 	m = maskFile(p, a.byPath[p])
 	a.mu.Lock()
 	a.maskCache[p] = m
@@ -63,8 +62,6 @@ func (a *analyzer) masked(p string) maskedFile {
 	return m
 }
 
-// factsFor returns the file scoped shape facts, computing them at most
-// once per file in the common case.
 func (a *analyzer) facts(p string) fileFacts {
 	a.mu.Lock()
 	f, ok := a.factCache[p]
@@ -80,7 +77,6 @@ func (a *analyzer) facts(p string) fileFacts {
 	return f
 }
 
-// spansFor caches the comment and string spans of a file.
 func (a *analyzer) spans(p string) []span {
 	a.mu.Lock()
 	s, ok := a.spanCache[p]
@@ -95,9 +91,8 @@ func (a *analyzer) spans(p string) []span {
 	return s
 }
 
-// lineStartsFor caches the line index of a file. Rebuilding it per call
-// site is a full pass over the file each time, which is the same
-// quadratic trap as the file wide regexes.
+// lineStarts caches the line index. Rebuilding it per call site is a
+// full pass over the file each time.
 func (a *analyzer) lineStarts(p string) []int {
 	a.mu.Lock()
 	s, ok := a.lineCache[p]
@@ -112,11 +107,11 @@ func (a *analyzer) lineStarts(p string) []int {
 	return s
 }
 
-// siteHash fingerprints the call site's own text so the baseline
-// ratchet survives line drift. Extent sites hash the prose masked
-// extent with whitespace collapsed: moving the call or editing prompt
-// prose changes nothing, changing the call's parameters does. Fallback
-// sites hash their own line only.
+// siteHash fingerprints a call site so the baseline ratchet survives
+// line drift. An extent site hashes its prose masked extent with
+// whitespace collapsed, so moving the call or editing prompt prose
+// changes nothing but editing its parameters does; a fallback site
+// hashes its own line.
 func (a *analyzer) siteHash(p string, line int, r region) string {
 	var text string
 	if r.isExtent {

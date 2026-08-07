@@ -5,19 +5,17 @@ import (
 	"strings"
 )
 
-// System prompt size and text, tried in order: an inline literal after
-// system, an identifier after system resolved in the same file or one
-// import hop away, a system content block list with a text field, and
-// the chat completions style system role message. Anything else reports
-// empty, which the rules treat as "not visible", never as "small".
+// The system prompt, tried in this order: an inline literal after
+// system, an identifier after system, a system content block with a
+// text field, and the chat completions style system role message.
+// Anything else reports empty, which the rules read as "not visible"
+// and never as "small".
 var (
 	reSystemInline = regexp.MustCompile("(?:\"system\"|system)\\s*[:=]\\s*([\"'`])")
 	reSystemIdent  = regexp.MustCompile(`(?:"system"|system)\s*[:=]\s*([A-Za-z_][A-Za-z0-9_]*)`)
 	reSystemBlock  = regexp.MustCompile(`(?:"system"|system)\s*[:=]\s*\[`)
-	// A block's text may be an identifier or a literal in any of the
-	// spellings literalText reads, inline string literals included: an
-	// inline prompt is the same prompt as a named one and must measure the
-	// same, not zero.
+	// A block's text may be an identifier or a literal: an inline prompt
+	// is the same prompt as a named one and must measure the same.
 	reTextField  = regexp.MustCompile("(?:\"text\"|text)\\s*[:=]\\s*([A-Za-z_][A-Za-z0-9_]*|[\"'`])")
 	reRoleSystem = regexp.MustCompile("(?s)(?:\"role\"|role)\\s*[:=]?\\s*[\"']system[\"']\\s*,\\s*(?:\"content\"|content)\\s*[:=]\\s*([A-Za-z_][A-Za-z0-9_$]*|[\"'`])")
 )
@@ -84,8 +82,8 @@ func literalText(content string, start int, delim string) (string, bool) {
 		return rest[2 : 2+end], true
 	}
 	if delim == `"` || delim == "'" {
-		// Escape aware, mirroring the masker: an escaped quote is part
-		// of the string, and an unescaped newline ends the search.
+		// Escape aware, mirroring the masker: an escaped quote belongs
+		// to the string, an unescaped newline ends it.
 		q := delim[0]
 		for i := 0; i < len(rest); i++ {
 			switch rest[i] {
@@ -106,17 +104,9 @@ func literalText(content string, start int, delim string) (string, bool) {
 	return rest[:end], true
 }
 
-var (
-	reImportJS   = regexp.MustCompile(`import\s*\{([^}]+)\}\s*from\s*["'](\.{1,2}/[\w./-]+)["']`)
-	reExportFrom = regexp.MustCompile(`export\s*\{([^}]+)\}\s*from\s*["'](\.{1,2}/[\w./-]+)["']`)
-	reImportBare = regexp.MustCompile(`import\s*\{([^}]+)\}\s*from\s*["']([@\w][\w./-]*)["']`)
-	reRequireJS  = regexp.MustCompile(`(?:const|let|var)\s*\{([^}]+)\}\s*=\s*require\(\s*["'](\.{1,2}/[\w./-]+)["']\s*\)`)
-	rePyImport   = regexp.MustCompile(`from\s+([\w.]+)\s+import\s+([\w, ]+)`)
-)
-
-// resolveConstText finds a string constant by name: first in the same
-// file, then across import hops inside the scanned repo, up to three
-// hops with a cycle guard. Never outside the repo.
+// resolveConstText finds a string constant by name, first in the same
+// file and then across up to three import hops, with a cycle guard.
+// Never outside the scanned repo.
 func (a *analyzer) resolveConstText(p, name string) (string, bool) {
 	return a.resolveConstHop(p, name, 0, map[string]bool{})
 }
@@ -141,9 +131,9 @@ func (a *analyzer) resolveConstHop(p, name string, depth int, seen map[string]bo
 }
 
 func resolveConstIn(content, name string) (string, bool) {
-	// The name needs a left boundary: resolving PROMPT must not match
-	// the tail of LEGACY_PROMPT. Triple quotes come before their single
-	// char forms so the longer delimiter wins.
+	// The name needs a left boundary, or resolving PROMPT matches the
+	// tail of LEGACY_PROMPT. Triple quotes come before their single char
+	// forms so the longer delimiter wins.
 	re := regexp.MustCompile(`(?m)(?:^|[^A-Za-z0-9_$])` + regexp.QuoteMeta(name) + "\\s*=\\s*(`|\"\"\"|'''|\"|')")
 	m := re.FindStringSubmatchIndex(content)
 	if m == nil {
@@ -151,5 +141,3 @@ func resolveConstIn(content, name string) (string, bool) {
 	}
 	return literalText(content, m[3], content[m[2]:m[3]])
 }
-
-// importTargets lists candidate repo paths that might define name,

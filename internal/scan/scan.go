@@ -1,6 +1,3 @@
-// Package scan implements the detection layers: manifests, model strings,
-// and call site shape. It reads files and emits typed signals; deciding
-// what counts as wasteful belongs to the rules engine.
 package scan
 
 import (
@@ -20,8 +17,8 @@ type SDK struct {
 }
 
 // Shape is what layer 3 could read around a call site. Pointer fields
-// distinguish absent from zero, because absence is a signal in its own
-// right. BatchContext and BatchAPI are file scoped: a cron trigger and
+// distinguish absent from zero: absence is a signal of its own.
+// BatchContext and BatchAPI are file scoped, since a cron trigger and
 // the call it drives rarely sit on adjacent lines.
 type Shape struct {
 	Readable          bool
@@ -77,9 +74,7 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 	return AnalyzeOnly(root, cat, nil)
 }
 
-// analyzeFile is the per file pipeline: model refs, shape, hash,
-// archetype, pragmas, nearby strings. The analyzer already holds the
-// full file set for cross file resolution.
+// analyzeFile runs layers 2 through 4 over one file.
 func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 	var sites []Site
 	for _, site := range findModelRefs(f.path, f.data, names) {
@@ -100,12 +95,10 @@ func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 
 // AnalyzeOnly is Analyze restricted to the files named in only (slash
 // separated, root relative); nil scans everything the walker visits.
-// Incremental callers pass the set git reports changed. The whole repo
-// still loads as analyzer context either way: import hop prompt
-// resolution, tsconfig aliases, and config tracing must see the same
-// files a full scan sees, or the ratchet would compare findings
-// produced under different resolution power. The only set restricts
-// which files produce output, not which files inform it.
+// The whole repo loads as context either way. only restricts which
+// files produce sites, not which files inform them, so an incremental
+// scan resolves prompts and aliases exactly as a full scan does and the
+// ratchet compares like with like.
 func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Report, error) {
 	files, err := walk(root)
 	if err != nil {
@@ -115,9 +108,8 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 	names := cat.Names()
 	a := newAnalyzer(files)
 
-	// Files are independent until the merge, so analyze them across the
-	// machine's cores. Results land in walk order slots, keeping output
-	// deterministic regardless of which worker finishes first.
+	// Files are independent until the merge. Results land in walk order
+	// slots, so output does not depend on which worker finishes first.
 	type fileResult struct {
 		sdks  []SDK
 		sites []Site
@@ -154,8 +146,8 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 		report.Sites = append(report.Sites, r.sites...)
 	}
 	a.traceConfigModels(report, names, only)
-	// Total order: Col separates two models on one line, Ref breaks the
-	// residual tie, so equal sites can never swap between runs.
+	// A total order: two models on one line differ by Col, then by Ref,
+	// so equal sites can never swap between runs.
 	sort.Slice(report.Sites, func(i, j int) bool {
 		a, b := report.Sites[i], report.Sites[j]
 		if a.File != b.File {

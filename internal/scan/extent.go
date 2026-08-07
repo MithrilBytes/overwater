@@ -5,20 +5,16 @@ import (
 	"strings"
 )
 
-// Call extents replace fixed line windows: from the model string hit,
-// ascend bracket levels until the enclosing region names a model
-// parameter. That region is the call's own arguments, so signals from a
-// neighboring call site can no longer bleed in. Bracket counting runs
-// on the fully masked source, where braces inside prompts do not exist.
+// An extent is the bracket region around a model string that names a
+// model parameter, which is the call's own argument list: signals from a
+// neighboring call site cannot bleed in. Bracket counting runs on the
+// all view, where braces inside prompts do not exist.
 const (
 	extentAscendMax = 8
 	extentMaxBytes  = 16000
-	// lookbackMaxBytes bounds every "n lines above" hop. In ordinary
-	// source three lines is a few hundred bytes, but a minified file is
-	// one enormous line, so an unbounded hop lands on byte zero and hands
-	// every call site a region as long as its own offset. That is
-	// quadratic in references per file, the same trap as running a file
-	// wide regex per site.
+	// lookbackMaxBytes bounds every "n lines above" hop. A minified file
+	// is one enormous line, so an unbounded hop reads back to byte zero
+	// and scan cost turns quadratic in references per file.
 	lookbackMaxBytes = 2000
 )
 
@@ -111,8 +107,8 @@ func innermostExtent(all string, hit int) (int, int, bool) {
 	return open, closer + 1, true
 }
 
-// headExpand pulls the region start up two lines above the opener so
-// call names like streamText( or .stream( stay visible to the shape
+// headExpand pulls the region start a couple of lines above the opener
+// so call names like streamText( or .stream( stay visible to the shape
 // regexes, never reaching back further than lookbackMaxBytes.
 func headExpand(content string, from int) int {
 	limit := max(0, from-lookbackMaxBytes)
@@ -127,15 +123,14 @@ func headExpand(content string, from int) int {
 	return i + 1
 }
 
-// windowLines bounds the fallback window used when no call extent can
-// be found (config files, env files, languages the extent walker does
-// not understand). Extent scoped extraction is the primary path.
-const windowLines = 30
-
-// windowMaxBytes bounds that same window in bytes on each side of the
-// hit. Thirty lines of real config or source stays well under it, so
-// ordinary files keep the window they had.
-const windowMaxBytes = 2000
+// The fallback window, used when no extent can be found: config files,
+// env files, languages the extent walkers do not understand. Bounded in
+// lines and, for minified files where a line is not a useful unit, in
+// bytes on each side of the hit.
+const (
+	windowLines    = 30
+	windowMaxBytes = 2000
+)
 
 // region is the slice of a file that layers 3 and 4 read for one model
 // reference.
@@ -172,12 +167,9 @@ func (a *analyzer) regionFor(p string, line, col int) region {
 	return region{start: s, end: e, hit: hit}
 }
 
-// windowBounds returns the byte range of the fallback detection window
-// around the hit at a one based line number. Lines are the wrong unit in
-// a minified file, which is one line however large, so the window is
-// also bounded in bytes around the hit; without that bound every
-// reference in such a file reads the whole file and scan cost is
-// quadratic in references per file.
+// windowBounds returns the fallback window around the hit at a one
+// based line number. Without the byte bound every reference in a
+// minified file reads the whole file, which is quadratic.
 func windowBounds(content string, starts []int, line, hit int) (int, int) {
 	startLine := max(0, line-1-windowLines)
 	endLine := min(len(starts), line+windowLines)
@@ -189,10 +181,9 @@ func windowBounds(content string, starts []int, line, hit int) (int, int) {
 	return max(winStart, hit-windowMaxBytes), min(winEnd, hit+windowMaxBytes)
 }
 
-// Function definition shapes across the supported languages, used to
-// find the name of the function enclosing a call site. The third form
-// catches C family methods (name(args) {), which have no keyword; the
-// stopword list keeps control statements from posing as names.
+// Function definition shapes across the supported languages. The third
+// form catches C family methods (name(args) {), which have no keyword;
+// the stopwords keep control statements from posing as names.
 var reFuncDefs = []*regexp.Regexp{
 	// Keywords need a left word boundary so "undef foo" is not a def.
 	regexp.MustCompile(`\b(?:function|func|def|fn)\s+([A-Za-z_][A-Za-z0-9_]*)`),
@@ -207,8 +198,8 @@ var funcNameStopwords = map[string]bool{
 }
 
 // enclosingFuncName returns the last function name defined shortly
-// before the region, which is almost always the function the call lives
-// in. It reads masked prose, so names inside prompts do not qualify.
+// before the offset, which is almost always the function the call lives
+// in. It reads the prose view, so names inside prompts do not qualify.
 func enclosingFuncName(prose string, before int) string {
 	from := max(0, before-2000)
 	region := prose[from:before]

@@ -7,31 +7,52 @@ import (
 	"unicode/utf8"
 )
 
+// Numeric and enumerated call parameters. Each captures its value; the
+// structural parsers overrule them where the language allows.
 var (
 	reTemperature = regexp.MustCompile(`(?i)["']?temperature["']?\s*[:=]\s*([0-9]*\.?[0-9]+)`)
 	reMaxTokens   = regexp.MustCompile(`(?i)["']?max_?(?:output_?|completion_?)?tokens["']?\s*[:=]\s*([0-9][0-9_]*)`)
-	reSchema      = regexp.MustCompile(`response_format|json_schema|input_schema|responseSchema|responseMimeType|generateObject`)
-	reTools       = regexp.MustCompile(`(?i)["']?tools["']?\s*[:=]\s*\[`)
-	reForcedTool  = regexp.MustCompile(`(?i)tool_?choice.{0,60}["']tool["']`)
-	reStreaming   = regexp.MustCompile(`stream\s*[:=]\s*[Tt]rue|streamText\(|\.stream\(`)
-	reCache       = regexp.MustCompile(`cache_control|cacheControl`)
-	reEmbedding   = regexp.MustCompile(`embeddings\.create|embedContent|embed_content|\.embed\(`)
-	reBatchAPI    = regexp.MustCompile(`batches\.create|/v1/batches|messages\.batches`)
-	reBatchCtx    = regexp.MustCompile(`cron\.schedule|node-cron|crontab|schedule\.every|celery|BackgroundScheduler`)
-	reCallish     = regexp.MustCompile(`\.create\(|generateText|generateObject|streamText|completions|embeddings|\.stream\(|messages\.create|\.builder\(`)
-	reZodField    = regexp.MustCompile(`:\s*z\.`)
-	reSchemaRef   = regexp.MustCompile(`(?:schema|tools)\s*[:=]\s*\[?\s*([A-Za-z_][A-Za-z0-9_]*)`)
 	reEffort      = regexp.MustCompile(`(?i)["']?(?:reasoning_)?effort["']?\s*[:=]\s*["']?(minimal|low|medium|high|xhigh|max)\b`)
 	reRetries     = regexp.MustCompile(`(?i)\b(?:max_?)?retries["']?\s*[:=]\s*([0-9]+)`)
 	reDimensions  = regexp.MustCompile(`(?i)["']?dimensions["']?\s*[:=]\s*([0-9]+)`)
 	reDetailHigh  = regexp.MustCompile(`(?i)["']?detail["']?\s*[:=]\s*["']high["']`)
 )
 
-// fileFacts are the shape facts a call site inherits from its whole
-// file rather than from its own extent. Nothing in here reads the
-// region, so it is computed once per file: evaluating it per site made
-// scan cost quadratic in the number of model references, and a minified
-// config full of model ids took minutes.
+// Structured output: a response format, a Zod field, or an identifier
+// naming a schema defined elsewhere in the file.
+var (
+	reSchema    = regexp.MustCompile(`response_format|json_schema|input_schema|responseSchema|responseMimeType|generateObject`)
+	reZodField  = regexp.MustCompile(`:\s*z\.`)
+	reSchemaRef = regexp.MustCompile(`(?:schema|tools)\s*[:=]\s*\[?\s*([A-Za-z_][A-Za-z0-9_]*)`)
+)
+
+// Tool use and streaming.
+var (
+	reTools      = regexp.MustCompile(`(?i)["']?tools["']?\s*[:=]\s*\[`)
+	reForcedTool = regexp.MustCompile(`(?i)tool_?choice.{0,60}["']tool["']`)
+	reStreaming  = regexp.MustCompile(`stream\s*[:=]\s*[Tt]rue|streamText\(|\.stream\(`)
+)
+
+// What kind of call this is: prompt caching, an embedding endpoint, or
+// anything at all that looks like an SDK call (which is what Readable
+// means).
+var (
+	reCache     = regexp.MustCompile(`cache_control|cacheControl`)
+	reEmbedding = regexp.MustCompile(`embeddings\.create|embedContent|embed_content|\.embed\(`)
+	reCallish   = regexp.MustCompile(`\.create\(|generateText|generateObject|streamText|completions|embeddings|\.stream\(|messages\.create|\.builder\(`)
+)
+
+// Batching, matched against the whole file rather than a region: a cron
+// trigger and the call it drives rarely sit on adjacent lines.
+var (
+	reBatchAPI = regexp.MustCompile(`batches\.create|/v1/batches|messages\.batches`)
+	reBatchCtx = regexp.MustCompile(`cron\.schedule|node-cron|crontab|schedule\.every|celery|BackgroundScheduler`)
+)
+
+// fileFacts are the shape facts a call site inherits from its whole file
+// rather than from its own region. Computed once per file: evaluating
+// them per site made scan cost quadratic in the number of model
+// references, and a minified config full of model ids took minutes.
 type fileFacts struct {
 	batchContext bool
 	batchAPI     bool
@@ -73,9 +94,9 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 	s.JSONSchema = reSchema.MatchString(text) || reSchema.MatchString(refText)
 	schemaText := refText
 	if schemaText == "" {
-		// Fall back to the prose masked text, never the raw one:
-		// long string interiors are blank there, so a schema example
-		// inside prompt prose cannot fake schema facts.
+		// The prose view, never the raw one: long string interiors are
+		// blank there, so a schema example inside a prompt cannot fake
+		// schema facts.
 		schemaText = text
 	}
 	s.SchemaEnumOnly, s.SchemaMultiField = schemaFacts(schemaText)
@@ -95,8 +116,8 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 	}
 	s.ImageDetailHigh = reDetailHigh.MatchString(text)
 
-	// For property and builder languages the structural parser has the
-	// final word on the fields it decides.
+	// Where a structural parser applies it has the final word on the
+	// fields it decides.
 	if r.isExtent && propertyStyle(p) {
 		if info := parseCall(a.byPath[p], src, r.extentStart, r.end); info != nil {
 			applyCallInfo(&s, info)
@@ -108,8 +129,7 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 		}
 	}
 	s.SystemPromptText = a.systemPromptText(p, r)
-	// Runes, not bytes: non ASCII prompts must not overcount against
-	// token thresholds.
+	// Runes, not bytes: a non ASCII prompt must not overcount.
 	s.SystemPromptChars = utf8.RuneCountInString(s.SystemPromptText)
 	s.Readable = reCallish.MatchString(text) ||
 		s.Temperature != nil || s.MaxTokens != nil || s.JSONSchema || s.Streaming
@@ -117,9 +137,8 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 }
 
 // resolveSchemaRef follows a schema: or tools: identifier to the
-// constant it names in the same file and returns that constant's
-// bracketed text, so a schema defined above the call still informs the
-// shape.
+// constant it names, so a schema defined above the call still informs
+// the shape.
 func (a *analyzer) resolveSchemaRef(p, region string) string {
 	m := reSchemaRef.FindStringSubmatch(region)
 	if m == nil {
@@ -128,6 +147,7 @@ func (a *analyzer) resolveSchemaRef(p, region string) string {
 	return a.constExtent(p, m[1])
 }
 
+// constExtent returns the bracketed value assigned to name in file p.
 func (a *analyzer) constExtent(p, name string) string {
 	content := a.byPath[p]
 	src := a.masked(p)

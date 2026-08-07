@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-// Structural parsing for call sites: instead of regexing a window, read
-// the call's callee chain and the properties of the argument that names
-// the model. Pure Go on purpose; tree-sitter bindings need cgo, which
-// would break the static release binaries the action pins by checksum.
+// Structural parsing reads a call's callee chain and the properties of
+// the argument that names the model, rather than regexing a window. No
+// cgo: tree-sitter bindings would break the static release binaries.
 //
-// Two shapes cover the supported languages: property style (key: value
-// or key = value inside an object literal or argument list) and builder
-// style (.model("x").maxTokens(1024) chains).
+// Two styles cover the supported languages: property (key: value inside
+// an object literal or argument list, props.go) and builder
+// (.model("x").maxTokens(1024) chains, builder.go). This file holds what
+// both need.
 
 // callInfo is one parsed call expression.
 type callInfo struct {
@@ -47,11 +47,10 @@ func normKey(k string) string {
 	return strings.ReplaceAll(strings.ToLower(k), "_", "")
 }
 
-// prop resolves a property by any of the given names, first name in
-// the list winning. Within one name an exactly spelled key wins;
-// otherwise the lexicographically smallest key folding to the same
-// normalized name does, so duplicate spellings (max_tokens plus
-// maxTokens) resolve identically on every run.
+// prop resolves a property by any of the given names, first name in the
+// list winning. Within one name an exactly spelled key wins, otherwise
+// the lexicographically smallest key that folds to it does, so
+// duplicate spellings resolve the same way on every run.
 func prop(info *callInfo, names ...string) (string, bool) {
 	for _, n := range names {
 		if v, ok := info.Props[n]; ok {
@@ -125,10 +124,10 @@ func propNumber(info *callInfo, names ...string) (float64, bool) {
 	return 0, false
 }
 
-// applyCallInfo overrides the regex read shape with the parsed one for
-// the fields the property list decides outright. Schema and embedding
-// evidence only ever widen, since both can also come from resolved
-// references the properties cannot see.
+// applyCallInfo overrides the regex read shape for the fields the
+// property list decides outright. Schema and embedding evidence only
+// widen, since both can also come from resolved references the
+// properties cannot see.
 func applyCallInfo(s *Shape, info *callInfo) {
 	if v, ok := propNumber(info, "temperature"); ok {
 		s.Temperature = &v

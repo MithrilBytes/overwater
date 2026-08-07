@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-// notebookToPython flattens a Jupyter notebook's code cells into one
-// Python source, so notebooks scan like any other file. Line numbers
-// refer to this flattened view; each cell is marked.
+// notebookToPython flattens a notebook's code cells into one Python
+// source, so notebooks scan like any other file. Line numbers refer to
+// the flattened view.
 func notebookToPython(data []byte) []byte {
 	var nb struct {
 		Cells []struct {
@@ -45,13 +45,11 @@ type file struct {
 	data []byte
 }
 
-// normalizeNewlines folds CRLF to LF at the one point where file content
-// enters the scanner, so every offset, line number, span, hash, and
-// measurement downstream sees one canonical form. Left in, the carriage
-// returns count as prompt characters, and the same commit gets a
-// different verdict on a Windows checkout than on a Unix one. Lone
-// carriage returns are left alone: they are not line breaks to any of
-// the languages here, and rewriting them would change line numbering.
+// normalizeNewlines folds CRLF to LF at the one point where content
+// enters the scanner, so a Windows checkout and a Unix one produce the
+// same verdict for the same commit. Lone carriage returns stay: they
+// are not line breaks in any language here, and rewriting them would
+// shift line numbers.
 func normalizeNewlines(data []byte) []byte {
 	if !bytes.Contains(data, []byte("\r\n")) {
 		return data
@@ -99,9 +97,8 @@ var skipFiles = map[string]bool{
 const maxFileSize = 512 * 1024
 
 // walk lists every scannable file under root. Incremental scans load
-// the full set too: which files produce sites is decided by the
-// analyzer, never by skipping context files here, so resolution power
-// stays identical between full and incremental runs.
+// the full set too; the analyzer, not the walker, decides which files
+// produce sites, so full and incremental runs resolve alike.
 func walk(root string) ([]file, error) {
 	var files []file
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -109,8 +106,7 @@ func walk(root string) ([]file, error) {
 			if d == nil {
 				return err // the root itself is missing or unreadable
 			}
-			// An unreadable subdirectory or entry is skipped, never
-			// fatal: one chmod 000 dir must not abort the whole scan.
+			// One unreadable dir must not abort the whole scan.
 			return nil
 		}
 		if d.IsDir() {
@@ -122,12 +118,11 @@ func walk(root string) ([]file, error) {
 		if skipFiles[d.Name()] {
 			return nil
 		}
-		// Only regular files scan. Irregular files (FIFOs, sockets,
-		// devices) would block or fail ReadFile; symlinks are skipped
-		// outright because the lstat size below says nothing about the
-		// target, so a link could smuggle a file past the size cap or
-		// point outside the root. Targets inside the root are reached
-		// by their real paths anyway.
+		// Regular files only. FIFOs, sockets and devices would block or
+		// fail ReadFile. Symlinks go too: the lstat size below says
+		// nothing about the target, so a link could smuggle a file past
+		// the size cap or point outside the root. Targets inside the
+		// root are reached by their real paths anyway.
 		if !d.Type().IsRegular() {
 			return nil
 		}

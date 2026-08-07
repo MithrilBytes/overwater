@@ -8,7 +8,18 @@ import (
 	"strings"
 )
 
-// and a suffix search as the last resort for workspace layouts.
+// The import forms that can bring a named constant into a file.
+var (
+	reImportJS   = regexp.MustCompile(`import\s*\{([^}]+)\}\s*from\s*["'](\.{1,2}/[\w./-]+)["']`)
+	reExportFrom = regexp.MustCompile(`export\s*\{([^}]+)\}\s*from\s*["'](\.{1,2}/[\w./-]+)["']`)
+	reImportBare = regexp.MustCompile(`import\s*\{([^}]+)\}\s*from\s*["']([@\w][\w./-]*)["']`)
+	reRequireJS  = regexp.MustCompile(`(?:const|let|var)\s*\{([^}]+)\}\s*=\s*require\(\s*["'](\.{1,2}/[\w./-]+)["']\s*\)`)
+	rePyImport   = regexp.MustCompile(`from\s+([\w.]+)\s+import\s+([\w, ]+)`)
+)
+
+// importTargets lists candidate repo paths that might define name,
+// from the file's own import statements, tsconfig path aliases, and a
+// suffix search as the last resort for workspace layouts.
 func (a *analyzer) importTargets(p, name string) []string {
 	content := a.byPath[p]
 	dir := path.Dir(p)
@@ -62,9 +73,9 @@ func (a *analyzer) importTargets(p, name string) []string {
 }
 
 // tsconfigResolve expands a non relative import spec through the
-// compilerOptions paths of any tsconfig.json in the repo. Configs and
-// their path patterns are visited in sorted order, keeping ambiguous
-// alias resolution stable across runs.
+// compilerOptions paths of every tsconfig.json in the repo. Configs and
+// patterns are visited in sorted order, so ambiguous aliases resolve the
+// same way on every run.
 func (a *analyzer) tsconfigResolve(spec string) []string {
 	var out []string
 	for _, known := range a.paths {
