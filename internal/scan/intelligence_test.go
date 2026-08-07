@@ -29,7 +29,7 @@ func analyzeTemp(t *testing.T, files map[string]string) *Report {
 // Two calls close together must each keep their own parameters. The old
 // fixed line window let the first call's max_tokens bleed into the
 // second; call extents do not.
-func TestAdjacentCallSitesDoNotBleed(t *testing.T) {
+func TestAdjacentCallsDoNotBleed(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"app.js": `const OpenAI = require("openai");
 const client = new OpenAI();
 
@@ -72,7 +72,7 @@ async function tagTwo(text) {
 }
 
 // Parameter words inside prompt prose are not parameters.
-func TestPromptProseCannotFakeParameters(t *testing.T) {
+func TestPromptCannotFakeParams(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"app.js": `const client = new (require("openai"))();
 
 async function explain(question) {
@@ -154,7 +154,7 @@ export async function answer(question: string) {
 
 // An enum only output schema is classification shaped even when no
 // keyword says so.
-func TestEnumSchemaReadsAsClassification(t *testing.T) {
+func TestEnumSchemaIsClassification(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"judge.ts": `import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject } from "ai";
 import { z } from "zod";

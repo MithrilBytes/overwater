@@ -8,7 +8,7 @@ import (
 // Python spells booleans capitalized; stream=True must read as
 // streaming instead of the structural layer overriding the regex layer
 // that had it right.
-func TestStreamTrueFromPythonKwarg(t *testing.T) {
+func TestStreamFromPythonKwarg(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"chat.py": `def chat_reply(text):
     return client.chat.completions.create(
         model="gpt-5.1",
@@ -40,7 +40,7 @@ func TestMaxTokensUnderscoreSeparators(t *testing.T) {
 // the current docs use. Its keyword arguments are the call's parameters
 // and must read the same as the dict spelling, which only descended into
 // values that started with a brace.
-func TestTypedConfigWrapperReadsLikeDict(t *testing.T) {
+func TestTypedConfigWrapper(t *testing.T) {
 	const typed = `from google import genai
 from google.genai import types
 
@@ -84,7 +84,7 @@ def draft_copy(topic):
 
 // The descent reaches into a bare constructor and a package qualified
 // one, and leaves values that are neither alone.
-func TestWrapperPropsAcceptsConstructorCalls(t *testing.T) {
+func TestWrapperPropsConstructors(t *testing.T) {
 	for _, tc := range []struct {
 		name, value, want string
 	}{
@@ -125,7 +125,7 @@ func TestResolveConstNameBoundary(t *testing.T) {
 
 // An escaped quote inside a system prompt is part of the prompt, not
 // its closing delimiter.
-func TestSystemPromptKeepsEscapedQuotes(t *testing.T) {
+func TestPromptKeepsEscapedQuotes(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"greet.py": `def greet_user(name):
     return client.messages.create(
         model="claude-haiku-4-5",
@@ -142,7 +142,7 @@ func TestSystemPromptKeepsEscapedQuotes(t *testing.T) {
 }
 
 // "undef describeThing" must not pose as a function definition.
-func TestEnclosingFuncNameNeedsWordBoundary(t *testing.T) {
+func TestFuncNameWordBoundary(t *testing.T) {
 	prose := "function summarizeAll(items) {\n  markUndef(undef describeThing);\n  const r = create({ model: X });\n}\n"
 	hit := strings.Index(prose, "X")
 	if name := enclosingFuncName(prose, hit); name != "summarizeAll" {
@@ -152,7 +152,7 @@ func TestEnclosingFuncNameNeedsWordBoundary(t *testing.T) {
 
 // The plural noun transcripts describes the input, not the task: a
 // summarizer of transcripts is not transcription.
-func TestTranscriptsPluralIsNotTranscription(t *testing.T) {
+func TestTranscriptsIsNotTranscription(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"notes.py": `def prepare_notes(transcript):
     return client.messages.create(
         model="claude-sonnet-5",
@@ -169,7 +169,7 @@ func TestTranscriptsPluralIsNotTranscription(t *testing.T) {
 }
 
 // Task words that do mean transcription still classify as such.
-func TestTranscribeWordingStaysTranscription(t *testing.T) {
+func TestTranscribeIsTranscription(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"audio.py": `def transcribe_voicemail(audio_b64):
     return client.messages.create(
         model="gemini-2.5-flash",

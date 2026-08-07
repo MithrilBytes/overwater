@@ -9,7 +9,7 @@ import (
 // A JSON schema example inside prompt prose is prose, not a schema: the
 // fallback schema facts must read the prose masked region, where long
 // string interiors are blank.
-func TestSchemaExampleInPromptProseDoesNotCount(t *testing.T) {
+func TestSchemaInPromptDoesNotCount(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"help.py": `def answer_question(q):
     return client.messages.create(
         model="claude-sonnet-5",

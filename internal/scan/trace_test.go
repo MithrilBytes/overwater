@@ -124,7 +124,7 @@ async function summarizeQueueItem(text) {
 	}
 }
 
-func TestAzureDeploymentTracesAsUnknown(t *testing.T) {
+func TestAzureDeploymentTraces(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		".env": "AZURE_OPENAI_DEPLOYMENT=acme-gpt4-prod\n",
 		"azure.py": `import os
@@ -155,7 +155,7 @@ def draft_response(prompt):
 	}
 }
 
-func TestNearbyStringsCollected(t *testing.T) {
+func TestNearbyStrings(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"app.py": `import anthropic
 
 client = anthropic.Anthropic()

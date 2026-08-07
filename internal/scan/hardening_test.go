@@ -7,7 +7,7 @@ import (
 
 // Hostile inputs must never build a span whose interior is inverted or
 // out of bounds; nearbyStrings slices content by these fields.
-func TestScanSpansInvariantsOnHostileInputs(t *testing.T) {
+func TestSpanInvariants(t *testing.T) {
 	inputs := map[string]string{
 		"triple-at-eof.py":       "m = \"gpt-4o\"\nx = \"\"\"a\n",
 		"triple-exact-eof.py":    "x = \"\"\"a",
@@ -58,7 +58,7 @@ func TestAnalyzeSurvivesHostileFiles(t *testing.T) {
 
 // A string cut off by newline or EOF has no closing quote to exclude:
 // the final interior byte must still be masked.
-func TestMaskUnterminatedStringMasksFinalByte(t *testing.T) {
+func TestMaskUnterminatedString(t *testing.T) {
 	m := maskFile("a.ts", `x = "abc`)
 	if strings.Contains(m.all, "c") {
 		t.Errorf("all = %q, want the unterminated interior fully blanked", m.all)
@@ -75,7 +75,7 @@ func TestMaskUnterminatedStringMasksFinalByte(t *testing.T) {
 // In Go raw strings a backslash is a literal byte, never an escape; a
 // raw string ending in a backslash must not swallow its closing backtick
 // and mask the rest of the file.
-func TestGoRawStringBackslashIsLiteral(t *testing.T) {
+func TestGoRawStringBackslash(t *testing.T) {
 	content := "package x\n\nvar dir = `C:\\some\\dir\\`\nvar model = \"claude-sonnet-5\"\n"
 	m := maskFile("x.go", content)
 	if !strings.Contains(m.all, "var model") {

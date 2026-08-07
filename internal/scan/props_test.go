@@ -20,7 +20,7 @@ func parseTestCall(t *testing.T, content string) *callInfo {
 	return info
 }
 
-func TestParseCallReadsCalleeAndProps(t *testing.T) {
+func TestParseCallCalleeAndProps(t *testing.T) {
 	info := parseTestCall(t, `await client.chat.completions.create({
   model: "gpt-5.1",
   temperature: 0.4,
@@ -52,7 +52,7 @@ func TestParseCallCalleeAcrossLines(t *testing.T) {
 	}
 }
 
-func TestParseCallIgnoresNestedAndStringHazards(t *testing.T) {
+func TestParseCallIgnoresNested(t *testing.T) {
 	info := parseTestCall(t, `create({
   model: "gpt-5.1",
   note: "brace { and colon : inside",
@@ -67,7 +67,7 @@ func TestParseCallIgnoresNestedAndStringHazards(t *testing.T) {
 	}
 }
 
-func TestPropNumberFindsGeminiWrapperTemperature(t *testing.T) {
+func TestPropNumberInWrapper(t *testing.T) {
 	content := `models.generateContent({
   model: "gemini-2.5-flash",
   generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
@@ -81,7 +81,7 @@ func TestPropNumberFindsGeminiWrapperTemperature(t *testing.T) {
 	}
 }
 
-func TestAnalyzeUsesStructuralParseForGemini(t *testing.T) {
+func TestGeminiStructuralParse(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"intent.ts": `import { GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({});

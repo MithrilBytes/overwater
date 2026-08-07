@@ -23,7 +23,7 @@ func TestEffortFromTopLevelProp(t *testing.T) {
 	}
 }
 
-func TestEffortFromNestedReasoningObject(t *testing.T) {
+func TestEffortFromNestedObject(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"triage.ts": `async function triageTicket(text: string) {
   return client.responses.create({
     model: "gpt-5.1",
@@ -65,7 +65,7 @@ func TestEffortAbsentStaysEmpty(t *testing.T) {
 	}
 }
 
-func TestRetriesFromCamelCaseProp(t *testing.T) {
+func TestRetriesFromCamelCase(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"agent.ts": `async function runAgent(task: string) {
   return client.messages.create({
     model: "claude-opus-5",
@@ -80,7 +80,7 @@ func TestRetriesFromCamelCaseProp(t *testing.T) {
 	}
 }
 
-func TestRetriesFromBareAliasAndKwarg(t *testing.T) {
+func TestRetriesFromAliasAndKwarg(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"retry.py": `def call_model(text):
     return client.messages.create(
         model="claude-opus-5",
@@ -133,7 +133,7 @@ func TestDimensionsAbsentStaysNil(t *testing.T) {
 	}
 }
 
-func TestImageDetailHighInsideContentPart(t *testing.T) {
+func TestImageDetailHighInContentPart(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"ocr.ts": `async function ocrReceipt(url: string) {
   return client.chat.completions.create({
     model: "gpt-4o",
@@ -177,7 +177,7 @@ func TestImageDetailLowStaysFalse(t *testing.T) {
 // same as the same prompt passed as a bare string. Reading only
 // identifiers and backtick literals made the inline spelling measure
 // zero, and a zero length prompt can never trip the caching rule.
-func TestSystemBlockInlineLiteralMeasuresLikeString(t *testing.T) {
+func TestSystemBlockInlineLiteral(t *testing.T) {
 	prompt := strings.Repeat("You cite the source document for every claim you make. ", 80)
 	if len(prompt) < 4400 {
 		t.Fatalf("test prompt is %d chars; the caching rule needs a long one", len(prompt))

@@ -28,7 +28,7 @@ func writeTree(t *testing.T, files map[string]string) string {
 // hazard at once: duplicate normalized property keys, an ambiguous
 // workspace suffix import, and two models on one line. Every report
 // must be deep equal to the first.
-func TestAnalyzeDeterministicAcrossRuns(t *testing.T) {
+func TestAnalyzeIsDeterministic(t *testing.T) {
 	promptA := strings.Repeat("Answer briefly and cite the doc. ", 3)
 	promptB := strings.Repeat("Answer with citations and disclaimers, always in full sentences. ", 3)
 	dir := writeTree(t, map[string]string{

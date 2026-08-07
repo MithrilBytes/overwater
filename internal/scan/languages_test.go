@@ -159,7 +159,7 @@ func TestNotebookCells(t *testing.T) {
 	}
 }
 
-func TestWrapperCallGetsInnermostExtent(t *testing.T) {
+func TestWrapperCallInnermostExtent(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"app.js": `const { askModel } = require("./llm");
 
 async function draftNote(text) {
@@ -172,7 +172,7 @@ async function draftNote(text) {
 	}
 }
 
-func TestTsconfigAliasResolvesPrompt(t *testing.T) {
+func TestTsconfigAliasPrompt(t *testing.T) {
 	guide := strings.Repeat("Answer with the runbook steps before improvising. ", 6)
 	r := analyzeTemp(t, map[string]string{
 		"tsconfig.json":      `{"compilerOptions": {"baseUrl": ".", "paths": {"@lib/*": ["src/lib/*"]}}}`,
@@ -224,7 +224,7 @@ func TestNewManifestEcosystems(t *testing.T) {
 	}
 }
 
-func TestMultiHopImportResolvesPrompt(t *testing.T) {
+func TestMultiHopImportPrompt(t *testing.T) {
 	guide := strings.Repeat("Cite the source document for every claim you make. ", 6)
 	r := analyzeTemp(t, map[string]string{
 		"deep/base.ts": "export const CITE = `" + guide + "`;\n",

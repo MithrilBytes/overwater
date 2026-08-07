@@ -42,7 +42,7 @@ func writeRepo(t *testing.T, name, content string) string {
 // count as prompt characters, so identical source scanned clean with LF
 // and reported a finding with CRLF, making the answer depend on which
 // platform checked the repo out.
-func TestCRLFAndLFProduceIdenticalSites(t *testing.T) {
+func TestCRLFMatchesLF(t *testing.T) {
 	lf := crlfSource()
 	crlf := strings.ReplaceAll(lf, "\n", "\r\n")
 	if !bytes.Contains([]byte(crlf), []byte("\r\n")) || strings.Contains(lf, "\r") {

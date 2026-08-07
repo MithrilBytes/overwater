@@ -24,7 +24,7 @@ func minifiedRegistry(n int) string {
 // File scoped facts must be read once per file. Reading them per call
 // site is what made a minified config cost minutes: the work is
 // identical for every reference in the file.
-func TestFileScopedFactsComputeOncePerFile(t *testing.T) {
+func TestFileFactsRunOncePerFile(t *testing.T) {
 	files := []file{
 		{path: "registry.json", data: []byte(minifiedRegistry(60))},
 		{path: "cron.js", data: []byte("const cron = require(\"node-cron\");\ncron.schedule(\"0 * * * *\", () => call(\"gpt-5-mini\"));\n")},
@@ -50,7 +50,7 @@ func TestFileScopedFactsComputeOncePerFile(t *testing.T) {
 // fallback window path (ids.json, a bare list with no model key and no
 // closer within reach) used to hand every reference a region as long as
 // its own offset, which is quadratic in references per file.
-func TestRegionsStayBoundedInMinifiedFiles(t *testing.T) {
+func TestRegionsBoundedInMinified(t *testing.T) {
 	var ids strings.Builder
 	ids.WriteString(`{"ids":[`)
 	for i := 0; i < 4000; i++ {

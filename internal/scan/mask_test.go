@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestMaskFilePreservesOffsets(t *testing.T) {
+func TestMaskPreservesOffsets(t *testing.T) {
 	content := "const A = `line one\nline two`;\n// trailing comment\n"
 	m := maskFile("a.ts", content)
 	if len(m.all) != len(content) || len(m.prose) != len(content) {
@@ -16,7 +16,7 @@ func TestMaskFilePreservesOffsets(t *testing.T) {
 	}
 }
 
-func TestMaskFileBlanksCommentsAndLongStrings(t *testing.T) {
+func TestMaskBlanksCommentsAndProse(t *testing.T) {
 	long := strings.Repeat("prose about temperature settings ", 4)
 	content := "// comment with max_tokens: 99\nconst SHORT = \"input_schema\";\nconst LONG = \"" + long + "\";\n"
 	m := maskFile("a.ts", content)
@@ -34,7 +34,7 @@ func TestMaskFileBlanksCommentsAndLongStrings(t *testing.T) {
 	}
 }
 
-func TestMaskFilePythonTriples(t *testing.T) {
+func TestMaskPythonTriples(t *testing.T) {
 	content := "PROMPT = \"\"\"docstring with temperature: 0.7 inside and quite a lot of extra words\"\"\"\nx = 1  # temperature: 0.2\n"
 	m := maskFile("a.py", content)
 	if strings.Contains(m.prose, "temperature") {

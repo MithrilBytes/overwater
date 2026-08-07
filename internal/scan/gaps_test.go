@@ -8,7 +8,7 @@ import (
 
 // yaml spells config keys lowercase; model: still traces to its reader
 // when the value names a known model.
-func TestConfigLowercaseModelKeyTraces(t *testing.T) {
+func TestLowercaseConfigKeyTraces(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		"settings.yaml": "model: gpt-4o-mini\n",
 		"reader.py": `import os
@@ -33,7 +33,7 @@ def route_request(text):
 // Lowercase keys only trace values the catalog knows; a private name
 // under a lowercase key stays untraced so yaml prose cannot pose as
 // config.
-func TestConfigLowercaseUnknownValueDoesNotTrace(t *testing.T) {
+func TestLowercaseUnknownValueSkipped(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		"settings.yaml": "model: internal-router-v2\n",
 		"reader.py": `import os
@@ -55,7 +55,7 @@ def route_request(text):
 
 // Python single quoted constants resolve as system prompts, including
 // escaped quotes and the triple single form.
-func TestPythonSingleQuoteConstResolves(t *testing.T) {
+func TestPythonSingleQuoteConst(t *testing.T) {
 	prompt := "Categorize the ticket into billing, bug, or feature request. Reply with the label only."
 	r := analyzeTemp(t, map[string]string{"label.py": `import anthropic
 
@@ -79,7 +79,7 @@ def label_ticket(text):
 	}
 }
 
-func TestResolveConstSingleQuoteForms(t *testing.T) {
+func TestResolveConstQuoteForms(t *testing.T) {
 	if text, ok := resolveConstIn(`P = 'It\'s here'`, "P"); !ok || text != `It\'s here` {
 		t.Errorf("escaped single quote resolved %q %v", text, ok)
 	}
@@ -91,7 +91,7 @@ func TestResolveConstSingleQuoteForms(t *testing.T) {
 
 // tsconfig.json ships with comments in the wild; the alias must still
 // resolve.
-func TestTsconfigWithCommentsResolvesAlias(t *testing.T) {
+func TestTsconfigWithComments(t *testing.T) {
 	guide := strings.Repeat("Answer with the runbook steps before improvising. ", 6)
 	r := analyzeTemp(t, map[string]string{
 		"tsconfig.json": `{
@@ -126,7 +126,7 @@ export async function answerTicket(q: string) {
 
 // The regex fallback (config style files with no call extent) must know
 // max_completion_tokens.
-func TestMaxCompletionTokensRegexFallback(t *testing.T) {
+func TestMaxCompletionTokensFallback(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"llm.yaml": `llm:
   model: gpt-5-mini
   max_completion_tokens: 700
@@ -139,7 +139,7 @@ func TestMaxCompletionTokensRegexFallback(t *testing.T) {
 
 // Prompt size is measured in runes: a non ASCII prompt must not count
 // three bytes per letter against token thresholds.
-func TestSystemPromptCharsCountsRunes(t *testing.T) {
+func TestPromptCharsAreRunes(t *testing.T) {
 	prompt := strings.Repeat("R\u00e9sumez les d\u00e9cisions cl\u00e9s en fran\u00e7ais. ", 3)
 	r := analyzeTemp(t, map[string]string{"recap.py": `def recap_reunion(text):
     return client.messages.create(

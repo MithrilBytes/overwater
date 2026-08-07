@@ -12,7 +12,7 @@ import (
 // earns it; never lower it to make a change fit.
 const accuracyFloor = 0.85
 
-func TestClassifierAccuracyOnCorpus(t *testing.T) {
+func TestCorpusAccuracy(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "corpus", "testdata", "labels.json"))
 	if err != nil {
 		t.Fatal(err)

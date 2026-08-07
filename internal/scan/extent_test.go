@@ -7,7 +7,7 @@ import (
 
 // The model string sits inside a nested provider call; the extent must
 // ascend to the params object that names the model key.
-func TestCallExtentAscendsToModelParameter(t *testing.T) {
+func TestCallExtentFindsModelKey(t *testing.T) {
 	content := `const result = streamText({
   model: anthropic("claude-opus-5"),
   system: "short",
@@ -27,7 +27,7 @@ func TestCallExtentAscendsToModelParameter(t *testing.T) {
 }
 
 // Braces inside string literals must not derail bracket counting.
-func TestCallExtentIgnoresBracesInStrings(t *testing.T) {
+func TestCallExtentIgnoresStringBraces(t *testing.T) {
 	content := `await create({
   model: "gpt-5.1",
   note: "this { is not a bracket",
