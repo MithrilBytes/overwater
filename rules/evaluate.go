@@ -19,12 +19,7 @@ type dupKey struct{ hash, model string }
 // findings sorted by file, line, and rule id.
 func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 	names := cat.Names()
-	counts := map[dupKey]int{}
-	for _, site := range report.Sites {
-		if site.Known && !site.Ignored && site.Hash != "" && names[site.Ref] != nil {
-			counts[dupKey{site.Hash, site.Ref}]++
-		}
-	}
+	counts := duplicateCounts(report, names)
 	seen := map[dupKey]int{}
 	var findings []Finding
 	for _, site := range report.Sites {
@@ -41,35 +36,7 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 			dupCount, dupPos = counts[k], seen[k]
 			seen[k]++
 		}
-		var siteFindings []Finding
-		var flagRules []Rule
-		for _, r := range e.Rules {
-			if !e.matches(r.When, site, model, dupCount, dupPos) {
-				continue
-			}
-			if r.Kind == "flag" {
-				flagRules = append(flagRules, r)
-				continue
-			}
-			f := e.finding(r, site, model, cat)
-			// With no cheaper sibling to name, a cheapest_embedding
-			// finding would only restate the price. Drop it.
-			if r.Candidate.Strategy == "cheapest_embedding" && f.CandidateModel == "" {
-				continue
-			}
-			siteFindings = append(siteFindings, f)
-		}
-		if len(siteFindings) == 0 {
-			// No host finding: the flags become findings themselves.
-			for _, r := range flagRules {
-				siteFindings = append(siteFindings, e.finding(r, site, model, cat))
-			}
-		} else {
-			for _, r := range flagRules {
-				siteFindings[0].Flags = append(siteFindings[0].Flags, e.template(r.Flag, site, model))
-			}
-		}
-		findings = append(findings, siteFindings...)
+		findings = append(findings, e.siteFindings(site, model, cat, dupCount, dupPos)...)
 	}
 	sort.Slice(findings, func(i, j int) bool {
 		a, b := findings[i], findings[j]
@@ -82,6 +49,52 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 		return a.RuleID < b.RuleID
 	})
 	return findings
+}
+
+// duplicateCounts tallies how many eligible sites share each hash and
+// model. Ignored and hashless sites are not duplicates of anything.
+func duplicateCounts(report *scan.Report, names map[string]*catalog.Model) map[dupKey]int {
+	counts := map[dupKey]int{}
+	for _, site := range report.Sites {
+		if site.Known && !site.Ignored && site.Hash != "" && names[site.Ref] != nil {
+			counts[dupKey{site.Hash, site.Ref}]++
+		}
+	}
+	return counts
+}
+
+// siteFindings runs every rule against one call site. Flag rules attach
+// a line to the first finding; with no finding to host them, they become
+// findings of their own.
+func (e *Engine) siteFindings(site scan.Site, m *catalog.Model, cat *catalog.Catalog, dupCount, dupPos int) []Finding {
+	var found []Finding
+	var flagRules []Rule
+	for _, r := range e.Rules {
+		if !e.matches(r.When, site, m, dupCount, dupPos) {
+			continue
+		}
+		if r.Kind == "flag" {
+			flagRules = append(flagRules, r)
+			continue
+		}
+		f := e.finding(r, site, m, cat)
+		// With no cheaper sibling to name, a cheapest_embedding finding
+		// would only restate the price. Drop it.
+		if r.Candidate.Strategy == "cheapest_embedding" && f.CandidateModel == "" {
+			continue
+		}
+		found = append(found, f)
+	}
+	if len(found) == 0 {
+		for _, r := range flagRules {
+			found = append(found, e.finding(r, site, m, cat))
+		}
+		return found
+	}
+	for _, r := range flagRules {
+		found[0].Flags = append(found[0].Flags, e.template(r.Flag, site, m))
+	}
+	return found
 }
 
 func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dupPos int) bool {
