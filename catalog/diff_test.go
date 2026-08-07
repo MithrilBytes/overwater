@@ -13,7 +13,7 @@ const sampleLitellm = `{
   "sample_spec": {"input_cost_per_token": "not a number"}
 }`
 
-func TestParseLitellmConvertsPerTokenToPerMillion(t *testing.T) {
+func TestParseLitellmScalesPrices(t *testing.T) {
 	prices, err := ParseLitellm([]byte(sampleLitellm))
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func diffFixtureCatalog() *Catalog {
 	return &Catalog{Version: "2026-01-01", Models: []Model{drifted, matching, absent, retired}}
 }
 
-func TestDiffLitellmMatchesAndTolerates(t *testing.T) {
+func TestDiffLitellmTolerance(t *testing.T) {
 	prices, err := ParseLitellm([]byte(sampleLitellm))
 	if err != nil {
 		t.Fatal(err)
@@ -67,9 +67,8 @@ func TestDiffLitellmMatchesAndTolerates(t *testing.T) {
 }
 
 // A drifted entry whose price line the regex cannot find must fail the
-// whole apply, not silently no-op while VERSION is bumped and a history
-// snapshot written.
-func TestApplyPricesFailsWhenPriceLineUnmatched(t *testing.T) {
+// apply, not no-op while VERSION is bumped and history written.
+func TestApplyPricesUnmatchedLine(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
 		t.Fatal(err)
@@ -110,9 +109,8 @@ func TestApplyPricesFailsWhenPriceLineUnmatched(t *testing.T) {
 	}
 }
 
-// An upstream record with input but no output cost must never read as
-// "output is now free". Our output price is not compared, not drifted,
-// and not applied over.
+// An upstream record with input but no output cost must not read as
+// "output is now free": ours is not compared, drifted, or applied over.
 func TestDiffLitellmIgnoresMissingOutput(t *testing.T) {
 	c := &Catalog{Version: "2026-01-01", Models: []Model{func() Model {
 		m := validModel()
@@ -168,7 +166,7 @@ func TestDiffLitellmIgnoresMissingOutput(t *testing.T) {
 	}
 }
 
-func TestApplyPricesRewritesBumpsAndRebuilds(t *testing.T) {
+func TestApplyPrices(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
 		t.Fatal(err)

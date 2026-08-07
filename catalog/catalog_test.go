@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestLoadDirMatchesEmbeddedSnapshot(t *testing.T) {
+func TestEmbeddedMatchesLoadDir(t *testing.T) {
 	c, err := LoadDir(".")
 	if err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func validModel() Model {
 	}
 }
 
-func TestValidateRejectsBadEntries(t *testing.T) {
+func TestValidateRejectsEntries(t *testing.T) {
 	cases := []struct {
 		name    string
 		mutate  func(*Model)
@@ -142,7 +142,7 @@ func TestValidateRejectsBadVersion(t *testing.T) {
 	}
 }
 
-func TestLoadDirRejectsFilenameMismatch(t *testing.T) {
+func TestLoadDirFilenameMismatch(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestLoadDirRejectsFilenameMismatch(t *testing.T) {
 	}
 }
 
-func TestLoadDirRejectsUnknownFields(t *testing.T) {
+func TestLoadDirUnknownFields(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
 		t.Fatal(err)

@@ -24,11 +24,10 @@ func writeCacheFile(t *testing.T, dir string, raw []byte) {
 	}
 }
 
-// A cache of {"version":"9999-01-01","models":[]} used to win on the
-// version string alone and silently empty the detection dictionary.
-// Validate now rejects the empty model list, so Effective ignores the
-// cache, says so, and keeps the embedded snapshot.
-func TestEffectiveRejectsEmptyFutureCache(t *testing.T) {
+// A cache of {"version":"9999-01-01","models":[]} would win on version
+// alone and empty the detection dictionary. Validate rejects the empty
+// model list, so Effective ignores the cache and says so.
+func TestEffectiveRejectsEmptyCache(t *testing.T) {
 	empty := &Catalog{Version: "9999-01-01"}
 	if err := empty.Validate(); err == nil || !strings.Contains(err.Error(), "no models") {
 		t.Fatalf("Validate() = %v, want an empty model list rejected", err)
@@ -54,7 +53,7 @@ func TestEffectiveRejectsEmptyFutureCache(t *testing.T) {
 
 // Effective's selection across every cache state: the embedded
 // snapshot loses only to a valid, strictly newer cache.
-func TestEffectiveSelectionMatrix(t *testing.T) {
+func TestEffectiveSelection(t *testing.T) {
 	emb, err := Embedded()
 	if err != nil {
 		t.Fatal(err)
@@ -130,8 +129,8 @@ func TestEffectiveSelectionMatrix(t *testing.T) {
 	})
 }
 
-// Staleness flips strictly after StaleAfter, and an unparseable
-// version stays silent rather than crying wolf.
+// Staleness flips strictly after StaleAfter; an unparseable version
+// stays silent.
 func TestStaleBoundaries(t *testing.T) {
 	c := &Catalog{Version: "2026-01-01", Models: []Model{validModel()}}
 	dated, err := time.Parse("2006-01-02", c.Version)
@@ -202,7 +201,7 @@ func TestWriteCacheRoundTrip(t *testing.T) {
 
 // A valid cache that outranks the embedded snapshot must announce the
 // swap, naming both versions, so the cli can surface it.
-func TestEffectiveNotesWhenCacheShadowsEmbedded(t *testing.T) {
+func TestEffectiveNotesCacheWin(t *testing.T) {
 	dir := cacheDir(t)
 	shadow := &Catalog{Version: "9999-01-01", Models: []Model{validModel()}}
 	raw, err := shadow.JSON()
