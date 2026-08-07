@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -643,7 +644,13 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 	}
 	drifts, notes, missing := catalog.DiffLitellm(c, prices)
 	for _, d := range drifts {
-		fmt.Fprintf(stdout, "%s: ours %g/%g, litellm %g/%g\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, d.TheirsOut)
+		// An upstream record without an output price shows "?", never a
+		// zero that reads like a real price.
+		theirsOut := "?"
+		if d.TheirsOutKnown {
+			theirsOut = strconv.FormatFloat(d.TheirsOut, 'g', -1, 64)
+		}
+		fmt.Fprintf(stdout, "%s: ours %g/%g, litellm %g/%s\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirsOut)
 	}
 	for _, n := range notes {
 		fmt.Fprintf(stdout, "note: %s\n", n)
