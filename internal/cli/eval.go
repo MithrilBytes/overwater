@@ -13,21 +13,20 @@ import (
 
 // analyzeRepo keeps the one root pipeline shape eval uses. A blown
 // budget is a guard concern; eval ignores it.
-func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, render.Meta, error) {
+func analyzeRepo(root string, volume int, stderr io.Writer) (*catalog.Catalog, []rules.Finding, error) {
 	p, err := newPipeline(volume, stderr)
 	if err != nil {
-		return nil, nil, render.Meta{}, err
+		return nil, nil, err
 	}
 	pl, err := planRoot(root)
 	if err != nil {
-		return nil, nil, render.Meta{}, err
+		return nil, nil, err
 	}
-	p.meta.CallsPerMonth = p.volumeFor(pl, volume)
-	findings, _, err := p.scanRoot(pl, nil, p.meta.CallsPerMonth)
+	findings, _, err := p.scanRoot(pl, nil, p.volumeFor(pl, volume))
 	if err != nil {
-		return nil, nil, render.Meta{}, err
+		return nil, nil, err
 	}
-	return p.cat, findings, p.meta, nil
+	return p.cat, findings, nil
 }
 
 // runEval generates one A/B eval script per finding that nominates a
@@ -50,7 +49,7 @@ func runEval(args []string, stdout, stderr io.Writer) int {
 	if fs.NArg() == 1 {
 		root = fs.Arg(0)
 	}
-	cat, findings, _, err := analyzeRepo(root, *volume, stderr)
+	cat, findings, err := analyzeRepo(root, *volume, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
