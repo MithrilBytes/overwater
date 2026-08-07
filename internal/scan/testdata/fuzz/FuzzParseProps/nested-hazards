@@ -1,0 +1,4 @@
+go test fuzz v1
+string("{model: \"gpt-5.1\", note: \"brace { and colon : inside\", nested: { temperature: 0.9 }, after: 1}")
+int(1)
+int(94)

@@ -28,10 +28,14 @@ func TestScanSpansInvariantsOnHostileInputs(t *testing.T) {
 	}
 	for p, content := range inputs {
 		for _, s := range scanSpans(content, familyFor(p)) {
-			if !(0 <= s.start && s.start <= s.interiorStart &&
-				s.interiorStart <= s.interiorEnd &&
-				s.interiorEnd <= s.end && s.end <= len(content)) {
-				t.Errorf("%s: span invariant broken: %+v (len %d)", p, s, len(content))
+			if !(0 <= s.start && s.start <= s.end && s.end <= len(content)) {
+				t.Errorf("%s: span bounds broken: %+v (len %d)", p, s, len(content))
+			}
+			// Interiors belong to string spans; comments never carry
+			// them.
+			if s.kind == spanString && !(s.start <= s.interiorStart &&
+				s.interiorStart <= s.interiorEnd && s.interiorEnd <= s.end) {
+				t.Errorf("%s: span interior invariant broken: %+v (len %d)", p, s, len(content))
 			}
 		}
 	}

@@ -77,6 +77,28 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 	return AnalyzeOnly(root, cat, nil)
 }
 
+// analyzeFile is the per file pipeline: model refs, shape, hash,
+// archetype, pragmas, nearby strings. The analyzer already holds the
+// full file set for cross file resolution.
+func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
+	var sites []Site
+	for _, site := range findModelRefs(f.path, f.data, names) {
+		regionStart, regionEnd, extStart, hasExtent := a.regionFor(f.path, site.Line, site.Col)
+		site.Shape = a.extractShape(f.path, regionStart, regionEnd, extStart, hasExtent)
+		site.Hash = a.siteHash(f.path, site.Line, regionStart, regionEnd, hasExtent)
+		tier := ""
+		if site.Known {
+			tier = names[site.Ref].Tier
+		}
+		hit := hitOffset(string(f.data), site.Line, site.Col)
+		site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, regionStart, regionEnd, hit, tier)
+		site.Ignored, site.VolumeOverride = a.pragmas(f.path, regionStart, regionEnd)
+		site.NearbyStrings = a.nearbyStrings(f.path, regionStart, regionEnd)
+		sites = append(sites, site)
+	}
+	return sites
+}
+
 // AnalyzeOnly is Analyze restricted to the files named in only (slash
 // separated, root relative); nil scans everything the walker visits.
 // Incremental callers pass the set git reports changed. The whole repo
@@ -119,20 +141,7 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 				}
 				r := &results[i]
 				r.sdks = scanManifest(f.path, f.data)
-				for _, site := range findModelRefs(f.path, f.data, names) {
-					regionStart, regionEnd, extStart, hasExtent := a.regionFor(f.path, site.Line, site.Col)
-					site.Shape = a.extractShape(f.path, regionStart, regionEnd, extStart, hasExtent)
-					site.Hash = a.siteHash(f.path, site.Line, regionStart, regionEnd, hasExtent)
-					tier := ""
-					if site.Known {
-						tier = names[site.Ref].Tier
-					}
-					hit := hitOffset(string(f.data), site.Line, site.Col)
-					site.Archetype, site.ArchetypeConfidence = a.classify(f.path, site.Shape, regionStart, regionEnd, hit, tier)
-					site.Ignored, site.VolumeOverride = a.pragmas(f.path, regionStart, regionEnd)
-					site.NearbyStrings = a.nearbyStrings(f.path, regionStart, regionEnd)
-					r.sites = append(r.sites, site)
-				}
+				r.sites = a.analyzeFile(f, names)
 			}
 		}()
 	}

@@ -1,0 +1,4 @@
+go test fuzz v1
+string("{a: 1}")
+int(-3)
+int(9999)
