@@ -27,6 +27,8 @@ jobs:
       - run: go test ./...
       - name: analyze benchmark
         run: go test -run '^$' -bench BenchmarkAnalyze -benchtime 2x ./internal/scan/
+      - name: perf gate
+        run: bash scripts/perf-gate.sh
       - name: smoke suite
         run: bash scripts/smoke.sh
       - name: cross compile

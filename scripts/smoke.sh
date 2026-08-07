@@ -222,6 +222,22 @@ check eval 0 "wrote" "$bin" eval -o "$work/evals" fixtures/py-extraction
 check eval-draft 0 "drafted" "$bin" eval -o "$work/evals2" -draft-prompts fixtures/py-extraction
 check eval-clean 0 "Nothing to eval." "$bin" eval -o "$work/evals3" fixtures/clean-app
 
+# The perf gate, against a stub that sleeps a fixed time per repo size
+# instead of scanning. The gate passes when time tracks input size and
+# fails when the larger repo costs disproportionately more; simulating
+# the slow scan beats reintroducing a quadratic to prove it.
+cat > "$work/stub-scan" <<'STUB'
+#!/usr/bin/env bash
+for root; do :; done
+if [ "$(cat "$root"/src/* | wc -c)" -gt 200000 ]; then sleep "$STUB_LARGE"; else sleep "$STUB_SMALL"; fi
+STUB
+chmod +x "$work/stub-scan"
+export OVERWATER_BIN="$work/stub-scan" STUB_SMALL=0.025 STUB_LARGE=0.15
+check perf-gate-linear 0 "8x the input cost" bash scripts/perf-gate.sh
+export STUB_LARGE=1.2
+check perf-gate-superlinear 1 "growing faster than the input" bash scripts/perf-gate.sh
+unset OVERWATER_BIN STUB_SMALL STUB_LARGE
+
 # Catalog.
 check catalog-show 0 "claude-haiku-4-5" "$bin" catalog show
 check catalog-refresh-offline 2 "network operation" "$bin" catalog refresh -offline
