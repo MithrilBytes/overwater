@@ -415,13 +415,20 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 // nominate picks the provider's newest active model in the target tier
 // and renders the candidate clause. Newest, not cheapest: once the
 // catalog carries history, cheapest would nominate stale bargains
-// instead of the lane's current occupant. When the catalog has no such
-// model, the finding says so instead of guessing.
+// instead of the lane's current occupant. Every caller is a cost
+// motivated strategy, so a candidate whose monthly cost for this site
+// exceeds the current model's is rejected outright; a savings
+// nomination must never raise the bill. When no model survives, the
+// finding says so instead of guessing.
 func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, note string, site scan.Site) (string, string) {
+	budget := e.monthlyUSD(current, site)
 	var best *catalog.Model
 	for i := range cat.Models {
 		m := &cat.Models[i]
 		if m.Provider != current.Provider || m.Tier != tier || m.ID == current.ID || m.Deprecated != "" {
+			continue
+		}
+		if e.monthlyUSD(m, site) > budget {
 			continue
 		}
 		if best == nil || newer(m, best) {

@@ -584,6 +584,33 @@ func TestTranscriptionOnCronTripsBatchOnRealtime(t *testing.T) {
 	}
 }
 
+// A savings nomination must never cost more than staying put. Cohere's
+// only active embedding besides embed-english-v3.0 is embed-v4.0, and
+// it is pricier; nominate must fall back to the no-candidate wording
+// instead of proposing a raise.
+func TestNominateNeverRaisesCost(t *testing.T) {
+	engine, cat := loadEngine(t)
+	current := cat.ByName("embed-english-v3.0")
+	if current == nil {
+		t.Fatal("embed-english-v3.0 is missing from the catalog")
+	}
+	s := site("embed-english-v3.0", scan.ArchetypeEmbedding, scan.Shape{})
+	text, model := engine.nominate(cat, current, "embedding", "same provider at the standard embedding tier", s)
+	if model != "" {
+		t.Fatalf("nominated %q, want no candidate when every sibling costs more", model)
+	}
+	if text != "no active embedding tier model from cohere in the catalog" {
+		t.Errorf("text = %q, want the no-candidate fallback wording", text)
+	}
+	// The guard rejects raises, not downgrades: a pricier current model
+	// still draws its cheaper sibling.
+	pricier := cat.ByName("text-embedding-3-large")
+	_, model = engine.nominate(cat, pricier, "embedding", "same provider at the standard embedding tier", s)
+	if model != "text-embedding-3-small" {
+		t.Errorf("nominated %q, want text-embedding-3-small for text-embedding-3-large", model)
+	}
+}
+
 // A rule that leans on the archetype inherits the classifier's doubt.
 func TestLowConfidenceArchetypeDemotesFinding(t *testing.T) {
 	engine, err := Load()
