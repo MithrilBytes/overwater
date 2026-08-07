@@ -124,9 +124,9 @@ func validArchetype(s string) bool {
 	return false
 }
 
-// classify scores every archetype from the call site's own evidence and
-// returns the winner with a graded confidence. A pragma in or just
-// above the region wins outright.
+// classify returns the archetype the call site's evidence favours, with
+// a graded confidence. A pragma in or just above the region, and an
+// embedding call, both win outright; everything else is scored.
 func (a *analyzer) classify(p string, shape Shape, r region, tier string) (string, string) {
 	content := a.byPath[p]
 	pragmaStart := linesAbove(content, r.start, 3)
@@ -136,7 +136,13 @@ func (a *analyzer) classify(p string, shape Shape, r region, tier string) (strin
 	if shape.EmbeddingCall || tier == "embedding" {
 		return ArchetypeEmbedding, "high"
 	}
+	return rank(a.archetypeScores(p, shape, r))
+}
 
+// archetypeScores weighs every archetype against the evidence around the
+// call: the enclosing function name, the code in the region, the
+// resolved system prompt, and the shape itself.
+func (a *analyzer) archetypeScores(p string, shape Shape, r region) map[string]int {
 	src := a.masked(p)
 	// Keyword evidence in code comes from identifiers alone: the fully
 	// masked view drops every string, so a short prose fragment like
@@ -191,7 +197,13 @@ func (a *analyzer) classify(p string, shape Shape, r region, tier string) (strin
 	if shape.Streaming {
 		scores[ArchetypeChat] += 2
 	}
+	return scores
+}
 
+// rank returns the highest scoring archetype and how sure of it we are.
+// A win needs both an absolute score and a margin over the runner up;
+// ties fall to archetypePriority, which is ordered narrowest first.
+func rank(scores map[string]int) (string, string) {
 	best, bestScore, secondScore := "", 0, 0
 	for _, arch := range archetypePriority {
 		s := scores[arch]
