@@ -109,6 +109,21 @@ func TestValidateRejectsBadEntries(t *testing.T) {
 	}
 }
 
+func TestHasCapability(t *testing.T) {
+	m := validModel()
+	m.Capabilities = []string{"vision", "dimensions"}
+	if !m.HasCapability("vision") || !m.HasCapability("dimensions") {
+		t.Error("declared capabilities not reported")
+	}
+	if m.HasCapability("tools") || m.HasCapability("") {
+		t.Error("undeclared capability reported")
+	}
+	bare := validModel()
+	if bare.HasCapability("vision") {
+		t.Error("model with no capability list reported one")
+	}
+}
+
 func TestValidateRejectsDuplicateNames(t *testing.T) {
 	a := validModel()
 	b := validModel()

@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -629,6 +630,38 @@ func TestTranscriptionOnCronTripsBatchOnRealtime(t *testing.T) {
 	want := "gpt-4o-mini through the batch endpoint at half price"
 	if len(got[0].CandidateText) < len(want) || got[0].CandidateText[:len(want)] != want {
 		t.Errorf("candidate = %q, want it to open with %q", got[0].CandidateText, want)
+	}
+}
+
+// cachedMonthlyUSD with a steady state read fraction below one charges
+// the remaining system tokens at the cache write rate. Estimates are
+// built locally so the shipped estimates.yaml (fraction 1.0, which
+// zeroes the write term) stays untouched.
+func TestCachedMonthlyUSDChargesWriteRate(t *testing.T) {
+	e := &Engine{}
+	e.Est.Volume.CallsPerMonth = 10000
+	e.Est.Tokens.CharsPerToken = 4
+	e.Est.Tokens.DefaultInput = 500
+	e.Est.Tokens.DefaultOutput = 400
+	e.Est.Tokens.EmbeddingInput = 10000
+	e.Est.Cache.SteadyStateReadFraction = 0.8
+	m := &catalog.Model{
+		ID: "cached-model", InputPerMtok: 3, OutputPerMtok: 15,
+		CacheReadPerMtok: 0.3, CacheWritePerMtok: 3.75,
+	}
+	s := scan.Site{Archetype: scan.ArchetypeChat, Shape: scan.Shape{SystemPromptChars: 8000}}
+	// 2,000 system tokens: 1,600 read at $0.30, 400 written at $3.75,
+	// plus 500 input at $3 and 400 output at $15, at 10,000 calls:
+	// (1500 + 480 + 1500 + 6000) / 1e6 x 10000 = $94.80.
+	got := e.cachedMonthlyUSD(m, s)
+	if math.Abs(got-94.8) > 1e-9 {
+		t.Errorf("cachedMonthlyUSD = %g, want 94.8", got)
+	}
+	// At fraction 1.0 the write term vanishes; the difference is the
+	// write rate's contribution.
+	e.Est.Cache.SteadyStateReadFraction = 1
+	if allRead := e.cachedMonthlyUSD(m, s); math.Abs(allRead-81) > 1e-9 {
+		t.Errorf("cachedMonthlyUSD at fraction 1.0 = %g, want 81", allRead)
 	}
 }
 
