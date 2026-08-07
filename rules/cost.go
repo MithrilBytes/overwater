@@ -8,8 +8,8 @@ import (
 )
 
 // TotalMonthlyUSD sums the estimated monthly spend of every known call
-// site at its own model, for the repo budget check. Ignore pragmas
-// silence findings, not spend, so ignored sites still count.
+// site at its own model, for the repo budget check. Ignored sites still
+// count: ignore pragmas silence findings, not spend.
 func (e *Engine) TotalMonthlyUSD(report *scan.Report, cat *catalog.Catalog) float64 {
 	names := cat.Names()
 	var total float64
@@ -44,8 +44,8 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site) float64 {
 
 // cachedMonthlyUSD prices the same call with the system prompt served
 // from the provider cache: the steady state fraction of system tokens
-// at the cache read rate, the rest at the write rate, everything else
-// unchanged. Callers gate on the model actually publishing cache rates.
+// at the cache read rate, the rest at the write rate. Callers gate on
+// the model publishing cache rates at all.
 func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site) float64 {
 	t := e.Est.Tokens
 	sys := float64(e.systemTokens(site))
@@ -61,8 +61,8 @@ func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site) float64 {
 	return perCall * float64(e.callsPerMonth(site))
 }
 
-// callsPerMonth is the effective volume for one site: a volume pragma
-// wins over the estimate default.
+// callsPerMonth is the volume for one site: a volume pragma wins over
+// the estimate default.
 func (e *Engine) callsPerMonth(site scan.Site) int {
 	if site.VolumeOverride > 0 {
 		return site.VolumeOverride

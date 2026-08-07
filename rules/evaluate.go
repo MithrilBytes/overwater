@@ -10,8 +10,8 @@ import (
 	"github.com/MithrilBytes/overwater/internal/scan"
 )
 
-// dupKey groups call sites for the duplicate predicate: same content
-// hash and same model is the same call written twice.
+// dupKey groups call sites for the duplicate predicate: same hash and
+// same model is the same call written twice.
 type dupKey struct{ hash, model string }
 
 // Evaluate runs every rule against every known call site and returns the
@@ -51,18 +51,15 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 				continue
 			}
 			f := e.finding(r, site, model, cat)
-			// cheapest_embedding exists solely to name a cheaper same
-			// provider sibling. When nothing cheaper exists, a finding
-			// would only restate the price with no move to make, so it
-			// is dropped instead of shipped with the no-candidate
-			// wording.
+			// With no cheaper sibling to name, a cheapest_embedding
+			// finding would only restate the price. Drop it.
 			if r.Candidate.Strategy == "cheapest_embedding" && f.CandidateModel == "" {
 				continue
 			}
 			siteFindings = append(siteFindings, f)
 		}
 		if len(siteFindings) == 0 {
-			// A flag with no host finding still deserves a verdict block.
+			// No host finding: the flags become findings themselves.
 			for _, r := range flagRules {
 				siteFindings = append(siteFindings, e.finding(r, site, model, cat))
 			}
@@ -150,9 +147,7 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dup
 func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.Catalog) Finding {
 	current := e.monthlyUSD(m, site)
 	confidence := r.Confidence
-	// A rule that leans on the archetype inherits the classifier's
-	// doubt: a low confidence classification demotes the finding one
-	// notch instead of presenting a guess as certainty.
+	// A rule that leans on the archetype inherits the classifier's doubt.
 	if (len(r.When.Archetype) > 0 || len(r.When.ArchetypeNot) > 0) && site.ArchetypeConfidence == "low" {
 		confidence = demote(confidence)
 	}
@@ -177,14 +172,14 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 	case "cached_system_prompt":
 		// Priced only when the catalog knows the model's cache rates;
 		// otherwise the nomination stays a shape suggestion.
+		// A made up number would be worse than none.
 		f.CandidateText = r.Candidate.Note
 		if m.CacheReadPerMtok > 0 {
 			f.CandidateText = fmt.Sprintf("%s, ~$%d/mo", r.Candidate.Note, round(e.cachedMonthlyUSD(m, site)))
 		}
 	case "price_multiplier":
-		// The model's own published batch discount beats the rule's
-		// flat assumption; the yaml multiplier is the fallback for
-		// entries that do not carry one.
+		// The model's published batch discount wins; the yaml multiplier
+		// is the fallback for entries that do not carry one.
 		mult := r.Candidate.Multiplier
 		if m.BatchMultiplier > 0 {
 			mult = m.BatchMultiplier

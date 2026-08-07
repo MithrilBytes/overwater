@@ -1,7 +1,6 @@
-// Package rules maps archetype plus shape plus catalog tier to findings.
-// Every rule, threshold, and price lives in the embedded YAML files; the
-// engine contains no numbers of its own. Findings are nominations with a
-// stated confidence, never directives.
+// Package rules maps archetype, call shape, and catalog tier to findings.
+// Every rule, threshold, and price lives in the embedded YAML files; no
+// numbers belong in this package.
 package rules
 
 import (
@@ -54,9 +53,9 @@ type When struct {
 	ImageDetailHigh   *bool    `yaml:"image_detail_high"`
 	ModelCapability   string   `yaml:"model_capability"`
 	DimensionsPresent *bool    `yaml:"dimensions_present"`
-	// MinDuplicateSites is the cross site predicate: the site's hash and
-	// model appear at least this many times in the report, and the site
-	// is not the first occurrence. The engine computes the grouping.
+	// MinDuplicateSites matches a site whose hash and model appear at
+	// least this many times in the report, and that is not the first
+	// occurrence. Evaluate does the grouping.
 	MinDuplicateSites int `yaml:"min_duplicate_sites"`
 }
 
@@ -73,9 +72,8 @@ var candidateStrategies = map[string]bool{
 	"successor": true, "cheapest_embedding": true, "cached_system_prompt": true,
 }
 
-// knownArchetypes is the closed set the scanner can assign, from the
-// internal/scan constants; a rule naming anything else could never
-// match and would be a silently dead predicate.
+// knownArchetypes is the closed set the scanner can assign. A rule
+// naming anything else would be a dead predicate, so validate rejects it.
 var knownArchetypes = map[string]bool{
 	scan.ArchetypeEmbedding:      true,
 	scan.ArchetypeClassification: true,
@@ -92,8 +90,8 @@ var knownArchetypes = map[string]bool{
 	scan.ArchetypeUnknown:        true,
 }
 
-// knownEfforts mirrors the values the shape reader's effort regex can
-// capture; the scanner lowercases what it finds.
+// knownEfforts mirrors what the shape reader's effort regex captures,
+// lowercased.
 var knownEfforts = map[string]bool{
 	"minimal": true, "low": true, "medium": true,
 	"high": true, "xhigh": true, "max": true,
@@ -113,8 +111,8 @@ type Rule struct {
 }
 
 // Finding is one downgrade nomination for one call site. SiteHash is
-// the scanner's content hash of the call site, the drift stable part of
-// the baseline fingerprint.
+// the scanner's content hash, the drift stable part of the baseline
+// fingerprint.
 type Finding struct {
 	RuleID        string
 	Confidence    string
@@ -126,9 +124,8 @@ type Finding struct {
 	Model         string
 	MonthlyUSD    int
 	CandidateText string // the full clause rendered after "Candidate:"
-	// CandidateModel is the nominated model id when the candidate is a
-	// different model, empty for same model or shape only candidates.
-	// The eval generator keys off it.
+	// CandidateModel is the nominated model id, empty for same model or
+	// shape only candidates. The eval generator keys off it.
 	CandidateModel string
 	Tripwire       string
 	Flags          []string
@@ -195,11 +192,9 @@ func (r Rule) validate() error {
 		return fmt.Errorf("%s: candidate note and tripwire are required", r.ID)
 	}
 	// Enumerated when values are checked against their closed sets; a
-	// typo here would otherwise load fine and disable the rule forever.
-	// Providers are the one deliberate exception: the catalog data
-	// defines them, not a fixed list, so a provider name the current
-	// catalog does not know may still be valid against tomorrow's and
-	// simply never matches today.
+	// typo would otherwise load fine and disable the rule forever.
+	// Providers are the exception: the catalog owns that namespace, so a
+	// name today's catalog lacks may be valid against tomorrow's.
 	for _, tier := range r.When.Tier {
 		if !contains(catalog.Tiers, tier) {
 			return fmt.Errorf("%s: unknown tier %q in when.tier", r.ID, tier)
@@ -229,21 +224,18 @@ func (r Rule) validate() error {
 	return nil
 }
 
-// Clone returns an engine that shares nothing mutable with this one, so
-// a caller can disable rules or move thresholds for one repository
-// without touching any other's judgment. Copying the slice is enough
-// separation because the mutators replace whole fields rather than
-// writing through the slices and pointers a Rule holds.
+// Clone returns an engine one repository's config can retune without
+// reaching any other's. A slice copy is enough separation: the mutators
+// replace whole fields rather than writing through a Rule's pointers.
 func (e *Engine) Clone() *Engine {
 	c := &Engine{Est: e.Est, Rules: make([]Rule, len(e.Rules))}
 	copy(c.Rules, e.Rules)
 	return c
 }
 
-// Disable removes the named rules from the engine. Removing a rule
-// that does not exist is a no-op, so configs survive rule renames. The
-// kept rules land in a fresh slice: filtering in place would also
-// rewrite the backing array of any engine this one was cloned from.
+// Disable removes the named rules; unknown ids are a no-op so configs
+// survive rule renames. Kept rules go into a fresh slice because
+// filtering in place would rewrite a clone's backing array too.
 func (e *Engine) Disable(ids []string) {
 	drop := map[string]bool{}
 	for _, id := range ids {
@@ -258,9 +250,8 @@ func (e *Engine) Disable(ids []string) {
 	e.Rules = kept
 }
 
-// SetThreshold overrides one numeric When field on the named rule.
-// Unknown rules and fields are errors: a tolerated typo would silently
-// scan with the wrong threshold.
+// SetThreshold overrides one numeric When field on the named rule. An
+// unknown rule or field is an error, not a silently wrong threshold.
 func (e *Engine) SetThreshold(ruleID, field string, value float64) error {
 	for i := range e.Rules {
 		if e.Rules[i].ID != ruleID {
