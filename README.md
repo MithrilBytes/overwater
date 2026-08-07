@@ -281,8 +281,6 @@ released binary all ship as of v2.2. What is left:
       so nixpkgs pins to a revision rather than a branch. CI checks the
       flake evaluates; building it needs someone with nix.
 - [ ] publish the Homebrew formula to a tap repository
-- [ ] set Actions workflow permissions to read and write, which is what
-      blocks the nightly price-watch from opening its PR
 
 ### Detection
 
