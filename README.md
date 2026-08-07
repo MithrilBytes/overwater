@@ -272,11 +272,18 @@ quadratic fixes in v2. Profile before optimizing.
 
 ### Deploy
 
-- [ ] Homebrew tap, winget, scoop
-- [ ] distroless image on GHCR for CI runners
-- [ ] nix flake
-- [ ] build provenance attestation and signed checksums
-- [ ] release notes generated from the commit log
+Manifests for Homebrew, scoop, and winget, a distroless image on GHCR,
+release notes built from the commit log, and build provenance on every
+released binary all ship as of v2.2. What is left:
+
+- [ ] fill in the flake's vendorHash; only nix can compute it, and
+      nobody on the project runs nix, so the flake evaluates in CI but
+      does not build
+- [ ] commit a flake.lock so nixpkgs is pinned to a revision rather
+      than a branch
+- [ ] publish the Homebrew formula to a tap repository
+- [ ] set Actions workflow permissions to read and write, which is what
+      blocks the nightly price-watch from opening its PR
 
 ### Detection
 
