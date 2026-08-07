@@ -124,8 +124,9 @@ func headExpand(content string, from int) int {
 // catches C family methods (name(args) {), which have no keyword; the
 // stopword list keeps control statements from posing as names.
 var reFuncDefs = []*regexp.Regexp{
-	regexp.MustCompile(`(?:function|func|def|fn)\s+([A-Za-z_][A-Za-z0-9_]*)`),
-	regexp.MustCompile(`(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:async\b|\()`),
+	// Keywords need a left word boundary so "undef foo" is not a def.
+	regexp.MustCompile(`\b(?:function|func|def|fn)\s+([A-Za-z_][A-Za-z0-9_]*)`),
+	regexp.MustCompile(`\b(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:async\b|\()`),
 	regexp.MustCompile(`([A-Za-z_][A-Za-z0-9_]*)\s*\([^()]*\)\s*\{`),
 }
 

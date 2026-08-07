@@ -70,9 +70,12 @@ var families = []family{
 	{ArchetypeModeration,
 		[]string{"moderat", "safety_gate", "content_filter"},
 		[]string{"moderat", "allow or block", "policy violation"}},
+	// Words that mean the transcription task itself; the bare stem
+	// transcri would also match transcripts, which usually names the
+	// input of a summarizer, not this task.
 	{ArchetypeTranscription,
-		[]string{"transcri", "whisper", "speech_to_text"},
-		[]string{"transcri", "word for word", "verbatim"}},
+		[]string{"transcrib", "transcription", "whisper", "speech_to_text"},
+		[]string{"transcrib", "transcription", "speech to text", "word for word", "verbatim"}},
 	{ArchetypeVision,
 		[]string{"vision", "ocr", "screenshot"},
 		[]string{"ocr", "in the image", "in this image"}},

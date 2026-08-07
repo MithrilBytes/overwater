@@ -233,21 +233,23 @@ func propVal(info *callInfo, names ...string) (string, bool) {
 	return "", false
 }
 
+// Numbers may use underscore digit separators (32_768), which are
+// stripped before parsing.
 var (
-	reLeadingNumber = regexp.MustCompile(`^[0-9]*\.?[0-9]+`)
-	reWrappedNumber = regexp.MustCompile(`^[A-Za-z_$.]+\(\s*([0-9]*\.?[0-9]+)\s*\)$`)
+	reLeadingNumber = regexp.MustCompile(`^(?:[0-9][0-9_]*(?:\.[0-9_]*)?|\.[0-9][0-9_]*)`)
+	reWrappedNumber = regexp.MustCompile(`^[A-Za-z_$.]+\(\s*([0-9][0-9_]*(?:\.[0-9_]*)?|\.[0-9][0-9_]*)\s*\)$`)
 )
 
 func numberFrom(raw string) (float64, bool) {
 	raw = strings.TrimSpace(raw)
 	if m := reLeadingNumber.FindString(raw); m != "" {
-		if f, err := strconv.ParseFloat(m, 64); err == nil {
+		if f, err := strconv.ParseFloat(strings.ReplaceAll(m, "_", ""), 64); err == nil {
 			return f, true
 		}
 	}
 	// Wrapped constructors like anthropic.Int(64) still carry the number.
 	if m := reWrappedNumber.FindStringSubmatch(raw); m != nil {
-		if f, err := strconv.ParseFloat(m[1], 64); err == nil {
+		if f, err := strconv.ParseFloat(strings.ReplaceAll(m[1], "_", ""), 64); err == nil {
 			return f, true
 		}
 	}
@@ -307,7 +309,8 @@ func applyCallInfo(s *Shape, content string, info *callInfo) {
 	choice, _ := propVal(info, "tool_choice")
 	s.ForcedTool = strings.Contains(choice, `"tool"`) || strings.Contains(choice, "'tool'")
 	stream, _ := propVal(info, "stream")
-	s.Streaming = strings.TrimSpace(stream) == "true" ||
+	// Case insensitive: Python writes True.
+	s.Streaming = strings.EqualFold(strings.TrimSpace(stream), "true") ||
 		strings.HasSuffix(info.Callee, ".stream") ||
 		strings.Contains(info.Callee, "streamText")
 	for _, k := range []string{"schema", "response_format", "responseSchema", "input_schema", "output_config"} {

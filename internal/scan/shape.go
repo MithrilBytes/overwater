@@ -372,15 +372,20 @@ func literalText(content string, start int, delim string) (string, bool) {
 		return rest[2 : 2+end], true
 	}
 	if delim == `"` || delim == "'" {
-		limit := rest
-		if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
-			limit = rest[:nl]
+		// Escape aware, mirroring the masker: an escaped quote is part
+		// of the string, and an unescaped newline ends the search.
+		q := delim[0]
+		for i := 0; i < len(rest); i++ {
+			switch rest[i] {
+			case '\\':
+				i++
+			case '\n':
+				return "", false
+			case q:
+				return rest[:i], true
+			}
 		}
-		end := strings.Index(limit, delim)
-		if end < 0 {
-			return "", false
-		}
-		return limit[:end], true
+		return "", false
 	}
 	end := strings.Index(rest, delim)
 	if end < 0 {
@@ -424,7 +429,9 @@ func (a *analyzer) resolveConstHop(p, name string, depth int, seen map[string]bo
 }
 
 func resolveConstIn(content, name string) (string, bool) {
-	re := regexp.MustCompile(regexp.QuoteMeta(name) + "\\s*=\\s*(`|\"\"\"|\")")
+	// The name needs a left boundary: resolving PROMPT must not match
+	// the tail of LEGACY_PROMPT.
+	re := regexp.MustCompile(`(?m)(?:^|[^A-Za-z0-9_$])` + regexp.QuoteMeta(name) + "\\s*=\\s*(`|\"\"\"|\")")
 	m := re.FindStringSubmatchIndex(content)
 	if m == nil {
 		return "", false
