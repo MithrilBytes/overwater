@@ -1,0 +1,50 @@
+name: nix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - flake.nix
+      - flake.lock
+      - go.mod
+      - go.sum
+      - cmd/**
+      - internal/**
+      - .github/workflows/nix.yml
+  pull_request:
+    paths:
+      - flake.nix
+      - flake.lock
+      - go.mod
+      - go.sum
+      - cmd/**
+      - internal/**
+      - .github/workflows/nix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: "experimental-features = nix-command flakes"
+      - name: evaluate the flake
+        run: nix flake check --no-build --all-systems
+      - name: build and run
+        # The build needs vendorHash, which only nix can compute. Until
+        # a maintainer fills it in from a local build, evaluation above
+        # is the whole check.
+        run: |
+          set -euo pipefail
+          if grep -q 'vendorHash = "sha256-AAAA' flake.nix; then
+            echo "vendorHash is still the placeholder; skipping the build." >&2
+            echo "Run 'nix build .#overwater' and paste the hash nix reports." >&2
+            exit 0
+          fi
+          nix build .#overwater
+          ./result/bin/overwater version
