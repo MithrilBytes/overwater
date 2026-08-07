@@ -1,5 +1,9 @@
 id: claude-opus-4-8
 provider: anthropic
+aliases:
+  - anthropic.claude-opus-4-8-20260415-v1:0
+  - us.anthropic.claude-opus-4-8-20260415-v1:0
+  - eu.anthropic.claude-opus-4-8-20260415-v1:0
 input_per_mtok: 5.00
 output_per_mtok: 25.00
 context_window: 1000000

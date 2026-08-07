@@ -4,6 +4,9 @@ aliases:
   - anthropic.claude-opus-5
   - us.anthropic.claude-opus-5
   - eu.anthropic.claude-opus-5
+  - anthropic.claude-opus-5-20260601-v1:0
+  - us.anthropic.claude-opus-5-20260601-v1:0
+  - eu.anthropic.claude-opus-5-20260601-v1:0
 input_per_mtok: 5.00
 output_per_mtok: 25.00
 context_window: 1000000

@@ -2,6 +2,9 @@ id: claude-opus-4-5
 provider: anthropic
 aliases:
   - claude-opus-4-5-20251101
+  - anthropic.claude-opus-4-5-20251101-v1:0
+  - us.anthropic.claude-opus-4-5-20251101-v1:0
+  - eu.anthropic.claude-opus-4-5-20251101-v1:0
 input_per_mtok: 5.00
 output_per_mtok: 25.00
 context_window: 200000

@@ -4,6 +4,9 @@ aliases:
   - anthropic.claude-fable-5
   - us.anthropic.claude-fable-5
   - eu.anthropic.claude-fable-5
+  - anthropic.claude-fable-5-20260601-v1:0
+  - us.anthropic.claude-fable-5-20260601-v1:0
+  - eu.anthropic.claude-fable-5-20260601-v1:0
 input_per_mtok: 10.00
 output_per_mtok: 50.00
 context_window: 1000000

@@ -96,7 +96,10 @@
       "aliases": [
         "anthropic.claude-fable-5",
         "us.anthropic.claude-fable-5",
-        "eu.anthropic.claude-fable-5"
+        "eu.anthropic.claude-fable-5",
+        "anthropic.claude-fable-5-20260601-v1:0",
+        "us.anthropic.claude-fable-5-20260601-v1:0",
+        "eu.anthropic.claude-fable-5-20260601-v1:0"
       ],
       "input_per_mtok": 10,
       "output_per_mtok": 50,
@@ -121,7 +124,10 @@
         "claude-haiku-4-5-20251001",
         "anthropic.claude-haiku-4-5",
         "us.anthropic.claude-haiku-4-5",
-        "eu.anthropic.claude-haiku-4-5"
+        "eu.anthropic.claude-haiku-4-5",
+        "anthropic.claude-haiku-4-5-20251001-v1:0",
+        "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
       ],
       "input_per_mtok": 1,
       "output_per_mtok": 5,
@@ -175,7 +181,10 @@
       "id": "claude-opus-4-5",
       "provider": "anthropic",
       "aliases": [
-        "claude-opus-4-5-20251101"
+        "claude-opus-4-5-20251101",
+        "anthropic.claude-opus-4-5-20251101-v1:0",
+        "us.anthropic.claude-opus-4-5-20251101-v1:0",
+        "eu.anthropic.claude-opus-4-5-20251101-v1:0"
       ],
       "input_per_mtok": 5,
       "output_per_mtok": 25,
@@ -196,6 +205,11 @@
     {
       "id": "claude-opus-4-6",
       "provider": "anthropic",
+      "aliases": [
+        "anthropic.claude-opus-4-6-20251215-v1:0",
+        "us.anthropic.claude-opus-4-6-20251215-v1:0",
+        "eu.anthropic.claude-opus-4-6-20251215-v1:0"
+      ],
       "input_per_mtok": 5,
       "output_per_mtok": 25,
       "cache_read_per_mtok": 0.5,
@@ -215,6 +229,11 @@
     {
       "id": "claude-opus-4-7",
       "provider": "anthropic",
+      "aliases": [
+        "anthropic.claude-opus-4-7-20260215-v1:0",
+        "us.anthropic.claude-opus-4-7-20260215-v1:0",
+        "eu.anthropic.claude-opus-4-7-20260215-v1:0"
+      ],
       "input_per_mtok": 5,
       "output_per_mtok": 25,
       "cache_read_per_mtok": 0.5,
@@ -234,6 +253,11 @@
     {
       "id": "claude-opus-4-8",
       "provider": "anthropic",
+      "aliases": [
+        "anthropic.claude-opus-4-8-20260415-v1:0",
+        "us.anthropic.claude-opus-4-8-20260415-v1:0",
+        "eu.anthropic.claude-opus-4-8-20260415-v1:0"
+      ],
       "input_per_mtok": 5,
       "output_per_mtok": 25,
       "cache_read_per_mtok": 0.5,
@@ -256,7 +280,10 @@
       "aliases": [
         "anthropic.claude-opus-5",
         "us.anthropic.claude-opus-5",
-        "eu.anthropic.claude-opus-5"
+        "eu.anthropic.claude-opus-5",
+        "anthropic.claude-opus-5-20260601-v1:0",
+        "us.anthropic.claude-opus-5-20260601-v1:0",
+        "eu.anthropic.claude-opus-5-20260601-v1:0"
       ],
       "input_per_mtok": 5,
       "output_per_mtok": 25,
@@ -294,7 +321,10 @@
       "id": "claude-sonnet-4-5",
       "provider": "anthropic",
       "aliases": [
-        "claude-sonnet-4-5-20250929"
+        "claude-sonnet-4-5-20250929",
+        "anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
       ],
       "input_per_mtok": 3,
       "output_per_mtok": 15,
@@ -315,6 +345,11 @@
     {
       "id": "claude-sonnet-4-6",
       "provider": "anthropic",
+      "aliases": [
+        "anthropic.claude-sonnet-4-6-20260215-v1:0",
+        "us.anthropic.claude-sonnet-4-6-20260215-v1:0",
+        "eu.anthropic.claude-sonnet-4-6-20260215-v1:0"
+      ],
       "input_per_mtok": 3,
       "output_per_mtok": 15,
       "cache_read_per_mtok": 0.3,
@@ -337,7 +372,10 @@
       "aliases": [
         "anthropic.claude-sonnet-5",
         "us.anthropic.claude-sonnet-5",
-        "eu.anthropic.claude-sonnet-5"
+        "eu.anthropic.claude-sonnet-5",
+        "anthropic.claude-sonnet-5-20260501-v1:0",
+        "us.anthropic.claude-sonnet-5-20260501-v1:0",
+        "eu.anthropic.claude-sonnet-5-20260501-v1:0"
       ],
       "input_per_mtok": 3,
       "output_per_mtok": 15,

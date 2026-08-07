@@ -2,6 +2,9 @@ id: claude-sonnet-4-5
 provider: anthropic
 aliases:
   - claude-sonnet-4-5-20250929
+  - anthropic.claude-sonnet-4-5-20250929-v1:0
+  - us.anthropic.claude-sonnet-4-5-20250929-v1:0
+  - eu.anthropic.claude-sonnet-4-5-20250929-v1:0
 input_per_mtok: 3.00
 output_per_mtok: 15.00
 context_window: 200000
