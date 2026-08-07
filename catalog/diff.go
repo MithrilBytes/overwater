@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // Price drift detection against LiteLLM's community pricing file. The
@@ -84,6 +85,9 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missi
 		}
 		keys := []string{m.ID, m.Provider + "/" + m.ID}
 		for _, a := range m.Aliases {
+			if floatingAlias(a) {
+				continue
+			}
 			keys = append(keys, a, m.Provider+"/"+a)
 		}
 		found := false
@@ -115,6 +119,15 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missi
 		}
 	}
 	return drifts, notes, missing
+}
+
+// floatingAlias reports whether a name points at whatever generation is
+// current rather than at one model. Upstream repoints these on release,
+// so matching a pinned entry against one reads the next generation's
+// price as our drift: mistral-medium-latest moved to medium-3.5 at
+// 1.50, which would have proposed a 3.75x rise for medium-3.
+func floatingAlias(name string) bool {
+	return strings.HasSuffix(name, "-latest")
 }
 
 // differs allows half a percent of slack so float dust and rounding in

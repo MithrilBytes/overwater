@@ -205,3 +205,27 @@ func TestApplyPrices(t *testing.T) {
 		t.Errorf("catalog.json not rebuilt: %s", rebuilt)
 	}
 }
+
+// Upstream repoints a -latest key to each new generation, so matching a
+// pinned entry against one reads the successor's price as our drift.
+func TestDiffSkipsFloatingAliases(t *testing.T) {
+	m := validModel()
+	m.ID = "mistral-medium-3"
+	m.Provider = "mistral"
+	m.InputPerMtok, m.OutputPerMtok = 0.40, 2.00
+	m.Aliases = []string{"mistral-medium-latest", "mistral-medium-2505"}
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+
+	prices := LitellmPrices{
+		// The floating alias now points at the next generation.
+		"mistral/mistral-medium-latest": {Input: 1.5, Output: 7.5, HasOutput: true},
+		"mistral/mistral-medium-2505":   {Input: 0.40, Output: 2.00, HasOutput: true},
+	}
+	drifts, _, missing := DiffLitellm(c, prices)
+	if len(drifts) != 0 {
+		t.Fatalf("drifts = %+v, want none; the pinned key agrees with us", drifts)
+	}
+	if len(missing) != 0 {
+		t.Fatalf("missing = %v, want none; the dated alias still matches", missing)
+	}
+}
