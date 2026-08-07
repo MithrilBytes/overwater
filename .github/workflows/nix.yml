@@ -36,14 +36,32 @@ jobs:
       - name: evaluate the flake
         run: nix flake check --no-build --all-systems
       - name: build and run
-        # The build needs vendorHash, which only nix can compute. Until
-        # a maintainer fills it in from a local build, evaluation above
-        # is the whole check.
+        # vendorHash can only come from nix, and nix reports the right
+        # one when the wrong one fails the build. While the placeholder
+        # is in place this step runs the build to read that hash out and
+        # publishes it in the job summary, then stops without failing.
         run: |
-          set -euo pipefail
+          set -uo pipefail
           if grep -q 'vendorHash = "sha256-AAAA' flake.nix; then
-            echo "vendorHash is still the placeholder; skipping the build." >&2
-            echo "Run 'nix build .#overwater' and paste the hash nix reports." >&2
+            log="$(nix build .#overwater 2>&1 || true)"
+            got="$(printf '%s' "$log" | grep -oE 'got:[[:space:]]*sha256-[A-Za-z0-9+/=]+' | head -1 | sed 's/got:[[:space:]]*//')"
+            {
+              echo "## nix vendorHash"
+              echo
+              if [ -n "$got" ]; then
+                echo "Paste this line into flake.nix:"
+                echo
+                echo '```nix'
+                echo "vendorHash = \"$got\";"
+                echo '```'
+              else
+                echo "nix reported no hash. The build log:"
+                echo
+                echo '```'
+                printf '%s\n' "$log" | tail -40
+                echo '```'
+              fi
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           nix build .#overwater

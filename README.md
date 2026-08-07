@@ -254,7 +254,7 @@ and pre commit hooks. `explain <rule-id>` prints a rule from its own
 YAML.
 
 Verified by 274 labeled corpus cases at 0.99 accuracy on a holdout split
-assigned before any tuning, 79 black box smoke checks through the real
+assigned before any tuning, 88 black box smoke checks through the real
 binary, byte for byte golden output for five fixture repositories, fuzz
 targets over the parsers, a files per second benchmark, and a scaling
 gate that fails CI when analysis time grows faster than the input.
