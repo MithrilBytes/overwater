@@ -93,8 +93,11 @@ overwater scan --volumes volumes.json path/to/repo
 
 A site key is `file:line`, relative to the scan root. A model key
 covers every call site on that model, split evenly, and loses to a site
-key. Both beat an `overwater:volume` pragma. Keys that match no call
-site are named on stderr; a malformed file is exit 2.
+key. Both beat an `overwater:volume` pragma. All three are counts of
+one call site's own traffic, so fan in never multiplies them; it
+multiplies the default assumption, `--volume`, and a config volume.
+Keys that match no call site are named on stderr; a malformed file is
+exit 2.
 
 Provider usage exports become a volumes file keyed by model:
 
@@ -180,7 +183,13 @@ Four layers feed a rules engine.
 Call sites also carry fan in, the number of places that call the
 enclosing function, and the models those callers pass. A helper
 wrapping the SDK reports as one site with many callers rather than as
-one call.
+one call, and is priced for all of them: the volume multiplies by the
+caller count, the finding reads `across 8 callers`, and `--json`
+carries `"volume_source": "fan-in"` and `"callers"`. Only an exactly
+resolved count multiplies; a name defined twice, or a helper with no
+visible caller, stays at one. A helper whose model is a parameter is
+priced for the callers that take its default, since the rest pass a
+model of their own and are priced at the sites where they write it.
 
 Every rule, threshold, and price lives in `rules/*.yaml` and `catalog/`.
 The engine holds no numbers.
@@ -257,8 +266,6 @@ quadratic fixes in v2. Profile before optimizing.
 
 ### Detection
 
-- [ ] price a wrapper by its fan in without double counting the callers
-      that already scan as their own sites
 - [ ] corpus cases from real repositories, not written for the corpus
 - [ ] cost ranges instead of point estimates
 - [ ] schema field counts bound the output token estimate
