@@ -115,6 +115,40 @@ func TestBaselineRatchetLifecycle(t *testing.T) {
 	}
 }
 
+// rewriteRecorded stamps every baseline entry's recorded date, so tests
+// can age or corrupt them.
+func rewriteRecorded(t *testing.T, path, recorded string) {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Version  int    `json:"version"`
+		Commit   string `json:"commit,omitempty"`
+		Findings []struct {
+			Fingerprint string `json:"fingerprint"`
+			Rule        string `json:"rule"`
+			File        string `json:"file"`
+			Model       string `json:"model"`
+			Recorded    string `json:"recorded"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	for i := range doc.Findings {
+		doc.Findings[i].Recorded = recorded
+	}
+	edited, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, edited, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Aging: entries past --max-baseline-age-days nag on stderr and never
 // change the exit code; fresh entries stay quiet.
 func TestBaselineAgingNags(t *testing.T) {
@@ -139,39 +173,48 @@ func TestBaselineAgingNags(t *testing.T) {
 	}
 
 	// Backdate every recorded stamp: the same scan nags, still clean.
-	raw, err := os.ReadFile(bl)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var doc struct {
-		Version  int `json:"version"`
-		Findings []struct {
-			Fingerprint string `json:"fingerprint"`
-			Rule        string `json:"rule"`
-			File        string `json:"file"`
-			Model       string `json:"model"`
-			Recorded    string `json:"recorded"`
-		} `json:"findings"`
-	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		t.Fatal(err)
-	}
-	for i := range doc.Findings {
-		doc.Findings[i].Recorded = "2026-01-01"
-	}
-	edited, err := json.Marshal(doc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(bl, edited, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	rewriteRecorded(t, bl, "2026-01-01")
 	code, _, stderr = runScanArgs(t, "-baseline", bl, "-max-baseline-age-days", "30", repo)
 	if code != ExitClean {
 		t.Fatalf("aged scan exit = %d, want clean; nags must not move the exit code (stderr %q)", code, stderr)
 	}
 	if !strings.Contains(stderr, "past the 30 day limit") || !strings.Contains(stderr, "classify.js") {
 		t.Errorf("stderr = %q, want an aging nag naming classify.js", stderr)
+	}
+}
+
+// The age limit is a property of the baseline, not of the failure
+// policy: any and none get the same nags as new, and the nag still
+// never moves the exit code away from what the policy says.
+func TestAgingNagsRegardlessOfFailOn(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	bl := filepath.Join(dir, ".overwater.json")
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("update exit = %d, stderr = %q", code, stderr)
+	}
+	rewriteRecorded(t, bl, "2026-01-01")
+	cases := []struct {
+		failOn   string
+		wantCode int
+	}{
+		{"any", ExitFindings}, // findings exist, so any fails; the nag rides along
+		{"none", ExitClean},
+	}
+	for _, tc := range cases {
+		t.Run(tc.failOn, func(t *testing.T) {
+			code, _, stderr := runScanArgs(t, "-baseline", bl, "-max-baseline-age-days", "30", "-fail-on", tc.failOn, repo)
+			if code != tc.wantCode {
+				t.Fatalf("exit = %d, want %d; stderr = %q", code, tc.wantCode, stderr)
+			}
+			if !strings.Contains(stderr, "past the 30 day limit") || !strings.Contains(stderr, "classify.js") {
+				t.Errorf("stderr = %q, want an aging nag naming classify.js under --fail-on %s", stderr, tc.failOn)
+			}
+		})
 	}
 }
 

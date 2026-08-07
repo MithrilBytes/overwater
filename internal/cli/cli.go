@@ -455,6 +455,22 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "wrote %s: %d findings baselined\n", path, len(entries))
 		return ExitClean
 	}
+	// Aging nags run under every failure policy: a provided baseline
+	// with --max-baseline-age-days set gets its aged entries named even
+	// when the policy is any or none.
+	var bl *baseline.File
+	if o.baselinePath != "" && (o.failOn == "new" || o.maxAgeDays > 0) {
+		var err error
+		bl, err = baseline.Load(o.baselinePath)
+		if err != nil {
+			fmt.Fprintf(stderr, "overwater: %v\n", err)
+			return ExitError
+		}
+		for _, a := range baseline.AgedMatches(findings, bl, time.Now(), o.maxAgeDays) {
+			fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
+				a.Entry.Rule, a.Entry.File, a.Days, o.maxAgeDays)
+		}
+	}
 	switch o.failOn {
 	case "none":
 		return ExitClean
@@ -473,15 +489,6 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 		}
 		// Advisor mode: no baseline, no explicit policy, no failure.
 		return ExitClean
-	}
-	bl, err := baseline.Load(o.baselinePath)
-	if err != nil {
-		fmt.Fprintf(stderr, "overwater: %v\n", err)
-		return ExitError
-	}
-	for _, a := range baseline.AgedMatches(findings, bl, time.Now(), o.maxAgeDays) {
-		fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
-			a.Entry.Rule, a.Entry.File, a.Days, o.maxAgeDays)
 	}
 	fresh := baseline.NewFindings(findings, bl)
 	if len(fresh) > 0 {
