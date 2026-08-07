@@ -22,28 +22,18 @@ type callInfo struct {
 	Props  map[string]string // raw value text by property name, as written
 }
 
-func jsFamily(p string) bool {
+// propertyStyle lists the languages whose calls read as key value pairs.
+func propertyStyle(p string) bool {
 	switch path.Ext(p) {
-	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
+	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
+		".py", ".ipynb", ".rb", ".go", ".cs", ".php", ".sh", ".bash", ".zsh", ".json":
 		return true
 	}
 	return false
 }
 
-// propsFamily lists the languages whose calls read as key value pairs.
-func propsFamily(p string) bool {
-	if jsFamily(p) {
-		return true
-	}
-	switch path.Ext(p) {
-	case ".py", ".ipynb", ".rb", ".go", ".cs", ".php", ".sh", ".bash", ".zsh", ".json":
-		return true
-	}
-	return false
-}
-
-// builderFamily lists the languages whose calls read as method chains.
-func builderFamily(p string) bool {
+// builderStyle lists the languages whose calls read as method chains.
+func builderStyle(p string) bool {
 	switch path.Ext(p) {
 	case ".java", ".kt", ".kts", ".rs", ".scala", ".swift":
 		return true
@@ -57,12 +47,12 @@ func normKey(k string) string {
 	return strings.ReplaceAll(strings.ToLower(k), "_", "")
 }
 
-// propVal resolves a property by any of the given names, first name in
+// prop resolves a property by any of the given names, first name in
 // the list winning. Within one name an exactly spelled key wins;
 // otherwise the lexicographically smallest key folding to the same
 // normalized name does, so duplicate spellings (max_tokens plus
 // maxTokens) resolve identically on every run.
-func propVal(info *callInfo, names ...string) (string, bool) {
+func prop(info *callInfo, names ...string) (string, bool) {
 	for _, n := range names {
 		if v, ok := info.Props[n]; ok {
 			return v, true
@@ -111,13 +101,13 @@ func numberFrom(raw string) (float64, bool) {
 // looking one level into config style wrapper objects too, which is
 // where the Gemini SDK keeps temperature.
 func propNumber(info *callInfo, names ...string) (float64, bool) {
-	if v, ok := propVal(info, names...); ok {
+	if v, ok := prop(info, names...); ok {
 		if f, ok := numberFrom(v); ok {
 			return f, true
 		}
 	}
 	for _, wrapper := range []string{"config", "generationConfig", "generation_config"} {
-		v, ok := propVal(info, wrapper)
+		v, ok := prop(info, wrapper)
 		if !ok {
 			continue
 		}
@@ -126,7 +116,7 @@ func propNumber(info *callInfo, names ...string) (float64, bool) {
 			continue
 		}
 		wrapped := &callInfo{Props: inner}
-		if raw, ok := propVal(wrapped, names...); ok {
+		if raw, ok := prop(wrapped, names...); ok {
 			if f, ok := numberFrom(raw); ok {
 				return f, true
 			}
@@ -152,20 +142,20 @@ func applyCallInfo(s *Shape, info *callInfo) {
 	} else {
 		s.MaxTokens = nil
 	}
-	_, s.Tools = propVal(info, "tools")
-	choice, _ := propVal(info, "tool_choice")
+	_, s.Tools = prop(info, "tools")
+	choice, _ := prop(info, "tool_choice")
 	s.ForcedTool = strings.Contains(choice, `"tool"`) || strings.Contains(choice, "'tool'")
-	stream, _ := propVal(info, "stream")
+	stream, _ := prop(info, "stream")
 	// Case insensitive: Python writes True.
 	s.Streaming = strings.EqualFold(strings.TrimSpace(stream), "true") ||
 		strings.HasSuffix(info.Callee, ".stream") ||
 		strings.Contains(info.Callee, "streamText")
 	for _, k := range []string{"schema", "response_format", "responseSchema", "input_schema", "output_config"} {
-		if _, ok := propVal(info, k); ok {
+		if _, ok := prop(info, k); ok {
 			s.JSONSchema = true
 		}
 	}
-	if raw, ok := propVal(info, "effort", "reasoning_effort"); ok {
+	if raw, ok := prop(info, "effort", "reasoning_effort"); ok {
 		s.Effort = strings.Trim(strings.TrimSpace(raw), `"'`)
 	}
 	if v, ok := propNumber(info, "max_retries", "maxRetries", "retries"); ok {
@@ -176,7 +166,7 @@ func applyCallInfo(s *Shape, info *callInfo) {
 		iv := int(v)
 		s.Dimensions = &iv
 	}
-	if detail, ok := propVal(info, "detail"); ok {
+	if detail, ok := prop(info, "detail"); ok {
 		d := strings.Trim(strings.TrimSpace(detail), `"'`)
 		s.ImageDetailHigh = d == "high"
 	}

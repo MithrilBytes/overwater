@@ -11,7 +11,7 @@ import "path"
 //	prose  blanks comments and only long string interiors, so short
 //	       syntax level strings like "tool" or "input_schema" survive
 //	       for the shape regexes while prompt prose does not.
-type masked struct {
+type maskedFile struct {
 	all   string
 	prose string
 }
@@ -67,7 +67,7 @@ func familyFor(p string) langFamily {
 	}
 }
 
-func maskFile(p, content string) masked {
+func maskFile(p, content string) maskedFile {
 	spans := scanSpans(content, familyFor(p))
 	all := []byte(content)
 	prose := []byte(content)
@@ -83,7 +83,7 @@ func maskFile(p, content string) masked {
 			}
 		}
 	}
-	return masked{all: string(all), prose: string(prose)}
+	return maskedFile{all: string(all), prose: string(prose)}
 }
 
 func blank(b []byte, from, to int) {

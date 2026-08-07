@@ -42,13 +42,13 @@ var archetypePriority = []string{
 // (function name, masked code in the extent); promptWords are matched
 // against the resolved system prompt, where conversational words like
 // "assistant" are evidence rather than noise.
-type family struct {
+type archetypeKeywords struct {
 	archetype   string
 	codeWords   []string
 	promptWords []string
 }
 
-var families = []family{
+var archetypeWords = []archetypeKeywords{
 	{ArchetypeClassification,
 		[]string{"classif", "categor", "triage", "sentiment"},
 		[]string{"classif", "categor", "triage", "sentiment"}},
@@ -138,24 +138,24 @@ func (a *analyzer) classify(p string, shape Shape, r region, tier string) (strin
 		return ArchetypeEmbedding, "high"
 	}
 
-	m := a.masked(p)
+	src := a.masked(p)
 	// Keyword evidence in code comes from identifiers alone: the fully
 	// masked view drops every string, so a short prose fragment like
 	// "Triage notes: " cannot pose as code.
-	code := strings.ToLower(m.all[r.start:r.end])
+	code := strings.ToLower(src.all[r.start:r.end])
 	// The prompt's content already scores through promptWords; counting
 	// the name of the variable that holds it would count the same
 	// evidence twice.
-	for _, ident := range promptIdents(m.prose[r.start:r.end]) {
+	for _, ident := range promptIdents(src.prose[r.start:r.end]) {
 		code = strings.ReplaceAll(code, strings.ToLower(ident), " ")
 	}
 	// The enclosing function is the last definition before the model
 	// string, not before the head expanded region start.
-	funcName := strings.ToLower(enclosingFuncName(m.prose, r.hit))
+	funcName := strings.ToLower(enclosingFuncName(src.prose, r.hit))
 	prompt := strings.ToLower(shape.SystemPromptText)
 
 	scores := map[string]int{}
-	for _, fam := range families {
+	for _, fam := range archetypeWords {
 		if containsAny(funcName, fam.codeWords) {
 			scores[fam.archetype] += weightFuncName
 		}

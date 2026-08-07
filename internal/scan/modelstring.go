@@ -45,8 +45,8 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 
 	var sites []Site
 	for lineNo, line := range strings.Split(string(data), "\n") {
-		type span struct{ start, end int }
-		var claimed []span
+		type claim struct{ start, end int }
+		var claimed []claim
 		overlaps := func(s, e int) bool {
 			for _, c := range claimed {
 				if s < c.end && e > c.start {
@@ -73,7 +73,7 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 				if overlaps(start, end) {
 					continue
 				}
-				claimed = append(claimed, span{start, end})
+				claimed = append(claimed, claim{start, end})
 				sites = append(sites, Site{
 					File:    relPath,
 					Line:    lineNo + 1,

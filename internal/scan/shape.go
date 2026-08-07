@@ -45,11 +45,11 @@ func readFileFacts(prose string) fileFacts {
 }
 
 func (a *analyzer) extractShape(p string, r region) Shape {
-	m := a.masked(p)
-	text := m.prose[r.start:r.end]
+	src := a.masked(p)
+	text := src.prose[r.start:r.end]
 
 	var s Shape
-	facts := a.factsFor(p)
+	facts := a.facts(p)
 	s.BatchContext = facts.batchContext
 	s.BatchAPI = facts.batchAPI
 
@@ -97,13 +97,13 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 
 	// For property and builder languages the structural parser has the
 	// final word on the fields it decides.
-	if r.isExtent && propsFamily(p) {
-		if info := parseCall(a.byPath[p], m, r.extentStart, r.end); info != nil {
+	if r.isExtent && propertyStyle(p) {
+		if info := parseCall(a.byPath[p], src, r.extentStart, r.end); info != nil {
 			applyCallInfo(&s, info)
 		}
 	}
-	if r.isExtent && builderFamily(p) {
-		if info := builderParse(a.byPath[p], m, r.extentStart, r.end); info != nil {
+	if r.isExtent && builderStyle(p) {
+		if info := builderParse(a.byPath[p], src, r.extentStart, r.end); info != nil {
 			applyCallInfo(&s, info)
 		}
 	}
@@ -130,19 +130,19 @@ func (a *analyzer) resolveSchemaRef(p, region string) string {
 
 func (a *analyzer) constExtent(p, name string) string {
 	content := a.byPath[p]
-	m := a.masked(p)
+	src := a.masked(p)
 	re := regexp.MustCompile(`(?m)^[ \t]*(?:const|let|var)?[ \t]*` + regexp.QuoteMeta(name) + `\s*=`)
-	loc := re.FindStringIndex(m.prose)
+	loc := re.FindStringIndex(src.prose)
 	if loc == nil {
 		return ""
 	}
-	tail := m.all[loc[1]:min(loc[1]+60, len(content))]
+	tail := src.all[loc[1]:min(loc[1]+60, len(content))]
 	rel := strings.IndexAny(tail, "([{")
 	if rel < 0 {
 		return ""
 	}
 	open := loc[1] + rel
-	closer, ok := matchClose(m.all, open)
+	closer, ok := matchClose(src.all, open)
 	if !ok {
 		return ""
 	}

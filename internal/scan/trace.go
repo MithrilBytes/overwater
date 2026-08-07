@@ -38,7 +38,7 @@ func (a *analyzer) pragmas(p string, r region) (bool, int) {
 // else here.
 func (a *analyzer) nearbyStrings(p string, r region) []string {
 	content := a.byPath[p]
-	spans := a.spansFor(p)
+	spans := a.spans(p)
 	// Spans come out of the scanner in increasing, non overlapping start
 	// order, so the region's first candidate is a binary search away.
 	// Walking the whole file's spans per call site is quadratic in a file

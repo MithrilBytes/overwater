@@ -11,10 +11,10 @@ var reBuilderMethod = regexp.MustCompile(`\.([A-Za-z_][A-Za-z0-9_]*)\(`)
 
 // builderExtent bounds the statement containing the hit: back to the
 // previous ';', '{', or '}' and forward to the next ';' at depth zero.
-func builderExtent(masked string, hit int) (int, int, bool) {
+func builderExtent(all string, hit int) (int, int, bool) {
 	start := hit
 	for start > 0 {
-		c := masked[start-1]
+		c := all[start-1]
 		if c == ';' || c == '{' || c == '}' {
 			break
 		}
@@ -25,8 +25,8 @@ func builderExtent(masked string, hit int) (int, int, bool) {
 	}
 	depth := 0
 	end := hit
-	for end < len(masked) {
-		switch masked[end] {
+	for end < len(all) {
+		switch all[end] {
 		case '(', '[', '{':
 			depth++
 		case ')', ']', '}':
@@ -43,7 +43,7 @@ func builderExtent(masked string, hit int) (int, int, bool) {
 		}
 	}
 done:
-	if !strings.Contains(strings.ToLower(masked[start:end]), ".model(") {
+	if !strings.Contains(strings.ToLower(all[start:end]), ".model(") {
 		return 0, 0, false
 	}
 	return start, end, true
@@ -52,13 +52,13 @@ done:
 // builderParse reads a builder statement into callInfo: each
 // .method(args) pair becomes a property, and the leading chain the
 // callee.
-func builderParse(content string, m masked, start, end int) *callInfo {
-	region := m.all[start:end]
+func builderParse(content string, src maskedFile, start, end int) *callInfo {
+	region := src.all[start:end]
 	info := &callInfo{Props: map[string]string{}}
 	for _, loc := range reBuilderMethod.FindAllStringSubmatchIndex(region, -1) {
 		name := region[loc[2]:loc[3]]
 		open := start + loc[1] - 1
-		closer, ok := matchClose(m.all, open)
+		closer, ok := matchClose(src.all, open)
 		if !ok || closer+1 > end {
 			continue
 		}
@@ -67,7 +67,7 @@ func builderParse(content string, m masked, start, end int) *callInfo {
 	if idx := strings.Index(region, "."); idx > 0 {
 		info.Callee = strings.TrimSpace(strings.Trim(region[:idx], "\n\t ="))
 	}
-	if _, ok := propVal(info, "stream"); ok || strings.Contains(strings.ToLower(region), "streaming") {
+	if _, ok := prop(info, "stream"); ok || strings.Contains(strings.ToLower(region), "streaming") {
 		info.Props["stream"] = "true"
 	}
 	return info

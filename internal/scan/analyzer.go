@@ -17,11 +17,11 @@ type analyzer struct {
 	paths  []string // sorted byPath keys; candidate walks stay deterministic
 	// mu guards the lazy caches below; byPath is complete before any
 	// worker starts and is then read only.
-	mu    sync.Mutex
-	masks map[string]masked
-	spans map[string][]span
-	lines map[string][]int
-	facts map[string]fileFacts
+	mu        sync.Mutex
+	maskCache map[string]maskedFile
+	spanCache map[string][]span
+	lineCache map[string][]int
+	factCache map[string]fileFacts
 	// factsRuns counts fileFacts evaluations so a test can prove the file
 	// scoped regexes run per file, not per site. An atomic add on a path
 	// that already runs two regexes costs nothing in production.
@@ -30,11 +30,11 @@ type analyzer struct {
 
 func newAnalyzer(files []file) *analyzer {
 	a := &analyzer{
-		byPath: make(map[string]string, len(files)),
-		masks:  map[string]masked{},
-		spans:  map[string][]span{},
-		lines:  map[string][]int{},
-		facts:  map[string]fileFacts{},
+		byPath:    make(map[string]string, len(files)),
+		maskCache: map[string]maskedFile{},
+		spanCache: map[string][]span{},
+		lineCache: map[string][]int{},
+		factCache: map[string]fileFacts{},
 	}
 	for _, f := range files {
 		a.byPath[f.path] = string(f.data)
@@ -47,9 +47,9 @@ func newAnalyzer(files []file) *analyzer {
 	return a
 }
 
-func (a *analyzer) masked(p string) masked {
+func (a *analyzer) masked(p string) maskedFile {
 	a.mu.Lock()
-	m, ok := a.masks[p]
+	m, ok := a.maskCache[p]
 	a.mu.Unlock()
 	if ok {
 		return m
@@ -58,16 +58,16 @@ func (a *analyzer) masked(p string) masked {
 	// workers cross into the same file beats serializing all masking.
 	m = maskFile(p, a.byPath[p])
 	a.mu.Lock()
-	a.masks[p] = m
+	a.maskCache[p] = m
 	a.mu.Unlock()
 	return m
 }
 
 // factsFor returns the file scoped shape facts, computing them at most
 // once per file in the common case.
-func (a *analyzer) factsFor(p string) fileFacts {
+func (a *analyzer) facts(p string) fileFacts {
 	a.mu.Lock()
-	f, ok := a.facts[p]
+	f, ok := a.factCache[p]
 	a.mu.Unlock()
 	if ok {
 		return f
@@ -75,22 +75,22 @@ func (a *analyzer) factsFor(p string) fileFacts {
 	f = readFileFacts(a.masked(p).prose)
 	a.factsRuns.Add(1)
 	a.mu.Lock()
-	a.facts[p] = f
+	a.factCache[p] = f
 	a.mu.Unlock()
 	return f
 }
 
 // spansFor caches the comment and string spans of a file.
-func (a *analyzer) spansFor(p string) []span {
+func (a *analyzer) spans(p string) []span {
 	a.mu.Lock()
-	s, ok := a.spans[p]
+	s, ok := a.spanCache[p]
 	a.mu.Unlock()
 	if ok {
 		return s
 	}
 	s = scanSpans(a.byPath[p], familyFor(p))
 	a.mu.Lock()
-	a.spans[p] = s
+	a.spanCache[p] = s
 	a.mu.Unlock()
 	return s
 }
@@ -98,16 +98,16 @@ func (a *analyzer) spansFor(p string) []span {
 // lineStartsFor caches the line index of a file. Rebuilding it per call
 // site is a full pass over the file each time, which is the same
 // quadratic trap as the file wide regexes.
-func (a *analyzer) lineStartsFor(p string) []int {
+func (a *analyzer) lineStarts(p string) []int {
 	a.mu.Lock()
-	s, ok := a.lines[p]
+	s, ok := a.lineCache[p]
 	a.mu.Unlock()
 	if ok {
 		return s
 	}
 	s = lineStarts(a.byPath[p])
 	a.mu.Lock()
-	a.lines[p] = s
+	a.lineCache[p] = s
 	a.mu.Unlock()
 	return s
 }
@@ -123,7 +123,7 @@ func (a *analyzer) siteHash(p string, line int, r region) string {
 		text = a.masked(p).prose[r.start:r.end]
 	} else {
 		content := a.byPath[p]
-		starts := a.lineStartsFor(p)
+		starts := a.lineStarts(p)
 		if line-1 < len(starts) {
 			end := len(content)
 			if line < len(starts) {
@@ -138,7 +138,7 @@ func (a *analyzer) siteHash(p string, line int, r region) string {
 
 // hitOffsetIn converts a one based line and column to a byte offset.
 func (a *analyzer) hitOffsetIn(p string, line, col int) int {
-	starts := a.lineStartsFor(p)
+	starts := a.lineStarts(p)
 	if line-1 >= len(starts) {
 		return 0
 	}

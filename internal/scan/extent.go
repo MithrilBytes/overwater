@@ -25,18 +25,18 @@ const (
 // Case insensitive so Go's Model: and C#'s Model = count too.
 var reModelKey = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9_"])(?:"model"|model)\s*[:=]`)
 
-func callExtent(maskedAll, maskedProse string, hit int) (int, int, bool) {
+func callExtent(all, prose string, hit int) (int, int, bool) {
 	pos := hit
 	for level := 0; level < extentAscendMax; level++ {
-		open, ok := enclosingOpen(maskedAll, pos)
+		open, ok := enclosingOpen(all, pos)
 		if !ok {
 			return 0, 0, false
 		}
-		closer, ok := matchClose(maskedAll, open)
+		closer, ok := matchClose(all, open)
 		if !ok || closer <= hit {
 			return 0, 0, false
 		}
-		if reModelKey.MatchString(maskedProse[open : closer+1]) {
+		if reModelKey.MatchString(prose[open : closer+1]) {
 			return open, closer + 1, true
 		}
 		pos = open
@@ -99,12 +99,12 @@ func matchClose(s string, open int) (int, bool) {
 // the hit, with no requirement that it name a model parameter. The
 // fallback for wrapper calls, where the model string is an argument to
 // a helper rather than a keyed property.
-func innermostExtent(masked string, hit int) (int, int, bool) {
-	open, ok := enclosingOpen(masked, hit)
+func innermostExtent(all string, hit int) (int, int, bool) {
+	open, ok := enclosingOpen(all, hit)
 	if !ok {
 		return 0, 0, false
 	}
-	closer, ok := matchClose(masked, open)
+	closer, ok := matchClose(all, open)
 	if !ok || closer <= hit {
 		return 0, 0, false
 	}
@@ -153,22 +153,22 @@ type region struct {
 func (a *analyzer) regionFor(p string, line, col int) region {
 	content := a.byPath[p]
 	hit := a.hitOffsetIn(p, line, col)
-	m := a.masked(p)
+	src := a.masked(p)
 	extent := func(s, e int) region {
 		return region{start: headExpand(content, s), end: e, extentStart: s, isExtent: true, hit: hit}
 	}
-	if builderFamily(p) {
-		if s, e, ok := builderExtent(m.all, hit); ok {
+	if builderStyle(p) {
+		if s, e, ok := builderExtent(src.all, hit); ok {
 			return extent(s, e)
 		}
 	}
-	if s, e, ok := callExtent(m.all, m.prose, hit); ok {
+	if s, e, ok := callExtent(src.all, src.prose, hit); ok {
 		return extent(s, e)
 	}
-	if s, e, ok := innermostExtent(m.all, hit); ok {
+	if s, e, ok := innermostExtent(src.all, hit); ok {
 		return extent(s, e)
 	}
-	s, e := windowBounds(content, a.lineStartsFor(p), line, hit)
+	s, e := windowBounds(content, a.lineStarts(p), line, hit)
 	return region{start: s, end: e, hit: hit}
 }
 

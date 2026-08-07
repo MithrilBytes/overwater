@@ -19,7 +19,7 @@ func isWS(b byte) bool {
 // or the call's own parenthesized arguments. Structure comes from the
 // fully masked view so braces in strings cannot mislead it; values come
 // from the original so prompt literals stay intact.
-func parseCall(content string, m masked, objStart, objEnd int) *callInfo {
+func parseCall(content string, src maskedFile, objStart, objEnd int) *callInfo {
 	if objStart >= len(content) {
 		return nil
 	}
@@ -27,33 +27,33 @@ func parseCall(content string, m masked, objStart, objEnd int) *callInfo {
 	if open != '{' && open != '(' {
 		return nil
 	}
-	info := &callInfo{Props: parseProps(content, m.all, m.prose, objStart+1, objEnd-1)}
-	info.Callee = calleeChain(m.all, objStart)
+	info := &callInfo{Props: parseProps(content, src.all, src.prose, objStart+1, objEnd-1)}
+	info.Callee = calleeChain(src.all, objStart)
 	return info
 }
 
 // calleeChain walks left from the extent to the identifier chain
 // calling it, crossing whitespace only across a dot so "await client"
 // never glues into one name.
-func calleeChain(masked string, objStart int) string {
-	if masked[objStart] == '(' {
-		return chainBefore(masked, objStart-1)
+func calleeChain(all string, objStart int) string {
+	if all[objStart] == '(' {
+		return chainBefore(all, objStart-1)
 	}
 	i := objStart - 1
-	for i >= 0 && isWS(masked[i]) {
+	for i >= 0 && isWS(all[i]) {
 		i--
 	}
-	if i < 0 || masked[i] != '(' {
+	if i < 0 || all[i] != '(' {
 		return ""
 	}
-	return chainBefore(masked, i-1)
+	return chainBefore(all, i-1)
 }
 
-func chainBefore(masked string, from int) string {
+func chainBefore(all string, from int) string {
 	i := from
 	var rev []byte
 	for i >= 0 {
-		c := masked[i]
+		c := all[i]
 		if isChainChar(c) {
 			rev = append(rev, c)
 			i--
@@ -61,11 +61,11 @@ func chainBefore(masked string, from int) string {
 		}
 		if isWS(c) {
 			j := i
-			for j >= 0 && isWS(masked[j]) {
+			for j >= 0 && isWS(all[j]) {
 				j--
 			}
-			if j >= 0 && isChainChar(masked[j]) &&
-				(masked[j] == '.' || (len(rev) > 0 && rev[len(rev)-1] == '.')) {
+			if j >= 0 && isChainChar(all[j]) &&
+				(all[j] == '.' || (len(rev) > 0 && rev[len(rev)-1] == '.')) {
 				i = j
 				continue
 			}
@@ -82,9 +82,9 @@ func chainBefore(masked string, from int) string {
 // region. Separators are ':' and '=', guarded against comparisons,
 // arrows, and walrus assignments. Depth counting uses the fully masked
 // text, key names the prose view, values the original.
-func parseProps(content, maskedAll, prose string, start, end int) map[string]string {
+func parseProps(content, all, prose string, start, end int) map[string]string {
 	props := map[string]string{}
-	if start < 0 || end > len(maskedAll) || start >= end {
+	if start < 0 || end > len(all) || start >= end {
 		return props
 	}
 	depth := 0
@@ -97,7 +97,7 @@ func parseProps(content, maskedAll, prose string, start, end int) map[string]str
 		key, valueStart = "", -1
 	}
 	for i := start; i < end; i++ {
-		c := maskedAll[i]
+		c := all[i]
 		switch c {
 		case '{', '[', '(':
 			depth++
@@ -108,13 +108,13 @@ func parseProps(content, maskedAll, prose string, start, end int) map[string]str
 				continue
 			}
 			if i+1 < end {
-				next := maskedAll[i+1]
+				next := all[i+1]
 				if next == '=' || next == '>' || next == ':' {
 					continue
 				}
 			}
 			if i > start {
-				prev := maskedAll[i-1]
+				prev := all[i-1]
 				if prev == '=' || prev == '<' || prev == '>' || prev == '!' || prev == ':' {
 					continue
 				}
@@ -173,10 +173,10 @@ func wrapperProps(value string) map[string]string {
 		}
 		open = loc[1] - 1
 	}
-	m := maskFile("w.ts", v)
-	closer, ok := matchClose(m.all, open)
+	src := maskFile("w.ts", v)
+	closer, ok := matchClose(src.all, open)
 	if !ok {
 		return nil
 	}
-	return parseProps(v, m.all, m.prose, open+1, closer)
+	return parseProps(v, src.all, src.prose, open+1, closer)
 }
