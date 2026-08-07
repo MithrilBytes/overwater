@@ -48,6 +48,38 @@ func readWorkflow(t *testing.T, name string) workflow {
 	return w
 }
 
+// Attestation needs id-token and attestations write. Anything beyond
+// those and contents: write is more than the release job has any use for.
+func TestReleaseWorkflowAttestsWithNothingBroader(t *testing.T) {
+	w := readWorkflow(t, "release.yml")
+	want := map[string]string{"contents": "write", "id-token": "write", "attestations": "write"}
+	for k, v := range want {
+		if w.Permissions[k] != v {
+			t.Errorf("release.yml permissions[%s] = %q, want %q", k, w.Permissions[k], v)
+		}
+	}
+	for k := range w.Permissions {
+		if _, ok := want[k]; !ok {
+			t.Errorf("release.yml grants %s, which the release does not need", k)
+		}
+	}
+
+	var attested string
+	for _, s := range w.Jobs["release"].Steps {
+		if strings.HasPrefix(s.Uses, "actions/attest-build-provenance@") {
+			attested = s.With["subject-path"]
+		}
+	}
+	if attested == "" {
+		t.Fatal("release.yml never runs actions/attest-build-provenance over the built binaries")
+	}
+	// Whatever it attests has to cover the binaries the release uploads,
+	// not just the checksums file beside them.
+	if !strings.Contains(attested, "dist/") || !strings.Contains(attested, "overwater") {
+		t.Errorf("attested subject-path %q does not point at dist/overwater_*", attested)
+	}
+}
+
 // The notes are generated now, so a hardcoded --notes would silently
 // bypass this package.
 func TestReleaseWorkflowUsesGeneratedNotes(t *testing.T) {
