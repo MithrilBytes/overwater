@@ -39,6 +39,7 @@ var commands = []command{
 	{"fleet", "scan every repository in a list file", runFleet},
 	{"eval", "generate A/B eval scripts for scan findings", runEval},
 	{"volumes", "import a provider usage export into a volumes file", runVolumes},
+	{"explain", "print what a rule looks for and what it means", runExplain},
 	{"catalog", "show or refresh the model catalog", runCatalog},
 	{"version", "print the overwater version", runVersion},
 }

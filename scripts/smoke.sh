@@ -43,6 +43,13 @@ check version 0 "overwater" "$bin" version
 check help 0 "Usage:" "$bin" help
 check unknown-command 2 "unknown command" "$bin" firehose
 
+# Rule documentation, from the rules' own YAML.
+check explain 0 "min_retries: 3" "$bin" explain retry-amplification
+check explain-tripwire 0 "Tripwire:" "$bin" explain frontier-extraction
+check explain-list 0 "uncached-system-prompt" "$bin" explain
+check explain-unknown 2 "no rule" "$bin" explain retry-amplifcation
+check explain-unknown-lists 2 "retry-amplification" "$bin" explain retry-amplifcation
+
 # Advisor scans.
 check scan-clean 0 "Keep the models you have." "$bin" scan fixtures/clean-app
 check scan-findings 0 "Call site:" "$bin" scan fixtures/ts-chat-firehose
