@@ -467,6 +467,11 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 			return ExitError
 		}
 		for _, a := range baseline.AgedMatches(findings, bl, time.Now(), o.maxAgeDays) {
+			if a.Days < 0 {
+				fmt.Fprintf(stderr, "baseline: %s at %s has an unreadable recorded date %q; re-record it\n",
+					a.Entry.Rule, a.Entry.File, a.Entry.Recorded)
+				continue
+			}
 			fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
 				a.Entry.Rule, a.Entry.File, a.Days, o.maxAgeDays)
 		}

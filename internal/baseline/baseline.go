@@ -119,6 +119,8 @@ func Load(path string) (*File, error) {
 }
 
 // Aged is a matched baseline entry recorded longer ago than the limit.
+// Days is -1 when the recorded date does not parse: an unreadable date
+// can never age out quietly, so it counts as always aged.
 type Aged struct {
 	Entry Entry
 	Days  int
@@ -126,8 +128,9 @@ type Aged struct {
 
 // AgedMatches returns the baseline entries that absorb a finding and
 // were recorded more than maxDays days before now. Undated entries
-// (version 1 files) never age. Matching mirrors NewFindings, multiset
-// by fingerprint, so an entry nags at most once per run.
+// (version 1 files) never age; entries whose date does not parse come
+// back with Days -1. Matching mirrors NewFindings, multiset by
+// fingerprint, so an entry nags at most once per run.
 func AgedMatches(findings []rules.Finding, bl *File, now time.Time, maxDays int) []Aged {
 	if maxDays <= 0 {
 		return nil
@@ -150,6 +153,7 @@ func AgedMatches(findings []rules.Finding, bl *File, now time.Time, maxDays int)
 		}
 		rec, err := time.Parse(dateFormat, e.Recorded)
 		if err != nil {
+			out = append(out, Aged{Entry: e, Days: -1})
 			continue
 		}
 		if days := int(now.UTC().Sub(rec).Hours() / 24); days > maxDays {

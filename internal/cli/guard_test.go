@@ -183,6 +183,29 @@ func TestBaselineAgingNags(t *testing.T) {
 	}
 }
 
+// A recorded date that does not parse gets its own nag instead of
+// silently never aging, and still never moves the exit code.
+func TestUnreadableRecordedDateNags(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	bl := filepath.Join(dir, ".overwater.json")
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("update exit = %d, stderr = %q", code, stderr)
+	}
+	rewriteRecorded(t, bl, "not-a-date")
+	code, _, stderr := runScanArgs(t, "-baseline", bl, "-max-baseline-age-days", "30", repo)
+	if code != ExitClean {
+		t.Fatalf("exit = %d, want clean; a bad date is a nag, not a failure (stderr %q)", code, stderr)
+	}
+	if !strings.Contains(stderr, `unreadable recorded date "not-a-date"`) || !strings.Contains(stderr, "classify.js") {
+		t.Errorf("stderr = %q, want an unreadable date nag naming classify.js", stderr)
+	}
+}
+
 // The age limit is a property of the baseline, not of the failure
 // policy: any and none get the same nags as new, and the nag still
 // never moves the exit code away from what the policy says.

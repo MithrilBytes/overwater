@@ -143,3 +143,20 @@ func TestAgedMatches(t *testing.T) {
 		t.Fatalf("aged = %+v, want one f.ts entry aged 66 days", aged)
 	}
 }
+
+// A recorded date that does not parse can never age out quietly: it
+// comes back as always aged with Days -1 so the caller can name it.
+func TestAgedMatchesFlagsUnparseableRecordedDate(t *testing.T) {
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+	matched := finding("r", "f.ts", "aaaa")
+	bl := &File{Version: version, Findings: []Entry{{
+		Fingerprint: Fingerprint(matched), Rule: "r", File: "f.ts", Recorded: "yesterdayish",
+	}}}
+	aged := AgedMatches([]rules.Finding{matched}, bl, now, 30)
+	if len(aged) != 1 || aged[0].Days != -1 || aged[0].Entry.Recorded != "yesterdayish" {
+		t.Fatalf("aged = %+v, want one entry with Days -1 carrying the bad date", aged)
+	}
+	if got := AgedMatches([]rules.Finding{matched}, bl, now, 0); got != nil {
+		t.Fatalf("aged with maxDays 0 = %+v, want nil; aging off means no nags at all", got)
+	}
+}
