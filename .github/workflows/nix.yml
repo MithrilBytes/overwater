@@ -53,21 +53,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "chore(nix): pin the vendor hash nix computed" flake.nix
-          if ! git push origin HEAD:main; then
-            {
-              echo "## nix vendorHash"
-              echo
-              echo "The runner computed it but could not push. Paste it into flake.nix:"
-              echo
-              echo '```'
-              echo "vendorHash = \"$got\";"
-              echo '```'
-              echo
-              echo "Pushing needs Settings, Actions, General, Workflow permissions"
-              echo "set to read and write."
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo "could not push; the hash is in the job summary" >&2
-          fi
+          git push origin HEAD:main
 
       - name: build and run
         run: |
