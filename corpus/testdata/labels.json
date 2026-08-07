@@ -1,428 +1,1324 @@
 {
   "cases": [
     {
-      "file": "vercel_chat.ts",
-      "archetype": "chat"
-    },
-    {
-      "file": "vercel_classify.ts",
-      "archetype": "classification"
-    },
-    {
-      "file": "invoice_extract.py",
-      "archetype": "extraction"
-    },
-    {
-      "file": "meeting_recap.py",
-      "archetype": "summarization"
-    },
-    {
-      "file": "tool_agent.ts",
-      "archetype": "agentic"
-    },
-    {
-      "file": "embed_ingest.js",
-      "archetype": "embedding"
-    },
-    {
-      "file": "gemini_intent.ts",
-      "archetype": "classification"
-    },
-    {
-      "file": "misleading_comment.ts",
-      "archetype": "chat"
-    },
-    {
-      "file": "prompt_states_task.py",
-      "archetype": "summarization"
-    },
-    {
-      "file": "categorize_langchain.py",
-      "archetype": "classification"
-    },
-    {
-      "file": "legacy_digest.js",
-      "archetype": "summarization"
-    },
-    {
-      "file": "support_reply.ts",
-      "archetype": "chat"
-    },
-    {
-      "file": "receipts_zod.ts",
-      "archetype": "extraction"
-    },
-    {
-      "file": "env_config.yaml",
-      "archetype": "unknown"
-    },
-    {
-      "file": "c1_concierge_stream.ts",
-      "archetype": "chat"
-    },
-    {
-      "file": "c1_deepseek_support.js",
-      "archetype": "chat"
-    },
-    {
-      "file": "c1_grok_companion.ts",
-      "archetype": "chat"
-    },
-    {
-      "file": "c1_ticket_triage.ts",
-      "archetype": "classification"
-    },
-    {
-      "file": "c1_sentiment_gate.js",
-      "archetype": "classification"
-    },
-    {
-      "file": "c1_lead_category.ts",
-      "archetype": "classification"
-    },
-    {
-      "file": "c1_invoice_fields.ts",
-      "archetype": "extraction"
-    },
-    {
-      "file": "c1_resume_parse.ts",
-      "archetype": "extraction"
-    },
-    {
-      "file": "c1_thread_recap.ts",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c1_release_digest.js",
-      "archetype": "summarization"
+      "file": "c1_billing_assistant.ts",
+      "archetype": "extraction",
+      "split": "tune"
     },
     {
       "file": "c1_call_notes.ts",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c1_ops_agent.ts",
-      "archetype": "agentic"
-    },
-    {
-      "file": "c1_research_agent.js",
-      "archetype": "agentic"
-    },
-    {
-      "file": "c1_kb_embed.ts",
-      "archetype": "embedding"
-    },
-    {
-      "file": "c1_voyage_index.js",
-      "archetype": "embedding"
-    },
-    {
-      "file": "c1_help_article_es.ts",
-      "archetype": "translation"
-    },
-    {
-      "file": "c1_search_rerank.ts",
-      "archetype": "reranking"
+      "archetype": "summarization",
+      "split": "tune"
     },
     {
       "file": "c1_comment_mod.js",
-      "archetype": "moderation"
+      "archetype": "moderation",
+      "split": "tune"
     },
     {
-      "file": "c1_voicemail_text.ts",
-      "archetype": "transcription"
+      "file": "c1_concierge_stream.ts",
+      "archetype": "chat",
+      "split": "tune"
     },
     {
-      "file": "c1_label_ocr.ts",
-      "archetype": "vision"
-    },
-    {
-      "file": "c1_migration_codegen.ts",
-      "archetype": "codegen"
-    },
-    {
-      "file": "c1_summary_gate.ts",
-      "archetype": "classification"
-    },
-    {
-      "file": "c1_billing_assistant.ts",
-      "archetype": "extraction"
+      "file": "c1_deepseek_support.js",
+      "archetype": "chat",
+      "split": "tune"
     },
     {
       "file": "c1_extract_highlights.ts",
-      "archetype": "summarization"
+      "archetype": "summarization",
+      "split": "tune"
     },
     {
-      "file": "c2_support_chat.py",
-      "archetype": "chat"
+      "file": "c1_grok_companion.ts",
+      "archetype": "chat",
+      "split": "holdout"
     },
     {
-      "file": "c2_hr_assistant.py",
-      "archetype": "chat"
+      "file": "c1_help_article_es.ts",
+      "archetype": "translation",
+      "split": "tune"
     },
     {
-      "file": "c2_gemini_chat.py",
-      "archetype": "chat"
+      "file": "c1_invoice_fields.ts",
+      "archetype": "extraction",
+      "split": "tune"
     },
     {
-      "file": "c2_ticket_triage.py",
-      "archetype": "classification"
+      "file": "c1_kb_embed.ts",
+      "archetype": "embedding",
+      "split": "tune"
     },
     {
-      "file": "c2_review_sentiment.py",
-      "archetype": "classification"
+      "file": "c1_label_ocr.ts",
+      "archetype": "vision",
+      "split": "tune"
     },
     {
-      "file": "c2_intent_router.py",
-      "archetype": "classification"
+      "file": "c1_lead_category.ts",
+      "archetype": "classification",
+      "split": "tune"
     },
     {
-      "file": "c2_receipt_fields.py",
-      "archetype": "extraction"
+      "file": "c1_migration_codegen.ts",
+      "archetype": "codegen",
+      "split": "tune"
     },
     {
-      "file": "c2_resume_parser.py",
-      "archetype": "extraction"
+      "file": "c1_ops_agent.ts",
+      "archetype": "agentic",
+      "split": "tune"
     },
     {
-      "file": "c2_po_extract.py",
-      "archetype": "extraction"
+      "file": "c1_release_digest.js",
+      "archetype": "summarization",
+      "split": "holdout"
     },
     {
-      "file": "c2_invoice_brief.py",
-      "archetype": "extraction"
+      "file": "c1_research_agent.js",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "c1_resume_parse.ts",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "c1_search_rerank.ts",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "c1_sentiment_gate.js",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "c1_summary_gate.ts",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "c1_thread_recap.ts",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "c1_ticket_triage.ts",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "c1_voicemail_text.ts",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "c1_voyage_index.js",
+      "archetype": "embedding",
+      "split": "tune"
     },
     {
       "file": "c2_changelog_digest.py",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c2_sales_recap.py",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c2_thread_summary.py",
-      "archetype": "summarization"
+      "archetype": "summarization",
+      "split": "tune"
     },
     {
       "file": "c2_docs_pipeline.py",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c2_incident_agent.py",
-      "archetype": "agentic"
-    },
-    {
-      "file": "c2_trip_agent.py",
-      "archetype": "agentic"
-    },
-    {
-      "file": "c2_kb_embed.py",
-      "archetype": "embedding"
-    },
-    {
-      "file": "c2_query_embed.py",
-      "archetype": "embedding"
-    },
-    {
-      "file": "c2_menu_translate.py",
-      "archetype": "translation"
-    },
-    {
-      "file": "c2_passage_rerank.py",
-      "archetype": "reranking"
+      "archetype": "summarization",
+      "split": "holdout"
     },
     {
       "file": "c2_forum_moderation.py",
-      "archetype": "moderation"
+      "archetype": "moderation",
+      "split": "tune"
     },
     {
-      "file": "c2_voicemail_transcribe.py",
-      "archetype": "transcription"
+      "file": "c2_gemini_chat.py",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "c2_hr_assistant.py",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "c2_incident_agent.py",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "c2_intent_router.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "c2_invoice_brief.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "c2_kb_embed.py",
+      "archetype": "embedding",
+      "split": "holdout"
     },
     {
       "file": "c2_label_vision.py",
-      "archetype": "vision"
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "c2_menu_translate.py",
+      "archetype": "translation",
+      "split": "tune"
     },
     {
       "file": "c2_migration_codegen.py",
-      "archetype": "codegen"
+      "archetype": "codegen",
+      "split": "tune"
     },
     {
-      "file": "c3_triage_ticket.go",
-      "archetype": "classification"
+      "file": "c2_passage_rerank.py",
+      "archetype": "reranking",
+      "split": "tune"
     },
     {
-      "file": "c3_chat_stream.go",
-      "archetype": "chat"
+      "file": "c2_po_extract.py",
+      "archetype": "extraction",
+      "split": "tune"
     },
     {
-      "file": "c3_parse_resume.go",
-      "archetype": "extraction"
+      "file": "c2_query_embed.py",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "c2_receipt_fields.py",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "c2_resume_parser.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "c2_review_sentiment.py",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "c2_sales_recap.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "c2_support_chat.py",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "c2_thread_summary.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "c2_ticket_triage.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "c2_trip_agent.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "c2_voicemail_transcribe.py",
+      "archetype": "transcription",
+      "split": "tune"
     },
     {
       "file": "c3_agent_loop.go",
-      "archetype": "agentic"
-    },
-    {
-      "file": "c3_sentiment_batch.rb",
-      "archetype": "classification"
-    },
-    {
-      "file": "c3_weekly_digest.rb",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c3_support_chat.rb",
-      "archetype": "chat"
-    },
-    {
-      "file": "c3_moderate_posts.rb",
-      "archetype": "moderation"
-    },
-    {
-      "file": "c3_translate_listing.php",
-      "archetype": "translation"
-    },
-    {
-      "file": "c3_invoice_fields.php",
-      "archetype": "extraction"
-    },
-    {
-      "file": "c3_recap_standup.php",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c3_chat_widget.cs",
-      "archetype": "chat"
+      "archetype": "agentic",
+      "split": "tune"
     },
     {
       "file": "c3_categorize_expense.cs",
-      "archetype": "classification"
-    },
-    {
-      "file": "c3_release_summary.cs",
-      "archetype": "summarization"
-    },
-    {
-      "file": "c3_transcribe_voicemail.cs",
-      "archetype": "transcription"
+      "archetype": "classification",
+      "split": "tune"
     },
     {
       "file": "c3_chat_relay.java",
-      "archetype": "chat"
+      "archetype": "chat",
+      "split": "tune"
     },
     {
-      "file": "c3_extract_shipment.java",
-      "archetype": "extraction"
+      "file": "c3_chat_stream.go",
+      "archetype": "chat",
+      "split": "tune"
     },
     {
-      "file": "c3_ops_agent.java",
-      "archetype": "agentic"
+      "file": "c3_chat_widget.cs",
+      "archetype": "chat",
+      "split": "holdout"
     },
     {
       "file": "c3_codegen_migrations.java",
-      "archetype": "codegen"
+      "archetype": "codegen",
+      "split": "holdout"
     },
     {
       "file": "c3_embed_articles.rs",
-      "archetype": "embedding"
-    },
-    {
-      "file": "c3_summarize_hits.rs",
-      "archetype": "reranking"
+      "archetype": "embedding",
+      "split": "tune"
     },
     {
       "file": "c3_embed_docs.sh",
-      "archetype": "embedding"
+      "archetype": "embedding",
+      "split": "holdout"
     },
     {
-      "file": "c4_subtitle_translate.py",
-      "archetype": "translation"
+      "file": "c3_extract_shipment.java",
+      "archetype": "extraction",
+      "split": "tune"
     },
     {
-      "file": "c4_locale_bundle_translate.ts",
-      "archetype": "translation"
+      "file": "c3_invoice_fields.php",
+      "archetype": "extraction",
+      "split": "holdout"
     },
     {
-      "file": "c4_help_article_translate.js",
-      "archetype": "translation"
+      "file": "c3_moderate_posts.rb",
+      "archetype": "moderation",
+      "split": "holdout"
     },
     {
-      "file": "c4_search_rerank.ts",
-      "archetype": "reranking"
+      "file": "c3_ops_agent.java",
+      "archetype": "agentic",
+      "split": "holdout"
     },
     {
-      "file": "c4_retrieval_rerank.py",
-      "archetype": "reranking"
+      "file": "c3_parse_resume.go",
+      "archetype": "extraction",
+      "split": "tune"
     },
     {
-      "file": "c4_product_rerank.js",
-      "archetype": "reranking"
+      "file": "c3_recap_standup.php",
+      "archetype": "summarization",
+      "split": "holdout"
     },
     {
-      "file": "c4_comment_moderation.py",
-      "archetype": "moderation"
+      "file": "c3_release_summary.cs",
+      "archetype": "summarization",
+      "split": "tune"
     },
     {
-      "file": "c4_safety_gate.ts",
-      "archetype": "moderation"
+      "file": "c3_sentiment_batch.rb",
+      "archetype": "classification",
+      "split": "holdout"
     },
     {
-      "file": "c4_listing_moderation.py",
-      "archetype": "moderation"
+      "file": "c3_summarize_hits.rs",
+      "archetype": "reranking",
+      "split": "holdout"
     },
     {
-      "file": "c4_meeting_transcribe.py",
-      "archetype": "transcription"
+      "file": "c3_support_chat.rb",
+      "archetype": "chat",
+      "split": "tune"
     },
     {
-      "file": "c4_podcast_transcription.ts",
-      "archetype": "transcription"
+      "file": "c3_transcribe_voicemail.cs",
+      "archetype": "transcription",
+      "split": "holdout"
     },
     {
-      "file": "c4_voicemail_whisper.js",
-      "archetype": "transcription"
+      "file": "c3_translate_listing.php",
+      "archetype": "translation",
+      "split": "holdout"
     },
     {
-      "file": "c4_scan_ocr.py",
-      "archetype": "vision"
+      "file": "c3_triage_ticket.go",
+      "archetype": "classification",
+      "split": "tune"
     },
     {
-      "file": "c4_chart_vision.ts",
-      "archetype": "vision"
-    },
-    {
-      "file": "c4_screenshot_ocr.js",
-      "archetype": "vision"
-    },
-    {
-      "file": "c4_editor_fim_codegen.ts",
-      "archetype": "codegen"
-    },
-    {
-      "file": "c4_sql_codegen.py",
-      "archetype": "codegen"
-    },
-    {
-      "file": "c4_test_codegen.js",
-      "archetype": "codegen"
+      "file": "c3_weekly_digest.rb",
+      "archetype": "summarization",
+      "split": "tune"
     },
     {
       "file": "c4_call_digest_job.py",
-      "archetype": "transcription"
+      "archetype": "transcription",
+      "split": "tune"
     },
     {
-      "file": "c4_translate_handoff.ts",
-      "archetype": "summarization"
+      "file": "c4_chart_vision.ts",
+      "archetype": "vision",
+      "split": "holdout"
     },
     {
-      "file": "c4_widget_chat_reply.js",
-      "archetype": "reranking"
+      "file": "c4_comment_moderation.py",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "c4_editor_fim_codegen.ts",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "c4_help_article_translate.js",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "c4_listing_moderation.py",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "c4_locale_bundle_translate.ts",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "c4_meeting_transcribe.py",
+      "archetype": "transcription",
+      "split": "tune"
     },
     {
       "file": "c4_plugin_gate.py",
-      "archetype": "moderation"
+      "archetype": "moderation",
+      "split": "holdout"
+    },
+    {
+      "file": "c4_podcast_transcription.ts",
+      "archetype": "transcription",
+      "split": "holdout"
+    },
+    {
+      "file": "c4_product_rerank.js",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "c4_retrieval_rerank.py",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "c4_safety_gate.ts",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "c4_scan_ocr.py",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "c4_screenshot_ocr.js",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "c4_search_rerank.ts",
+      "archetype": "reranking",
+      "split": "holdout"
+    },
+    {
+      "file": "c4_sql_codegen.py",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "c4_subtitle_translate.py",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "c4_test_codegen.js",
+      "archetype": "codegen",
+      "split": "holdout"
+    },
+    {
+      "file": "c4_translate_handoff.ts",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "c4_voicemail_whisper.js",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "c4_widget_chat_reply.js",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "categorize_langchain.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_azure_helpdesk.cs",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_bedrock_priority_label.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_churn_risk_from_call.py",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_cohere_chat_history.py",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_cohere_topic_label.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_companion_turns.py",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_converse_history.py",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_discord_companion.go",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_escalation_decision.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_gemini_enum_response.ts",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_gemini_session_turn.py",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_java_sentiment_label.java",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_judge_answer_grade.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_kotlin_assistant.kt",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_langchain_memory_turn.py",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_language_of_text.py",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_litellm_persona.py",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_mistral_stream_reply.js",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_onboarding_responses.ts",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_php_concierge.php",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_php_expense_category.php",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_pr_label_bot.go",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_rag_answer_docs.py",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_ruby_helpdesk_turn.rb",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_rust_intent_label.rs",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d1_support_thread_reply.py",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_swift_pen_pal.swift",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_ticket_enum_schema.py",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "d1_vercel_ui_stream.ts",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d1_zod_enum_object.ts",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d2_azure_claim_schema.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_bedrock_case_summary.py",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_bedrock_tool_fields.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_chat_endpoint_fields.js",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_cohere_ner_fields.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_contract_terms_object.ts",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_csharp_form_fields.cs",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_csharp_meeting_notes.cs",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_email_thread_brief.rb",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_gemini_lab_values.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_go_purchase_order.go",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_go_weekly_rollup.go",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_invoice_forced_tool.py",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_java_earnings_brief.java",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_java_shipment_tool.java",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_litellm_entity_fields.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_longdoc_map_reduce.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_mistral_json_shipment.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_php_permit_fields.php",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_php_review_roundup.php",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_postmortem_recap.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_release_notes_from_commits.ts",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_responses_parse_resume.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_ruby_receipt_fields.rb",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d2_rust_paper_abstract.rs",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_rust_spec_fields.rs",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_slack_tldr.js",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "d2_standup_digest.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d2_transcript_cleanup_brief.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "d3_ad_brand_safety.py",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_bedrock_agent_turn.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_cohere_index_vectors.py",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d3_comment_allow_block.py",
+      "archetype": "moderation",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_computer_use_turn.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_csharp_build_agent.cs",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_csharp_support_gate.cs",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_gemini_embed_content.py",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d3_gemini_function_loop.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_gemini_policy_gate.py",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_go_chat_guard.go",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_go_embed_chunks.go",
+      "archetype": "embedding",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_go_task_runner.go",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_java_forum_gate.java",
+      "archetype": "moderation",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_java_travel_agent.java",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_langchain_vectorstore.py",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d3_langgraph_node.py",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_litellm_embedding.py",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d3_llama_guard_gate.py",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_marketplace_listing_gate.rb",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_mcp_client_turn.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_mistral_agent_step.js",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_mistral_embed_batch.py",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d3_openai_doc_vectors.py",
+      "archetype": "embedding",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_ops_tool_loop.py",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_php_embed_products.php",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d3_php_review_gate.php",
+      "archetype": "moderation",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_php_ticket_agent.php",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_pii_leak_check.js",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_prompt_injection_gate.ts",
+      "archetype": "moderation",
+      "split": "tune"
+    },
+    {
+      "file": "d3_responses_tool_turn.ts",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_ruby_embed_notes.rb",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d3_ruby_shop_agent.rb",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_single_tool_agent.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_vercel_agent_steps.ts",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "d3_vercel_embed_many.ts",
+      "archetype": "embedding",
+      "split": "holdout"
+    },
+    {
+      "file": "d3_voyage_query_vector.js",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "d4_audio_endpoint_calls.py",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "d4_azure_speech_job.py",
+      "archetype": "transcription",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_batch_audio_worker.js",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "d4_chat_message_bridge.go",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_csharp_manual_translate.cs",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_dictation_note.cs",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "d4_faq_rank.cs",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_gemini_audio_verbatim.py",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "d4_gemini_page_translate.py",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_gemini_passage_order.py",
+      "archetype": "reranking",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_go_stt_queue.go",
+      "archetype": "transcription",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_helpdesk_article_order.js",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_inbound_email_translate.js",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_java_contract_translate.java",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_java_rank_docs.java",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_lecture_speech_to_text.php",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "d4_listwise_answers.rb",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_litellm_bulk_translate.py",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_litellm_candidate_order.py",
+      "archetype": "reranking",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_markdown_doc_translate.py",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_meeting_verbatim.ts",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "d4_menu_localize.php",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_pairwise_relevance.ts",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_podcast_verbatim.rb",
+      "archetype": "transcription",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_product_copy_translate.rb",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_product_reorder.php",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_push_notification_locale.ts",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_rag_order_chunks.py",
+      "archetype": "reranking",
+      "split": "holdout"
+    },
+    {
+      "file": "d4_rust_hit_order.rs",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_search_reorder.go",
+      "archetype": "reranking",
+      "split": "tune"
+    },
+    {
+      "file": "d4_subtitle_srt_translate.py",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d4_ui_strings_localize.ts",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "d5_action_items_json.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d5_alt_text_writer.py",
+      "archetype": "vision",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_bash_script_gen.py",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "d5_bedrock_damage_photo.py",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "d5_bool_schema_gate.ts",
+      "archetype": "moderation",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_chart_values_read.ts",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "d5_chat_route_label.php",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "d5_codestral_fill_middle.py",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "d5_csharp_stub_gen.cs",
+      "archetype": "codegen",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_csharp_ui_diff_review.cs",
+      "archetype": "vision",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_forced_tool_fields.ts",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "d5_gemini_image_caption.py",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "d5_go_image_question.go",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "d5_go_refactor_patch.go",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "d5_java_id_card_read.java",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "d5_java_migration_writer.java",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "d5_jq_filter_writer.js",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "d5_model_registry.json",
+      "archetype": "unknown",
+      "split": "tune"
+    },
+    {
+      "file": "d5_php_endpoint_scaffold.php",
+      "archetype": "codegen",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_php_photo_tags.php",
+      "archetype": "vision",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_pipeline_defaults.toml",
+      "archetype": "unknown",
+      "split": "tune"
+    },
+    {
+      "file": "d5_rag_answer_stream.ts",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "d5_receipt_photo_read.py",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "d5_regex_from_examples.rb",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "d5_screenshot_bug_report.js",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "d5_service_settings.ini",
+      "archetype": "unknown",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_slide_image_text.rb",
+      "archetype": "vision",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_terraform_module_gen.ts",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "d5_transcript_condense.js",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "d5_unit_test_writer.py",
+      "archetype": "codegen",
+      "split": "holdout"
+    },
+    {
+      "file": "embed_ingest.js",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "env_config.yaml",
+      "archetype": "unknown",
+      "split": "tune"
+    },
+    {
+      "file": "gemini_intent.ts",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "invoice_extract.py",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "legacy_digest.js",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "meeting_recap.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "misleading_comment.ts",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "prompt_states_task.py",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "receipts_zod.ts",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "support_reply.ts",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "tool_agent.ts",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "vercel_chat.ts",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "vercel_classify.ts",
+      "archetype": "classification",
+      "split": "tune"
     }
   ]
 }

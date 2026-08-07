@@ -1,0 +1,7 @@
+[runtime]
+workers = 8
+queue = "ingest"
+
+[llm]
+model = "claude-opus-4-1"
+timeout_seconds = 60

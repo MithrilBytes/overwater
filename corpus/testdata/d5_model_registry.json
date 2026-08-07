@@ -1,0 +1,7 @@
+{
+  "service": "summarizer-worker",
+  "region": "us-east-1",
+  "default_model": "gpt-5",
+  "timeout_seconds": 45,
+  "queue": "jobs.summaries"
+}
