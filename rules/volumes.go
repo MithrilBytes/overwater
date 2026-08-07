@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ const (
 	VolumePragma   = "pragma"
 	VolumeConfig   = "config"
 	VolumeFlag     = "flag"
+	VolumeFanIn    = "fan-in"
 	VolumeEstimate = "estimate"
 )
 
@@ -102,9 +104,12 @@ func siteKey(site scan.Site) string {
 }
 
 // volume is one call site's monthly call count and where it came from.
+// callers is how many callers fan in counted into calls, 0 when the
+// count is one call site's own.
 type volume struct {
-	calls  int
-	source string
+	calls   int
+	source  string
+	callers int
 }
 
 // siteVolumes binds a volumes file to one report. A model key spreads
@@ -176,20 +181,48 @@ func (sv *siteVolumes) modelKey(site scan.Site, m *catalog.Model) string {
 
 // forSite resolves one call site's volume. Measured traffic beats a
 // hand written pragma, and inside the file a site key beats a model
-// key.
+// key. Both of those are counts of this call site's own traffic, so
+// fan in leaves them alone; it multiplies only the per site assumption
+// the estimate, the config, and --volume all supply.
 func (sv *siteVolumes) forSite(site scan.Site, m *catalog.Model) volume {
 	if sv.v != nil {
 		if n, ok := sv.v.Sites[siteKey(site)]; ok {
-			return volume{n, VolumeMeasured}
+			return volume{calls: n, source: VolumeMeasured}
 		}
 		if key := sv.modelKey(site, m); key != "" {
-			return volume{sv.shares[key], VolumeMeasured}
+			return volume{calls: sv.shares[key], source: VolumeMeasured}
 		}
 	}
 	if site.VolumeOverride > 0 {
-		return volume{site.VolumeOverride, VolumePragma}
+		return volume{calls: site.VolumeOverride, source: VolumePragma}
 	}
-	return volume{sv.e.Est.Volume.CallsPerMonth, sv.e.baseVolumeSource()}
+	per := sv.e.Est.Volume.CallsPerMonth
+	if n := sv.e.callers(site); n > 1 {
+		return volume{calls: per * n, source: VolumeFanIn, callers: n}
+	}
+	return volume{calls: per, source: sv.e.baseVolumeSource()}
+}
+
+// callers is how many of a helper's callers this call site is priced
+// for. A helper with a fixed model answers for all of them. A helper
+// whose model is a parameter answers only for the callers that take
+// its default: the rest pass a model of their own, which is a call
+// site already priced where it sits, and counting it here too would
+// bill it twice. A resolution fan_in.multiply_when does not name
+// counts as one, and so does a default no caller takes.
+func (e *Engine) callers(site scan.Site) int {
+	if !slices.Contains(e.Est.FanIn.MultiplyWhen, site.FanInStatus) {
+		return 1
+	}
+	if len(site.CallerModels) == 0 {
+		return site.FanIn
+	}
+	for _, cm := range site.CallerModels {
+		if cm.Ref == site.Ref {
+			return cm.Count
+		}
+	}
+	return 1
 }
 
 // UnmatchedVolumeKeys names the volumes file keys no call site in this

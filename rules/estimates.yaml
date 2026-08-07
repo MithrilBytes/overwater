@@ -13,3 +13,11 @@ tokens:
 # amortizes to nothing at estimate volumes.
 cache:
   steady_state_read_fraction: 1.0
+# Fan in: a call site inside a helper runs once per caller of that
+# helper, so calls_per_month multiplies by the caller count. Only the
+# resolutions named here multiply; the scanner reports the rest as a
+# floor of 1 rather than a count, and a guessed multiplier inflates the
+# largest dollar figure in the report.
+fan_in:
+  multiply_when:
+    - exact

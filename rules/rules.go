@@ -32,6 +32,9 @@ type Estimates struct {
 	Cache struct {
 		SteadyStateReadFraction float64 `yaml:"steady_state_read_fraction"`
 	} `yaml:"cache"`
+	FanIn struct {
+		MultiplyWhen []string `yaml:"multiply_when"`
+	} `yaml:"fan_in"`
 }
 
 // When is the predicate side of a rule. Absent fields do not constrain.
@@ -91,6 +94,17 @@ var knownArchetypes = map[string]bool{
 	scan.ArchetypeUnknown:        true,
 }
 
+// knownFanInStatuses is the closed set the scanner reports for how a
+// call site's caller count was established. A typo in
+// fan_in.multiply_when would otherwise load fine and price every
+// wrapper as a leaf forever.
+var knownFanInStatuses = map[string]bool{
+	scan.FanInDirect:     true,
+	scan.FanInExact:      true,
+	scan.FanInAmbiguous:  true,
+	scan.FanInUnresolved: true,
+}
+
 // knownEfforts mirrors what the shape reader's effort regex captures,
 // lowercased.
 var knownEfforts = map[string]bool{
@@ -126,9 +140,12 @@ type Finding struct {
 	MonthlyUSD int
 	// Volume is the calls per month MonthlyUSD was priced at, and
 	// VolumeSource is where that number came from: measured, pragma,
-	// config, flag, or estimate.
+	// config, flag, fan-in, or estimate. Callers is how many callers of
+	// the enclosing helper the fan-in volume covers, 0 for every other
+	// source.
 	Volume        int
 	VolumeSource  string
+	Callers       int
 	CandidateText string // the full clause rendered after "Candidate:"
 	// CandidateModel is the nominated model id, empty for same model or
 	// shape only candidates. The eval generator keys off it.
@@ -182,6 +199,11 @@ func Load() (*Engine, error) {
 	}
 	if f := e.Est.Cache.SteadyStateReadFraction; f <= 0 || f > 1 {
 		return nil, fmt.Errorf("estimates.yaml cache.steady_state_read_fraction must be in (0, 1]")
+	}
+	for _, status := range e.Est.FanIn.MultiplyWhen {
+		if !knownFanInStatuses[status] {
+			return nil, fmt.Errorf("estimates.yaml fan_in.multiply_when names unknown status %q", status)
+		}
 	}
 	return e, nil
 }

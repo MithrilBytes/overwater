@@ -178,6 +178,7 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 		MonthlyUSD:   round(current),
 		Volume:       vol.calls,
 		VolumeSource: vol.source,
+		Callers:      vol.callers,
 		Tripwire:     r.Tripwire,
 	}
 	if r.Flag != "" {
