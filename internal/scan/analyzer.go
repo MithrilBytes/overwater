@@ -46,65 +46,49 @@ func newAnalyzer(files []file) *analyzer {
 	return a
 }
 
-func (a *analyzer) masked(p string) maskedFile {
+// cached returns cache[p], computing it on a miss. The computation runs
+// outside the lock: when two workers cross into the same file one of
+// them does the work twice, which beats serializing every worker behind
+// the slowest mask.
+func cached[T any](a *analyzer, cache map[string]T, p string, compute func() T) T {
 	a.mu.Lock()
-	m, ok := a.maskCache[p]
+	v, ok := cache[p]
 	a.mu.Unlock()
 	if ok {
-		return m
+		return v
 	}
-	// Masked outside the lock: a rare duplicate when two workers cross
-	// into the same file beats serializing all masking.
-	m = maskFile(p, a.byPath[p])
+	v = compute()
 	a.mu.Lock()
-	a.maskCache[p] = m
+	cache[p] = v
 	a.mu.Unlock()
-	return m
+	return v
+}
+
+func (a *analyzer) masked(p string) maskedFile {
+	return cached(a, a.maskCache, p, func() maskedFile {
+		return maskFile(p, a.byPath[p])
+	})
 }
 
 func (a *analyzer) facts(p string) fileFacts {
-	a.mu.Lock()
-	f, ok := a.factCache[p]
-	a.mu.Unlock()
-	if ok {
-		return f
-	}
-	f = readFileFacts(a.masked(p).prose)
-	a.factsRuns.Add(1)
-	a.mu.Lock()
-	a.factCache[p] = f
-	a.mu.Unlock()
-	return f
+	return cached(a, a.factCache, p, func() fileFacts {
+		a.factsRuns.Add(1)
+		return readFileFacts(a.masked(p).prose)
+	})
 }
 
 func (a *analyzer) spans(p string) []span {
-	a.mu.Lock()
-	s, ok := a.spanCache[p]
-	a.mu.Unlock()
-	if ok {
-		return s
-	}
-	s = scanSpans(a.byPath[p], familyFor(p))
-	a.mu.Lock()
-	a.spanCache[p] = s
-	a.mu.Unlock()
-	return s
+	return cached(a, a.spanCache, p, func() []span {
+		return scanSpans(a.byPath[p], familyFor(p))
+	})
 }
 
 // lineStarts caches the line index. Rebuilding it per call site is a
 // full pass over the file each time.
 func (a *analyzer) lineStarts(p string) []int {
-	a.mu.Lock()
-	s, ok := a.lineCache[p]
-	a.mu.Unlock()
-	if ok {
-		return s
-	}
-	s = lineStarts(a.byPath[p])
-	a.mu.Lock()
-	a.lineCache[p] = s
-	a.mu.Unlock()
-	return s
+	return cached(a, a.lineCache, p, func() []int {
+		return lineStarts(a.byPath[p])
+	})
 }
 
 // describe fills in everything layers 3 and 4 can read about a site
