@@ -24,7 +24,7 @@
             # compute it: run "nix build .#overwater" and paste the
             # hash it reports as the expected one. It changes only
             # when go.mod or go.sum changes.
-            vendorHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            vendorHash = "sha256-g+yaVIx4jxpAQ/+WrGKxhVeliYx7nLQe/zsGpxV4Fn4=";
 
             subPackages = [ "cmd/overwater" ];
 
