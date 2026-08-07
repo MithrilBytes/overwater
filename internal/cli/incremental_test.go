@@ -208,6 +208,52 @@ func TestIncrementalNoteCountsScannedFiles(t *testing.T) {
 	}
 }
 
+// Under the default core.quotePath, git wraps any path holding a non
+// ASCII byte in quotes and octal escapes it, and that string matches no
+// real file: --incremental used to drop the file and report a clean run
+// over a live deprecated model call. NUL terminated listings carry the
+// raw bytes the walker sees.
+func TestIncrementalFindsNonASCIIPaths(t *testing.T) {
+	gitOrSkip(t)
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	initRepo(t, repo)
+	gitRun(t, repo, "config", "core.quotePath", "true")
+	// Report the filesystem's own bytes, so the assertion holds on a
+	// volume that decomposes what we wrote.
+	gitRun(t, repo, "config", "core.precomposeunicode", "false")
+
+	bl := filepath.Join(dir, ".overwater.json")
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("update exit = %d, stderr = %q", code, stderr)
+	}
+
+	// One committed and one untracked: git names the first through diff
+	// and the second through ls-files, and both quote by default.
+	writeRepoFile(t, repo, "naïve.js", legacyCall)
+	gitRun(t, repo, "add", "-A")
+	gitRun(t, repo, "commit", "-q", "-m", "naive")
+	writeRepoFile(t, repo, "café.js", legacyCall)
+
+	code, _, stderr := runScanArgs(t, "-baseline", bl, "-incremental", repo)
+	if code != ExitFindings {
+		t.Fatalf("exit = %d, want %d; a missed file in the guard reads as a clean bill of health; stderr = %q",
+			code, ExitFindings, stderr)
+	}
+	if !strings.Contains(stderr, "incremental: scanned 2 of 2 candidate files") {
+		t.Errorf("stderr = %q, want both non ASCII paths counted", stderr)
+	}
+	for _, want := range []string{"new: deprecated-model at naïve.js", "new: deprecated-model at café.js"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("stderr = %q, want %q", stderr, want)
+		}
+	}
+}
+
 // Without a recorded commit the scan falls back to a full one with a
 // single stderr note. No git repository is needed to exercise this.
 func TestIncrementalFallsBackWithoutCommit(t *testing.T) {

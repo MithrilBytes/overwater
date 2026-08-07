@@ -307,18 +307,26 @@ func gitHead(root string) string {
 // gitChangedFiles lists the files changed since sha plus untracked
 // files, relative to root. Any git failure is returned so the caller
 // can fall back to a full scan.
+//
+// Both commands run with -z. Under the default core.quotePath, git
+// hands back a path holding any non-ASCII byte wrapped in quotes and
+// octal escaped, which matches no real file and would drop it from the
+// scan without a word. NUL terminated output is the raw bytes, so the
+// names line up with what the walker sees.
 func gitChangedFiles(root, sha string) (map[string]bool, error) {
-	diff, err := exec.Command("git", "-C", root, "diff", "--relative", "--name-only", sha).Output()
+	diff, err := exec.Command("git", "-C", root, "diff", "--relative", "--name-only", "-z", sha).Output()
 	if err != nil {
 		return nil, fmt.Errorf("git diff: %w", err)
 	}
-	untracked, err := exec.Command("git", "-C", root, "ls-files", "--others", "--exclude-standard").Output()
+	untracked, err := exec.Command("git", "-C", root, "ls-files", "--others", "--exclude-standard", "-z").Output()
 	if err != nil {
 		return nil, fmt.Errorf("git ls-files: %w", err)
 	}
 	only := map[string]bool{}
-	for _, name := range strings.Split(string(diff)+string(untracked), "\n") {
-		if name = strings.TrimSpace(name); name != "" {
+	// A path may legitimately begin or end with a space, so the only
+	// trimming a NUL split needs is dropping the empty final record.
+	for _, name := range strings.Split(string(diff)+string(untracked), "\x00") {
+		if name != "" {
 			only[name] = true
 		}
 	}

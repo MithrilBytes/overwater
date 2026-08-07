@@ -158,6 +158,28 @@ check volume-agreed-header 0 "estimates at 1,000,000 calls" "$bin" scan "$iso/sv
 check volume-agreed-body 0 "text-davinci-003 at ~\$12000/mo" "$bin" scan "$iso/svc-a" "$iso/svc-b"
 rm "$iso/svc-a/.overwater.yaml" "$iso/svc-b/.overwater.yaml"
 
+# Incremental over a path git quotes: a name with non-ASCII bytes comes
+# back quoted and escaped unless the listing is NUL terminated, and a
+# name that matches no file is a silent miss in the guard.
+if command -v git > /dev/null 2>&1; then
+  inc="$work/incremental"
+  mkdir -p "$inc/src"
+  cp "$guard/classify.js" "$inc/src/classify.js"
+  git -C "$inc" init -q .
+  git -C "$inc" config user.email smoke@example.com
+  git -C "$inc" config user.name Smoke
+  git -C "$inc" config commit.gpgsign false
+  git -C "$inc" config core.quotePath true
+  git -C "$inc" config core.precomposeunicode false
+  git -C "$inc" add -A
+  git -C "$inc" commit -q -m base
+  incbl="$work/incremental-baseline.json"
+  "$bin" scan -baseline "$incbl" -update-baseline "$inc" > /dev/null 2>&1
+  cp "$guard/legacy.js" "$inc/src/café.js"
+  check incremental-non-ascii 1 "new: deprecated-model at src/café.js" \
+    "$bin" scan -baseline "$incbl" -incremental "$inc"
+fi
+
 # Diff over two reports.
 "$bin" scan -json fixtures/clean-app > "$work/old.json" 2> /dev/null
 "$bin" scan -json fixtures/py-extraction > "$work/new.json" 2> /dev/null
