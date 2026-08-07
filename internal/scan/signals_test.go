@@ -1,6 +1,9 @@
 package scan
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // The call shape signals behind the effort, retry, dimensions, and
 // image detail rules, across the regex and structural extraction paths.
@@ -167,5 +170,46 @@ func TestImageDetailLowStaysFalse(t *testing.T) {
 `})
 	if s := soleSite(t, r).Shape; s.ImageDetailHigh {
 		t.Error("image detail high = true, want false for detail low")
+	}
+}
+
+// A system content block whose text is written inline must measure the
+// same as the same prompt passed as a bare string. Reading only
+// identifiers and backtick literals made the inline spelling measure
+// zero, and a zero length prompt can never trip the caching rule.
+func TestSystemBlockInlineLiteralMeasuresLikeString(t *testing.T) {
+	prompt := strings.Repeat("You cite the source document for every claim you make. ", 80)
+	if len(prompt) < 4400 {
+		t.Fatalf("test prompt is %d chars; the caching rule needs a long one", len(prompt))
+	}
+	call := func(system string) string {
+		return `def answer_question(question):
+    return client.messages.create(
+        model="claude-opus-4-5",
+        max_tokens=1024,
+        system=` + system + `,
+        messages=[{"role": "user", "content": question}],
+    )
+`
+	}
+	control := soleSite(t, analyzeTemp(t, map[string]string{
+		"control.py": call(`"` + prompt + `"`),
+	})).Shape
+	if control.SystemPromptChars != len(prompt) {
+		t.Fatalf("control measured %d chars, want %d", control.SystemPromptChars, len(prompt))
+	}
+	for _, tc := range []struct{ name, system string }{
+		{"double quoted", `[{"type": "text", "text": "` + prompt + `"}]`},
+		{"single quoted", `[{"type": "text", "text": '` + prompt + `'}]`},
+		{"triple quoted", `[{"type": "text", "text": """` + prompt + `"""}]`},
+	} {
+		s := soleSite(t, analyzeTemp(t, map[string]string{"block.py": call(tc.system)})).Shape
+		if s.SystemPromptChars != control.SystemPromptChars {
+			t.Errorf("%s block measured %d chars, want %d as the bare string does",
+				tc.name, s.SystemPromptChars, control.SystemPromptChars)
+		}
+		if s.SystemPromptText != control.SystemPromptText {
+			t.Errorf("%s block read a different prompt than the bare string", tc.name)
+		}
 	}
 }

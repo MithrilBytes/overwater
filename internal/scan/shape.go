@@ -392,8 +392,12 @@ var (
 	reSystemInline = regexp.MustCompile("(?:\"system\"|system)\\s*[:=]\\s*([\"'`])")
 	reSystemIdent  = regexp.MustCompile(`(?:"system"|system)\s*[:=]\s*([A-Za-z_][A-Za-z0-9_]*)`)
 	reSystemBlock  = regexp.MustCompile(`(?:"system"|system)\s*[:=]\s*\[`)
-	reTextField    = regexp.MustCompile("(?:\"text\"|text)\\s*[:=]\\s*([A-Za-z_][A-Za-z0-9_]*|`)")
-	reRoleSystem   = regexp.MustCompile("(?s)(?:\"role\"|role)\\s*[:=]?\\s*[\"']system[\"']\\s*,\\s*(?:\"content\"|content)\\s*[:=]\\s*([A-Za-z_][A-Za-z0-9_$]*|[\"'`])")
+	// A block's text may be an identifier or a literal in any of the
+	// spellings literalText reads, inline string literals included: an
+	// inline prompt is the same prompt as a named one and must measure the
+	// same, not zero.
+	reTextField  = regexp.MustCompile("(?:\"text\"|text)\\s*[:=]\\s*([A-Za-z_][A-Za-z0-9_]*|[\"'`])")
+	reRoleSystem = regexp.MustCompile("(?s)(?:\"role\"|role)\\s*[:=]?\\s*[\"']system[\"']\\s*,\\s*(?:\"content\"|content)\\s*[:=]\\s*([A-Za-z_][A-Za-z0-9_$]*|[\"'`])")
 )
 
 func (a *analyzer) systemPromptText(p string, regionStart, regionEnd int) string {
@@ -414,12 +418,15 @@ func (a *analyzer) systemPromptText(p string, regionStart, regionEnd int) string
 		tail := region[loc[1]:min(loc[1]+300, len(region))]
 		if m := reTextField.FindStringSubmatchIndex(tail); m != nil {
 			value := tail[m[2]:m[3]]
-			if value == "`" {
-				if text, ok := literalText(content, regionStart+loc[1]+m[3], "`"); ok {
+			switch value {
+			case `"`, "'", "`":
+				if text, ok := literalText(content, regionStart+loc[1]+m[3], value); ok {
 					return text
 				}
-			} else if text, ok := a.resolveConstText(p, value); ok {
-				return text
+			default:
+				if text, ok := a.resolveConstText(p, value); ok {
+					return text
+				}
 			}
 		}
 	}
