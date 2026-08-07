@@ -127,13 +127,11 @@ func validArchetype(s string) bool {
 
 // classify scores every archetype from the call site's own evidence and
 // returns the winner with a graded confidence. A pragma in or just
-// above the region wins outright. hit anchors the enclosing function
-// lookup: the last definition before the model string is the function
-// the call lives in, which the head expanded region start is not.
-func (a *analyzer) classify(p string, shape Shape, regionStart, regionEnd, hit int, tier string) (string, string) {
+// above the region wins outright.
+func (a *analyzer) classify(p string, shape Shape, r region, tier string) (string, string) {
 	content := a.byPath[p]
-	pragmaStart := linesAbove(content, regionStart, 3)
-	if m := rePragma.FindStringSubmatch(content[pragmaStart:regionEnd]); m != nil && validArchetype(m[1]) {
+	pragmaStart := linesAbove(content, r.start, 3)
+	if m := rePragma.FindStringSubmatch(content[pragmaStart:r.end]); m != nil && validArchetype(m[1]) {
 		return m[1], "high"
 	}
 	if shape.EmbeddingCall || tier == "embedding" {
@@ -144,14 +142,16 @@ func (a *analyzer) classify(p string, shape Shape, regionStart, regionEnd, hit i
 	// Keyword evidence in code comes from identifiers alone: the fully
 	// masked view drops every string, so a short prose fragment like
 	// "Triage notes: " cannot pose as code.
-	code := strings.ToLower(m.all[regionStart:regionEnd])
+	code := strings.ToLower(m.all[r.start:r.end])
 	// The prompt's content already scores through promptWords; counting
 	// the name of the variable that holds it would count the same
 	// evidence twice.
-	for _, ident := range promptIdents(m.prose[regionStart:regionEnd]) {
+	for _, ident := range promptIdents(m.prose[r.start:r.end]) {
 		code = strings.ReplaceAll(code, strings.ToLower(ident), " ")
 	}
-	funcName := strings.ToLower(enclosingFuncName(m.prose, hit))
+	// The enclosing function is the last definition before the model
+	// string, not before the head expanded region start.
+	funcName := strings.ToLower(enclosingFuncName(m.prose, r.hit))
 	prompt := strings.ToLower(shape.SystemPromptText)
 
 	scores := map[string]int{}

@@ -151,10 +151,10 @@ func (a *analyzer) lineStartsFor(p string) []int {
 // extent with whitespace collapsed: moving the call or editing prompt
 // prose changes nothing, changing the call's parameters does. Fallback
 // sites hash their own line only.
-func (a *analyzer) siteHash(p string, line, regionStart, regionEnd int, hasExtent bool) string {
+func (a *analyzer) siteHash(p string, line int, r region) string {
 	var text string
-	if hasExtent {
-		text = a.masked(p).prose[regionStart:regionEnd]
+	if r.isExtent {
+		text = a.masked(p).prose[r.start:r.end]
 	} else {
 		content := a.byPath[p]
 		starts := a.lineStartsFor(p)
@@ -179,99 +179,109 @@ func (a *analyzer) hitOffsetIn(p string, line, col int) int {
 	return min(starts[line-1]+col, len(a.byPath[p]))
 }
 
-// regionFor picks the byte range the shape and archetype layers read:
-// the call extent when one exists, expanded to keep the call name in
-// view, else the legacy line window. extStart is the extent's opening
-// bracket, which the structural parser needs unexpanded. Builder
-// languages bound the whole chained statement instead; wrapper calls
-// with no model key fall back to the innermost balanced extent.
-func (a *analyzer) regionFor(p string, line, col int) (regionStart, regionEnd, extStart int, hasExtent bool) {
+// region is the slice of a file that layers 3 and 4 read for one model
+// reference.
+type region struct {
+	start, end  int  // byte range, expanded to keep the call name in view
+	extentStart int  // the extent's opening bracket, which the structural parsers need unexpanded
+	isExtent    bool // false when no extent was found and start:end is the fallback window
+	hit         int  // byte offset of the model reference itself
+}
+
+// regionFor bounds the call around a model reference: the call extent
+// when one exists, else the fallback line window. Builder languages
+// bound the whole chained statement instead; wrapper calls with no
+// model key fall back to the innermost balanced extent.
+func (a *analyzer) regionFor(p string, line, col int) region {
 	content := a.byPath[p]
 	hit := a.hitOffsetIn(p, line, col)
 	m := a.masked(p)
+	extent := func(s, e int) region {
+		return region{start: headExpand(content, s), end: e, extentStart: s, isExtent: true, hit: hit}
+	}
 	if builderFamily(p) {
 		if s, e, ok := builderExtent(m.all, hit); ok {
-			return headExpand(content, s), e, s, true
+			return extent(s, e)
 		}
 	}
 	if s, e, ok := callExtent(m.all, m.prose, hit); ok {
-		return headExpand(content, s), e, s, true
+		return extent(s, e)
 	}
 	if s, e, ok := innermostExtent(m.all, hit); ok {
-		return headExpand(content, s), e, s, true
+		return extent(s, e)
 	}
 	s, e := windowBounds(content, a.lineStartsFor(p), line, hit)
-	return s, e, 0, false
+	return region{start: s, end: e, hit: hit}
 }
 
-func (a *analyzer) extractShape(p string, regionStart, regionEnd, extStart int, hasExtent bool) Shape {
+func (a *analyzer) extractShape(p string, r region) Shape {
 	m := a.masked(p)
-	region := m.prose[regionStart:regionEnd]
+	text := m.prose[r.start:r.end]
 
 	var s Shape
 	facts := a.factsFor(p)
 	s.BatchContext = facts.batchContext
 	s.BatchAPI = facts.batchAPI
 
-	if match := reTemperature.FindStringSubmatch(region); match != nil {
+	if match := reTemperature.FindStringSubmatch(text); match != nil {
 		if v, err := strconv.ParseFloat(match[1], 64); err == nil {
 			s.Temperature = &v
 		}
 	}
-	if match := reMaxTokens.FindStringSubmatch(region); match != nil {
+	if match := reMaxTokens.FindStringSubmatch(text); match != nil {
 		if v, err := strconv.Atoi(strings.ReplaceAll(match[1], "_", "")); err == nil {
 			s.MaxTokens = &v
 		}
 	}
-	s.Tools = reTools.MatchString(region)
-	s.ForcedTool = reForcedTool.MatchString(region)
-	s.Streaming = reStreaming.MatchString(region)
-	s.CacheControl = reCache.MatchString(region)
-	s.EmbeddingCall = reEmbedding.MatchString(region)
+	s.Tools = reTools.MatchString(text)
+	s.ForcedTool = reForcedTool.MatchString(text)
+	s.Streaming = reStreaming.MatchString(text)
+	s.CacheControl = reCache.MatchString(text)
+	s.EmbeddingCall = reEmbedding.MatchString(text)
 
-	refText := a.resolveSchemaRef(p, region)
-	s.JSONSchema = reSchema.MatchString(region) || reSchema.MatchString(refText)
+	refText := a.resolveSchemaRef(p, text)
+	s.JSONSchema = reSchema.MatchString(text) || reSchema.MatchString(refText)
 	schemaText := refText
 	if schemaText == "" {
-		// Fall back to the prose masked region, never the raw one:
+		// Fall back to the prose masked text, never the raw one:
 		// long string interiors are blank there, so a schema example
 		// inside prompt prose cannot fake schema facts.
-		schemaText = region
+		schemaText = text
 	}
 	s.SchemaEnumOnly, s.SchemaMultiField = schemaFacts(schemaText)
 
-	if m := reEffort.FindStringSubmatch(region); m != nil {
+	if m := reEffort.FindStringSubmatch(text); m != nil {
 		s.Effort = strings.ToLower(m[1])
 	}
-	if m := reRetries.FindStringSubmatch(region); m != nil {
+	if m := reRetries.FindStringSubmatch(text); m != nil {
 		if v, err := strconv.Atoi(m[1]); err == nil {
 			s.MaxRetries = &v
 		}
 	}
-	if m := reDimensions.FindStringSubmatch(region); m != nil {
+	if m := reDimensions.FindStringSubmatch(text); m != nil {
 		if v, err := strconv.Atoi(m[1]); err == nil {
 			s.Dimensions = &v
 		}
 	}
-	s.ImageDetailHigh = reDetailHigh.MatchString(region)
+	s.ImageDetailHigh = reDetailHigh.MatchString(text)
 
 	// For property and builder languages the structural parser has the
 	// final word on the fields it decides.
-	if hasExtent && propsFamily(p) {
-		if info := parseCall(a.byPath[p], m, extStart, regionEnd); info != nil {
+	if r.isExtent && propsFamily(p) {
+		if info := parseCall(a.byPath[p], m, r.extentStart, r.end); info != nil {
 			applyCallInfo(&s, info)
 		}
 	}
-	if hasExtent && builderFamily(p) {
-		if info := builderParse(a.byPath[p], m, extStart, regionEnd); info != nil {
+	if r.isExtent && builderFamily(p) {
+		if info := builderParse(a.byPath[p], m, r.extentStart, r.end); info != nil {
 			applyCallInfo(&s, info)
 		}
 	}
-	s.SystemPromptText = a.systemPromptText(p, regionStart, regionEnd)
+	s.SystemPromptText = a.systemPromptText(p, r)
 	// Runes, not bytes: non ASCII prompts must not overcount against
 	// token thresholds.
 	s.SystemPromptChars = utf8.RuneCountInString(s.SystemPromptText)
-	s.Readable = reCallish.MatchString(region) ||
+	s.Readable = reCallish.MatchString(text) ||
 		s.Temperature != nil || s.MaxTokens != nil || s.JSONSchema || s.Streaming
 	return s
 }
@@ -392,50 +402,46 @@ var (
 	reRoleSystem = regexp.MustCompile("(?s)(?:\"role\"|role)\\s*[:=]?\\s*[\"']system[\"']\\s*,\\s*(?:\"content\"|content)\\s*[:=]\\s*([A-Za-z_][A-Za-z0-9_$]*|[\"'`])")
 )
 
-func (a *analyzer) systemPromptText(p string, regionStart, regionEnd int) string {
+func (a *analyzer) systemPromptText(p string, r region) string {
 	content := a.byPath[p]
-	region := content[regionStart:regionEnd]
-	if loc := reSystemInline.FindStringSubmatchIndex(region); loc != nil {
-		delim := region[loc[2]:loc[3]]
-		if text, ok := literalText(content, regionStart+loc[3], delim); ok {
-			return text
+	text := content[r.start:r.end]
+	if loc := reSystemInline.FindStringSubmatchIndex(text); loc != nil {
+		delim := text[loc[2]:loc[3]]
+		if lit, ok := literalText(content, r.start+loc[3], delim); ok {
+			return lit
 		}
 	}
-	if m := reSystemIdent.FindStringSubmatch(region); m != nil {
-		if text, ok := a.resolveConstText(p, m[1]); ok {
-			return text
+	if m := reSystemIdent.FindStringSubmatch(text); m != nil {
+		if lit, ok := a.resolveConstText(p, m[1]); ok {
+			return lit
 		}
 	}
-	if loc := reSystemBlock.FindStringIndex(region); loc != nil {
-		tail := region[loc[1]:min(loc[1]+300, len(region))]
+	if loc := reSystemBlock.FindStringIndex(text); loc != nil {
+		tail := text[loc[1]:min(loc[1]+300, len(text))]
 		if m := reTextField.FindStringSubmatchIndex(tail); m != nil {
-			value := tail[m[2]:m[3]]
-			switch value {
-			case `"`, "'", "`":
-				if text, ok := literalText(content, regionStart+loc[1]+m[3], value); ok {
-					return text
-				}
-			default:
-				if text, ok := a.resolveConstText(p, value); ok {
-					return text
-				}
+			if lit, ok := a.promptValue(p, content, tail[m[2]:m[3]], r.start+loc[1]+m[3]); ok {
+				return lit
 			}
 		}
 	}
-	if m := reRoleSystem.FindStringSubmatchIndex(region); m != nil {
-		value := region[m[2]:m[3]]
-		switch value {
-		case `"`, "'", "`":
-			if text, ok := literalText(content, regionStart+m[3], value); ok {
-				return text
-			}
-		default:
-			if text, ok := a.resolveConstText(p, value); ok {
-				return text
-			}
+	if m := reRoleSystem.FindStringSubmatchIndex(text); m != nil {
+		if lit, ok := a.promptValue(p, content, text[m[2]:m[3]], r.start+m[3]); ok {
+			return lit
 		}
 	}
 	return ""
+}
+
+// promptValue reads a prompt that the regex captured either as an
+// opening delimiter, in which case the literal starts at from, or as an
+// identifier to resolve.
+func (a *analyzer) promptValue(p, content, value string, from int) (string, bool) {
+	switch value {
+	case `"`, "'", "`":
+		return literalText(content, from, value)
+	default:
+		return a.resolveConstText(p, value)
+	}
 }
 
 // literalText reads the string literal that starts right after start,

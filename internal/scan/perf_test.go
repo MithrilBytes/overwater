@@ -76,11 +76,11 @@ func TestRegionsStayBoundedInMinifiedFiles(t *testing.T) {
 		if len(refs) < 400 {
 			t.Fatalf("%s: got %d references, want at least 400", tc.path, len(refs))
 		}
-		for _, r := range refs {
-			start, end, _, _ := a.regionFor(tc.path, r.Line, r.Col)
-			if end-start > bound {
+		for _, ref := range refs {
+			r := a.regionFor(tc.path, ref.Line, ref.Col)
+			if r.end-r.start > bound {
 				t.Fatalf("%s: reference at %d:%d got a %d byte region in a %d byte file; bound is %d",
-					tc.path, r.Line, r.Col, end-start, len(tc.content), bound)
+					tc.path, ref.Line, ref.Col, r.end-r.start, len(tc.content), bound)
 			}
 		}
 	}

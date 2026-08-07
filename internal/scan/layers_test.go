@@ -48,15 +48,15 @@ func TestFindModelRefsReportsUnknownModels(t *testing.T) {
 
 func TestExtractShapeUnreadableConfig(t *testing.T) {
 	a := newAnalyzer([]file{{path: ".env", data: []byte("MODEL=gpt-5.1\n")}})
-	regionStart, regionEnd, extStart, hasExtent := a.regionFor(".env", 1, 6)
-	if hasExtent {
+	r := a.regionFor(".env", 1, 6)
+	if r.isExtent {
 		t.Fatal("a bare env assignment should not produce a call extent")
 	}
-	shape := a.extractShape(".env", regionStart, regionEnd, extStart, hasExtent)
+	shape := a.extractShape(".env", r)
 	if shape.Readable {
 		t.Errorf("shape = %+v, want unreadable for a bare env assignment", shape)
 	}
-	arch, conf := a.classify(".env", shape, regionStart, regionEnd, 6, "")
+	arch, conf := a.classify(".env", shape, r, "")
 	if arch != ArchetypeUnknown || conf != "low" {
 		t.Errorf("archetype = %s %s, want unknown at low confidence", arch, conf)
 	}
