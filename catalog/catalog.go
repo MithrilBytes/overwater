@@ -45,10 +45,20 @@ type Model struct {
 	Source            string   `yaml:"source" json:"source"`
 }
 
-var validCapabilities = map[string]bool{
-	"vision": true, "tools": true, "caching": true,
-	"structured_output": true, "audio": true, "dimensions": true,
+// Capabilities a model entry may declare. Rule files validate their
+// model_capability predicates against this same list, so a capability
+// name exists in exactly one place.
+var Capabilities = []string{
+	"vision", "tools", "caching", "structured_output", "audio", "dimensions",
 }
+
+var validCapabilities = func() map[string]bool {
+	m := make(map[string]bool, len(Capabilities))
+	for _, c := range Capabilities {
+		m[c] = true
+	}
+	return m
+}()
 
 // HasCapability reports whether the entry declares a capability.
 func (m Model) HasCapability(c string) bool {

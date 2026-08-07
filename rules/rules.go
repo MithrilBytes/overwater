@@ -77,6 +77,32 @@ var candidateStrategies = map[string]bool{
 	"successor": true, "cheapest_embedding": true, "cached_system_prompt": true,
 }
 
+// knownArchetypes is the closed set the scanner can assign, from the
+// internal/scan constants; a rule naming anything else could never
+// match and would be a silently dead predicate.
+var knownArchetypes = map[string]bool{
+	scan.ArchetypeEmbedding:      true,
+	scan.ArchetypeClassification: true,
+	scan.ArchetypeExtraction:     true,
+	scan.ArchetypeSummarization:  true,
+	scan.ArchetypeAgentic:        true,
+	scan.ArchetypeChat:           true,
+	scan.ArchetypeTranslation:    true,
+	scan.ArchetypeReranking:      true,
+	scan.ArchetypeModeration:     true,
+	scan.ArchetypeTranscription:  true,
+	scan.ArchetypeVision:         true,
+	scan.ArchetypeCodegen:        true,
+	scan.ArchetypeUnknown:        true,
+}
+
+// knownEfforts mirrors the values the shape reader's effort regex can
+// capture; the scanner lowercases what it finds.
+var knownEfforts = map[string]bool{
+	"minimal": true, "low": true, "medium": true,
+	"high": true, "xhigh": true, "max": true,
+}
+
 // Rule is one data file. Kind finding produces a verdict block of its
 // own; kind flag attaches a line to the finding at the same call site,
 // or becomes a finding itself when the site has no other.
@@ -171,6 +197,38 @@ func (r Rule) validate() error {
 	}
 	if r.Candidate.Note == "" || r.Tripwire == "" {
 		return fmt.Errorf("%s: candidate note and tripwire are required", r.ID)
+	}
+	// Enumerated when values are checked against their closed sets; a
+	// typo here would otherwise load fine and disable the rule forever.
+	// Providers are the one deliberate exception: the catalog data
+	// defines them, not a fixed list, so a provider name the current
+	// catalog does not know may still be valid against tomorrow's and
+	// simply never matches today.
+	for _, tier := range r.When.Tier {
+		if !contains(catalog.Tiers, tier) {
+			return fmt.Errorf("%s: unknown tier %q in when.tier", r.ID, tier)
+		}
+	}
+	for _, a := range r.When.Archetype {
+		if !knownArchetypes[a] {
+			return fmt.Errorf("%s: unknown archetype %q in when.archetype", r.ID, a)
+		}
+	}
+	for _, a := range r.When.ArchetypeNot {
+		if !knownArchetypes[a] {
+			return fmt.Errorf("%s: unknown archetype %q in when.archetype_not", r.ID, a)
+		}
+	}
+	for _, ef := range r.When.Effort {
+		if !knownEfforts[ef] {
+			return fmt.Errorf("%s: unknown effort %q in when.effort", r.ID, ef)
+		}
+	}
+	if c := r.When.ModelCapability; c != "" && !contains(catalog.Capabilities, c) {
+		return fmt.Errorf("%s: unknown model_capability %q", r.ID, c)
+	}
+	if r.Candidate.Strategy == "price_multiplier" && (r.Candidate.Multiplier <= 0 || r.Candidate.Multiplier > 1) {
+		return fmt.Errorf("%s: price_multiplier needs a multiplier in (0, 1], got %g", r.ID, r.Candidate.Multiplier)
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/MithrilBytes/overwater/catalog"
@@ -464,6 +465,53 @@ func TestSetThresholdRejectsUnknownRuleOrField(t *testing.T) {
 	}
 	if err := engine.SetThreshold("no-such-rule", "min_retries", 1); err == nil {
 		t.Error("want an error for an unknown rule id")
+	}
+}
+
+// A typo in an enumerated when value used to load fine and disable the
+// rule forever; a missing multiplier priced candidates at zero. Every
+// closed set is now checked at load. Providers stay unvalidated on
+// purpose: catalog data defines them, not a fixed list.
+func TestRuleValidateRejectsUnknownWhenValues(t *testing.T) {
+	valid := func() Rule {
+		return Rule{
+			ID: "probe", Kind: "finding", Confidence: "low",
+			Candidate: Candidate{Strategy: "none", Note: "n"},
+			Tripwire:  "t",
+		}
+	}
+	cases := []struct {
+		name    string
+		mutate  func(*Rule)
+		wantErr string
+	}{
+		{"misspelled tier", func(r *Rule) { r.When.Tier = []string{"fronteir"} }, "unknown tier"},
+		{"misspelled effort", func(r *Rule) { r.When.Effort = []string{"hgh"} }, "unknown effort"},
+		{"misspelled capability", func(r *Rule) { r.When.ModelCapability = "dimenzions" }, "unknown model_capability"},
+		{"misspelled archetype", func(r *Rule) { r.When.Archetype = []string{"clasification"} }, "unknown archetype"},
+		{"misspelled archetype_not", func(r *Rule) { r.When.ArchetypeNot = []string{"embeding"} }, "unknown archetype"},
+		{"multiplier missing", func(r *Rule) { r.Candidate.Strategy = "price_multiplier" }, "multiplier"},
+		{"multiplier above one", func(r *Rule) {
+			r.Candidate.Strategy = "price_multiplier"
+			r.Candidate.Multiplier = 1.5
+		}, "multiplier"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			r := valid()
+			tt.mutate(&r)
+			err := r.validate()
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("validate() = %v, want error containing %q", err, tt.wantErr)
+			}
+		})
+	}
+	// The documented exception: an unknown provider loads, because the
+	// catalog, not the rules engine, owns the provider namespace.
+	r := valid()
+	r.When.Provider = []string{"anthorpic"}
+	if err := r.validate(); err != nil {
+		t.Errorf("validate() = %v, want provider names left to the catalog", err)
 	}
 }
 
