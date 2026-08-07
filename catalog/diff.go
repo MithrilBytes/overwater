@@ -14,9 +14,13 @@ import (
 // permitted network call stays the catalog itself.
 
 // LitellmEntry is one upstream record, prices in dollars per million.
+// HasOutput distinguishes an upstream output price of zero from an
+// upstream file that simply omits the field; embedding style entries
+// often carry only input_cost_per_token.
 type LitellmEntry struct {
 	Input       float64
 	Output      float64
+	HasOutput   bool
 	MaxInput    int
 	Deprecation string
 }
@@ -44,27 +48,31 @@ func ParseLitellm(raw []byte) (LitellmPrices, error) {
 		if err := json.Unmarshal(rawEntry, &e); err != nil || e.Input == nil {
 			continue
 		}
-		out := 0.0
-		if e.Output != nil {
-			out = *e.Output
-		}
-		prices[key] = LitellmEntry{
+		entry := LitellmEntry{
 			Input:       *e.Input * 1e6,
-			Output:      out * 1e6,
 			MaxInput:    e.MaxInput,
 			Deprecation: e.Deprecation,
 		}
+		if e.Output != nil {
+			entry.Output = *e.Output * 1e6
+			entry.HasOutput = true
+		}
+		prices[key] = entry
 	}
 	return prices, nil
 }
 
-// Drift is one entry whose price disagrees with LiteLLM.
+// Drift is one entry whose price disagrees with LiteLLM. When the
+// upstream record omits output_cost_per_token, TheirsOutKnown is false,
+// TheirsOut is meaningless, and ApplyPrices leaves our output price
+// alone.
 type Drift struct {
-	ID        string
-	OursIn    float64
-	OursOut   float64
-	TheirsIn  float64
-	TheirsOut float64
+	ID             string
+	OursIn         float64
+	OursOut        float64
+	TheirsIn       float64
+	TheirsOut      float64
+	TheirsOutKnown bool
 }
 
 // DiffLitellm compares active catalog entries against LiteLLM prices,
@@ -88,10 +96,14 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missi
 				continue
 			}
 			found = true
-			if p.Input > 0 && (differs(m.InputPerMtok, p.Input) || differs(m.OutputPerMtok, p.Output)) {
+			// An upstream record with no output price says nothing
+			// about our output price; comparing against its zero value
+			// would propose zeroing ours.
+			outDrifts := p.HasOutput && differs(m.OutputPerMtok, p.Output)
+			if p.Input > 0 && (differs(m.InputPerMtok, p.Input) || outDrifts) {
 				drifts = append(drifts, Drift{
 					ID: m.ID, OursIn: m.InputPerMtok, OursOut: m.OutputPerMtok,
-					TheirsIn: p.Input, TheirsOut: p.Output,
+					TheirsIn: p.Input, TheirsOut: p.Output, TheirsOutKnown: p.HasOutput,
 				})
 			}
 			if p.MaxInput > 0 && p.MaxInput != m.ContextWindow {
@@ -139,7 +151,9 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 			return err
 		}
 		out := reInputLine.ReplaceAll(raw, []byte("input_per_mtok: "+formatPrice(d.TheirsIn)))
-		out = reOutputLine.ReplaceAll(out, []byte("output_per_mtok: "+formatPrice(d.TheirsOut)))
+		if d.TheirsOutKnown {
+			out = reOutputLine.ReplaceAll(out, []byte("output_per_mtok: "+formatPrice(d.TheirsOut)))
+		}
 		if err := os.WriteFile(path, out, 0o644); err != nil {
 			return err
 		}

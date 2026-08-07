@@ -66,6 +66,64 @@ func TestDiffLitellmMatchesAndTolerates(t *testing.T) {
 	}
 }
 
+// An upstream record with input but no output cost must never read as
+// "output is now free". Our output price is not compared, not drifted,
+// and not applied over.
+func TestDiffLitellmIgnoresMissingOutput(t *testing.T) {
+	c := &Catalog{Version: "2026-01-01", Models: []Model{func() Model {
+		m := validModel()
+		m.ID = "test-model" // ours: input 1, output 2
+		return m
+	}()}}
+
+	// Upstream input agrees, output absent: no drift at all.
+	prices, err := ParseLitellm([]byte(`{"test-model": {"input_cost_per_token": 0.000001}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := prices["test-model"]; p.HasOutput {
+		t.Fatalf("parsed entry claims an output price it does not have: %+v", p)
+	}
+	drifts, _, _ := DiffLitellm(c, prices)
+	if len(drifts) != 0 {
+		t.Fatalf("drifts = %+v, want none when only the absent output differs", drifts)
+	}
+
+	// Upstream input drifts, output still absent: the drift carries the
+	// input change and marks the output unknown, and applying it leaves
+	// our output price in place.
+	prices, err = ParseLitellm([]byte(`{"test-model": {"input_cost_per_token": 0.000003}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	drifts, _, _ = DiffLitellm(c, prices)
+	if len(drifts) != 1 || drifts[0].TheirsIn != 3 || drifts[0].TheirsOutKnown {
+		t.Fatalf("drifts = %+v, want one input-only drift with TheirsOutKnown false", drifts)
+	}
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte("2026-01-01\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := "id: test-model\nprovider: testco\ninput_per_mtok: 1\noutput_per_mtok: 2\ncontext_window: 1000\ntier: mid\nreleased: \"2025-01-01\"\nsource: https://example.com/pricing\n"
+	if err := os.WriteFile(filepath.Join(dir, "models", "test-model.yaml"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyPrices(dir, drifts, "2026-08-06"); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := os.ReadFile(filepath.Join(dir, "models", "test-model.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(updated), "input_per_mtok: 3\n") ||
+		!strings.Contains(string(updated), "output_per_mtok: 2\n") {
+		t.Errorf("entry = %s, want input applied and output untouched", updated)
+	}
+}
+
 func TestApplyPricesRewritesBumpsAndRebuilds(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
@@ -78,7 +136,7 @@ func TestApplyPricesRewritesBumpsAndRebuilds(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "models", "test-model.yaml"), []byte(entry), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	drift := Drift{ID: "test-model", TheirsIn: 2, TheirsOut: 8}
+	drift := Drift{ID: "test-model", TheirsIn: 2, TheirsOut: 8, TheirsOutKnown: true}
 	if err := ApplyPrices(dir, []Drift{drift}, "2026-08-05"); err != nil {
 		t.Fatal(err)
 	}
