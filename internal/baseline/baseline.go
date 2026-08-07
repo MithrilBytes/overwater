@@ -23,8 +23,7 @@ const version = 2
 const dateFormat = "2006-01-02"
 
 // Entry is one baselined finding. The fingerprint is the key; rule,
-// file, and model are there so a human reviewing the diff can tell what
-// each line means.
+// file, and model are there to make the diff readable.
 type Entry struct {
 	Fingerprint string `json:"fingerprint"`
 	Rule        string `json:"rule"`
@@ -53,7 +52,7 @@ func Fingerprint(f rules.Finding) string {
 }
 
 // Entries converts findings into baseline entries stamped with today's
-// date, so re-recording an entry is an explicit re-acknowledgment.
+// date.
 func Entries(findings []rules.Finding) []Entry {
 	today := time.Now().Format(dateFormat)
 	entries := make([]Entry, 0, len(findings))
@@ -70,8 +69,8 @@ func Entries(findings []rules.Finding) []Entry {
 }
 
 // Outside returns the entries recorded for files absent from scanned,
-// keeping their original dates. An incremental update merges them in so
-// a partial scan cannot prune what it never looked at.
+// keeping their original dates, so a partial scan cannot prune what it
+// never looked at.
 func Outside(bl *File, scanned map[string]bool) []Entry {
 	var out []Entry
 	for _, e := range bl.Findings {
@@ -83,8 +82,8 @@ func Outside(bl *File, scanned map[string]bool) []Entry {
 }
 
 // Write records the entries as the new baseline; a full scan's entries
-// inherently prune anything fixed since the last record. Commit is the
-// scanned root's git HEAD, empty outside a repository.
+// prune anything fixed since the last record. Commit is the scanned
+// root's git HEAD, empty outside a repository.
 func Write(path string, entries []Entry, commit string) error {
 	sorted := make([]Entry, len(entries))
 	copy(sorted, entries)
@@ -101,8 +100,8 @@ func Write(path string, entries []Entry, commit string) error {
 	return os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
-// Load reads and validates a baseline. Errors here are operational
-// (exit 2 territory), never findings.
+// Load reads and validates a baseline. Errors here are operational,
+// exit 2, never findings.
 func Load(path string) (*File, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -119,17 +118,16 @@ func Load(path string) (*File, error) {
 }
 
 // Aged is a matched baseline entry recorded longer ago than the limit.
-// Days is -1 when the recorded date does not parse: an unreadable date
-// can never age out quietly, so it counts as always aged.
+// Days is -1 when the recorded date does not parse; an unreadable date
+// counts as always aged rather than ageing out quietly.
 type Aged struct {
 	Entry Entry
 	Days  int
 }
 
 // AgedMatches returns the baseline entries that absorb a finding and
-// were recorded more than maxDays days before now. Undated entries
-// (version 1 files) never age; entries whose date does not parse come
-// back with Days -1. Matching mirrors NewFindings, multiset by
+// were recorded more than maxDays days before now. Undated version 1
+// entries never age. Matching mirrors NewFindings, multiset by
 // fingerprint, so an entry nags at most once per run.
 func AgedMatches(findings []rules.Finding, bl *File, now time.Time, maxDays int) []Aged {
 	if maxDays <= 0 {
