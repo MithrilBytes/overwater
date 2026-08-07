@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -29,10 +31,20 @@ jobs:
               -o "$out" ./cmd/overwater
           done
           (cd dist && sha256sum * > SHA256SUMS)
+      - name: release notes
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          prev="$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2> /dev/null || true)"
+          if [ -n "$prev" ]; then range="$prev..$GITHUB_REF_NAME"; else range="$GITHUB_REF_NAME"; fi
+          git log --no-merges --format=%s "$range" \
+            | go run ./internal/release/cmd -prev "$prev" -tag "$GITHUB_REF_NAME" -repo "$REPO" \
+            > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
       - name: create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" dist/* \
             --title "$GITHUB_REF_NAME" \
-            --notes "Static overwater binaries. Verify downloads against SHA256SUMS."
+            --notes-file "$RUNNER_TEMP/notes.md"
