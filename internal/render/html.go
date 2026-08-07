@@ -90,7 +90,7 @@ func card(f rules.Finding) string {
 	}
 	b.WriteString("<section class=\"finding\">\n<dl>\n")
 	row(&b, "Call site", fmt.Sprintf("%s:%d (%s; %s confidence)", f.File, f.Line, head, f.Confidence))
-	row(&b, "Current", fmt.Sprintf("%s at ~$%d/mo at %s volume", f.Model, f.MonthlyUSD, volumeWord(f)))
+	row(&b, "Current", current(f))
 	row(&b, "Candidate", f.CandidateText)
 	row(&b, "Tripwire", f.Tripwire)
 	if len(f.Flags) == 0 {

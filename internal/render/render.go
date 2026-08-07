@@ -68,6 +68,7 @@ func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
 		MonthlyUSD     int      `json:"monthly_usd"`
 		Volume         int      `json:"volume"`
 		VolumeSource   string   `json:"volume_source"`
+		Callers        int      `json:"callers,omitempty"`
 		Candidate      string   `json:"candidate"`
 		CandidateModel string   `json:"candidate_model,omitempty"`
 		Tripwire       string   `json:"tripwire"`
@@ -94,6 +95,7 @@ func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
 			MonthlyUSD:     f.MonthlyUSD,
 			Volume:         f.Volume,
 			VolumeSource:   volumeSource(f),
+			Callers:        f.Callers,
 			Candidate:      f.CandidateText,
 			CandidateModel: f.CandidateModel,
 			Tripwire:       f.Tripwire,
@@ -116,7 +118,7 @@ func block(f rules.Finding) string {
 		head += ": " + f.Evidence
 	}
 	fmt.Fprintf(&b, "Call site: %s:%d (%s; %s confidence)\n", f.File, f.Line, head, f.Confidence)
-	fmt.Fprintf(&b, "Current:   %s at ~$%d/mo at %s volume\n", f.Model, f.MonthlyUSD, volumeWord(f))
+	fmt.Fprintf(&b, "Current:   %s\n", current(f))
 	fmt.Fprintf(&b, "Candidate: %s\n", f.CandidateText)
 	fmt.Fprintf(&b, "Tripwire:  %s\n", f.Tripwire)
 	if len(f.Flags) == 0 {
@@ -127,6 +129,17 @@ func block(f rules.Finding) string {
 		}
 	}
 	return b.String()
+}
+
+// current is the "Current:" sentence every surface shares. A fan-in
+// volume names the callers it covers, so a figure many times the per
+// call site estimate says why it is that large.
+func current(f rules.Finding) string {
+	s := fmt.Sprintf("%s at ~$%d/mo at %s volume", f.Model, f.MonthlyUSD, volumeWord(f))
+	if volumeSource(f) == rules.VolumeFanIn && f.Callers > 1 {
+		s += fmt.Sprintf(" across %d callers", f.Callers)
+	}
+	return s
 }
 
 // volumeSource is the finding's provenance, reading an unset source as

@@ -93,6 +93,7 @@ func TestBlockSaysWhereTheVolumeCameFrom(t *testing.T) {
 		"pragma":   "at ~$340/mo at estimated volume",
 		"config":   "at ~$340/mo at estimated volume",
 		"flag":     "at ~$340/mo at estimated volume",
+		"fan-in":   "at ~$340/mo at estimated volume",
 		"estimate": "at ~$340/mo at estimated volume",
 		"":         "at ~$340/mo at estimated volume",
 	}
@@ -102,6 +103,38 @@ func TestBlockSaysWhereTheVolumeCameFrom(t *testing.T) {
 		if got := block(f); !strings.Contains(got, want) {
 			t.Errorf("source %q: block = %q, want it to contain %q", source, got, want)
 		}
+	}
+}
+
+// A wrapper's dollar figure is large because many places call it, and
+// the verdict has to say so where the number is.
+func TestBlockNamesTheFanInCallers(t *testing.T) {
+	f := sampleFinding()
+	f.Volume, f.VolumeSource, f.Callers = 80000, rules.VolumeFanIn, 8
+	want := "Current:   claude-fable-5 at ~$340/mo at estimated volume across 8 callers\n"
+	if got := block(f); !strings.Contains(got, want) {
+		t.Errorf("block = %q, want it to contain %q", got, want)
+	}
+	f.VolumeSource, f.Callers = "estimate", 0
+	if got := block(f); strings.Contains(got, "callers") {
+		t.Errorf("block = %q, want no caller clause without fan in", got)
+	}
+}
+
+func TestJSONCarriesFanInCallers(t *testing.T) {
+	f := sampleFinding()
+	f.Volume, f.VolumeSource, f.Callers = 80000, rules.VolumeFanIn, 8
+	out, err := JSON([]rules.Finding{f}, Meta{CatalogVersion: "2026-08-05", CallsPerMonth: 10000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"volume_source": "fan-in"`, `"callers": 8`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("JSON = %s, want %s", out, want)
+		}
+	}
+	if out, _ := JSON([]rules.Finding{sampleFinding()}, Meta{}); strings.Contains(string(out), "callers") {
+		t.Errorf("JSON = %s, want no callers field without fan in", out)
 	}
 }
 
