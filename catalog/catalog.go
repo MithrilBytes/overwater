@@ -120,10 +120,16 @@ func (m Model) validate() error {
 }
 
 // Validate checks every entry and the catalog level invariants: a dated
-// version and globally unique names across ids and aliases.
+// version, at least one model, and globally unique names across ids and
+// aliases. An empty model list is rejected because a catalog with no
+// models is an empty detection dictionary: a cache carrying one would
+// silently blind every scan.
 func (c *Catalog) Validate() error {
 	if _, err := time.Parse(dateLayout, c.Version); err != nil {
 		return fmt.Errorf("catalog version %q is not a YYYY-MM-DD date", c.Version)
+	}
+	if len(c.Models) == 0 {
+		return fmt.Errorf("catalog %s has no models", c.Version)
 	}
 	owner := map[string]string{}
 	for _, m := range c.Models {
