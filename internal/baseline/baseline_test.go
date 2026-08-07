@@ -67,6 +67,43 @@ func TestOutsideKeepsUnscannedEntries(t *testing.T) {
 	}
 }
 
+// The incremental update path end to end: findings become dated
+// entries, survive the disk round trip, and Outside then carves out
+// exactly the unscanned files with their dates intact.
+func TestEntriesWriteLoadOutsideRoundTrip(t *testing.T) {
+	findings := []rules.Finding{
+		finding("r1", "scanned.ts", "aaaa"),
+		finding("r2", "kept.ts", "bbbb"),
+	}
+	before := time.Now().Format("2006-01-02")
+	entries := Entries(findings)
+	if len(entries) != 2 {
+		t.Fatalf("Entries = %d, want 2", len(entries))
+	}
+	path := filepath.Join(t.TempDir(), "bl.json")
+	if err := Write(path, entries, "deadbeef"); err != nil {
+		t.Fatal(err)
+	}
+	bl, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bl.Version != version || bl.Commit != "deadbeef" || len(bl.Findings) != 2 {
+		t.Fatalf("round trip = %+v", bl)
+	}
+	out := Outside(bl, map[string]bool{"scanned.ts": true})
+	if len(out) != 1 || out[0].File != "kept.ts" {
+		t.Fatalf("Outside = %+v, want only kept.ts", out)
+	}
+	if out[0].Fingerprint != Fingerprint(findings[1]) {
+		t.Errorf("fingerprint drifted across the round trip")
+	}
+	after := time.Now().Format("2006-01-02")
+	if got := out[0].Recorded; got != before && got != after {
+		t.Errorf("recorded = %q, want today's stamp (%s) preserved", got, after)
+	}
+}
+
 func TestLoadRejectsWrongVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bl.json")
 	if err := os.WriteFile(path, []byte(`{"version": 99, "findings": []}`), 0o644); err != nil {

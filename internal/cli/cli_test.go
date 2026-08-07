@@ -215,6 +215,55 @@ func TestCatalogBuildWritesOutput(t *testing.T) {
 	}
 }
 
+// The exit code contract, edge by edge: every usage error across every
+// command is operational (2), lands on stderr, and leaves stdout empty.
+func TestUsageErrorsExitTwo(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "absent")
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{"no command", nil},
+		{"unknown command", []string{"sail"}},
+		{"scan bad flag", []string{"scan", "-no-such-flag"}},
+		{"scan bad fail-on", []string{"scan", "-fail-on", "sometimes"}},
+		{"scan models-md with two roots", []string{"scan", "-models-md", missing, missing}},
+		{"diff no files", []string{"diff"}},
+		{"diff one file", []string{"diff", missing}},
+		{"diff three files", []string{"diff", missing, missing, missing}},
+		{"diff flag eaten as file", []string{"diff", "-no-such-flag", missing}},
+		{"fleet no list", []string{"fleet"}},
+		{"fleet two lists", []string{"fleet", missing, missing}},
+		{"fleet bad flag", []string{"fleet", "-no-such-flag"}},
+		{"fleet bad fail-on", []string{"fleet", "-fail-on", "sometimes", missing}},
+		{"eval two paths", []string{"eval", missing, missing}},
+		{"eval bad flag", []string{"eval", "-no-such-flag"}},
+		{"catalog no subcommand", []string{"catalog"}},
+		{"catalog unknown subcommand", []string{"catalog", "nuke"}},
+		{"catalog build bad flag", []string{"catalog", "build", "-no-such-flag"}},
+		{"catalog build bad dir", []string{"catalog", "build", "-dir", missing}},
+		{"catalog refresh bad flag", []string{"catalog", "refresh", "-no-such-flag"}},
+		{"catalog diff no file", []string{"catalog", "diff"}},
+		{"catalog diff two files", []string{"catalog", "diff", missing, missing}},
+		{"catalog diff bad flag", []string{"catalog", "diff", "-no-such-flag"}},
+		{"catalog diff missing file", []string{"catalog", "diff", missing}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if code := Run(tc.args, &stdout, &stderr); code != ExitError {
+				t.Fatalf("Run(%v) exit = %d, want %d; stderr = %q", tc.args, code, ExitError, stderr.String())
+			}
+			if stderr.Len() == 0 {
+				t.Error("stderr is empty, want the error explained")
+			}
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want errors kept off stdout", stdout.String())
+			}
+		})
+	}
+}
+
 func TestUsageListsEveryCommand(t *testing.T) {
 	var out bytes.Buffer
 	printUsage(&out)
