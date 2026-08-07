@@ -127,6 +127,68 @@ func headExpand(content string, from int) int {
 	return i + 1
 }
 
+// windowLines bounds the fallback window used when no call extent can
+// be found (config files, env files, languages the extent walker does
+// not understand). Extent scoped extraction is the primary path.
+const windowLines = 30
+
+// windowMaxBytes bounds that same window in bytes on each side of the
+// hit. Thirty lines of real config or source stays well under it, so
+// ordinary files keep the window they had.
+const windowMaxBytes = 2000
+
+// region is the slice of a file that layers 3 and 4 read for one model
+// reference.
+type region struct {
+	start, end  int  // byte range, expanded to keep the call name in view
+	extentStart int  // the extent's opening bracket, which the structural parsers need unexpanded
+	isExtent    bool // false when no extent was found and start:end is the fallback window
+	hit         int  // byte offset of the model reference itself
+}
+
+// regionFor bounds the call around a model reference: the call extent
+// when one exists, else the fallback line window. Builder languages
+// bound the whole chained statement instead; wrapper calls with no
+// model key fall back to the innermost balanced extent.
+func (a *analyzer) regionFor(p string, line, col int) region {
+	content := a.byPath[p]
+	hit := a.hitOffsetIn(p, line, col)
+	m := a.masked(p)
+	extent := func(s, e int) region {
+		return region{start: headExpand(content, s), end: e, extentStart: s, isExtent: true, hit: hit}
+	}
+	if builderFamily(p) {
+		if s, e, ok := builderExtent(m.all, hit); ok {
+			return extent(s, e)
+		}
+	}
+	if s, e, ok := callExtent(m.all, m.prose, hit); ok {
+		return extent(s, e)
+	}
+	if s, e, ok := innermostExtent(m.all, hit); ok {
+		return extent(s, e)
+	}
+	s, e := windowBounds(content, a.lineStartsFor(p), line, hit)
+	return region{start: s, end: e, hit: hit}
+}
+
+// windowBounds returns the byte range of the fallback detection window
+// around the hit at a one based line number. Lines are the wrong unit in
+// a minified file, which is one line however large, so the window is
+// also bounded in bytes around the hit; without that bound every
+// reference in such a file reads the whole file and scan cost is
+// quadratic in references per file.
+func windowBounds(content string, starts []int, line, hit int) (int, int) {
+	startLine := max(0, line-1-windowLines)
+	endLine := min(len(starts), line+windowLines)
+	winStart := starts[startLine]
+	winEnd := len(content)
+	if endLine < len(starts) {
+		winEnd = starts[endLine]
+	}
+	return max(winStart, hit-windowMaxBytes), min(winEnd, hit+windowMaxBytes)
+}
+
 // Function definition shapes across the supported languages, used to
 // find the name of the function enclosing a call site. The third form
 // catches C family methods (name(args) {), which have no keyword; the
