@@ -1,7 +1,5 @@
 # overwater
 
-You would never use a fire hose to water your houseplants.
-
 overwater finds LLM call sites where the model is bigger, pricier, or
 more wastefully configured than the task in front of it. It reads your
 code, prices every call against a public model catalog, and nominates
