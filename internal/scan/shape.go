@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // windowLines bounds the fallback window used when no call extent can
@@ -19,7 +20,7 @@ const windowLines = 30
 
 var (
 	reTemperature = regexp.MustCompile(`(?i)["']?temperature["']?\s*[:=]\s*([0-9]*\.?[0-9]+)`)
-	reMaxTokens   = regexp.MustCompile(`(?i)["']?max_?(?:output_?)?tokens["']?\s*[:=]\s*([0-9][0-9_]*)`)
+	reMaxTokens   = regexp.MustCompile(`(?i)["']?max_?(?:output_?|completion_?)?tokens["']?\s*[:=]\s*([0-9][0-9_]*)`)
 	reSchema      = regexp.MustCompile(`response_format|json_schema|input_schema|responseSchema|responseMimeType|generateObject`)
 	reTools       = regexp.MustCompile(`(?i)["']?tools["']?\s*[:=]\s*\[`)
 	reForcedTool  = regexp.MustCompile(`(?i)tool_?choice.{0,60}["']tool["']`)
@@ -204,7 +205,9 @@ func (a *analyzer) extractShape(p string, regionStart, regionEnd, extStart int, 
 		}
 	}
 	s.SystemPromptText = a.systemPromptText(p, regionStart, regionEnd)
-	s.SystemPromptChars = len(s.SystemPromptText)
+	// Runes, not bytes: non ASCII prompts must not overcount against
+	// token thresholds.
+	s.SystemPromptChars = utf8.RuneCountInString(s.SystemPromptText)
 	s.Readable = reCallish.MatchString(region) ||
 		s.Temperature != nil || s.MaxTokens != nil || s.JSONSchema || s.Streaming
 	return s
@@ -374,6 +377,13 @@ func literalText(content string, start int, delim string) (string, bool) {
 		}
 		return rest[2 : 2+end], true
 	}
+	if delim == "'" && strings.HasPrefix(rest, "''") {
+		end := strings.Index(rest[2:], "'''")
+		if end < 0 {
+			return "", false
+		}
+		return rest[2 : 2+end], true
+	}
 	if delim == `"` || delim == "'" {
 		// Escape aware, mirroring the masker: an escaped quote is part
 		// of the string, and an unescaped newline ends the search.
@@ -433,8 +443,9 @@ func (a *analyzer) resolveConstHop(p, name string, depth int, seen map[string]bo
 
 func resolveConstIn(content, name string) (string, bool) {
 	// The name needs a left boundary: resolving PROMPT must not match
-	// the tail of LEGACY_PROMPT.
-	re := regexp.MustCompile(`(?m)(?:^|[^A-Za-z0-9_$])` + regexp.QuoteMeta(name) + "\\s*=\\s*(`|\"\"\"|\")")
+	// the tail of LEGACY_PROMPT. Triple quotes come before their single
+	// char forms so the longer delimiter wins.
+	re := regexp.MustCompile(`(?m)(?:^|[^A-Za-z0-9_$])` + regexp.QuoteMeta(name) + "\\s*=\\s*(`|\"\"\"|'''|\"|')")
 	m := re.FindStringSubmatchIndex(content)
 	if m == nil {
 		return "", false
@@ -513,7 +524,7 @@ func (a *analyzer) tsconfigResolve(spec string) []string {
 				Paths   map[string][]string `json:"paths"`
 			} `json:"compilerOptions"`
 		}
-		if err := json.Unmarshal([]byte(a.byPath[known]), &cfg); err != nil {
+		if err := json.Unmarshal([]byte(jsonStripComments(a.byPath[known])), &cfg); err != nil {
 			continue
 		}
 		root := path.Dir(known)

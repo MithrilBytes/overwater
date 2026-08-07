@@ -94,6 +94,18 @@ func blank(b []byte, from, to int) {
 	}
 }
 
+// jsonStripComments blanks // and /* */ comments so JSONC configs like
+// tsconfig.json still parse. Strings are respected, offsets preserved.
+func jsonStripComments(s string) string {
+	b := []byte(s)
+	for _, sp := range scanSpans(s, langFamily{slashComment: true, blockComment: true, quotes: true}) {
+		if sp.kind == spanComment {
+			blank(b, sp.start, sp.end)
+		}
+	}
+	return string(b)
+}
+
 func scanSpans(s string, fam langFamily) []span {
 	var spans []span
 	i := 0

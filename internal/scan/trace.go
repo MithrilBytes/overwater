@@ -16,7 +16,7 @@ import (
 var (
 	rePragmaIgnore = regexp.MustCompile(`overwater:ignore\b`)
 	rePragmaVolume = regexp.MustCompile(`overwater:volume=([0-9]+)`)
-	reConfigKV     = regexp.MustCompile(`^\s*"?([A-Z][A-Z0-9_]*)"?\s*[:=]\s*["']?([A-Za-z0-9][\w./:-]{2,60})`)
+	reConfigKV     = regexp.MustCompile(`^\s*"?([A-Za-z][A-Za-z0-9_]*)"?\s*[:=]\s*["']?([A-Za-z0-9][\w./:-]{2,60})`)
 )
 
 func (a *analyzer) pragmas(p string, regionStart, regionEnd int) (bool, int) {
@@ -121,14 +121,19 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 				continue
 			}
 			key, value := m[1], m[2]
-			if !strings.Contains(key, "MODEL") && !strings.Contains(key, "DEPLOYMENT") {
+			upper := strings.ToUpper(key)
+			if !strings.Contains(upper, "MODEL") && !strings.Contains(upper, "DEPLOYMENT") {
 				continue
 			}
 			model := names[value]
-			// Unknown values must at least look like a model or
-			// deployment name, not a bare word.
-			if model == nil && !strings.ContainsAny(value, "-0123456789") {
-				continue
+			if model == nil {
+				// Uppercase env style keys may name user chosen
+				// deployments, which at least must look like one, not
+				// a bare word. Lowercase yaml style keys must resolve
+				// to a known model, which keeps prose out.
+				if key != upper || !strings.ContainsAny(value, "-0123456789") {
+					continue
+				}
 			}
 			for _, r := range a.findEnvReaders(key, cfgPath) {
 				if only != nil && !only[r.path] {
