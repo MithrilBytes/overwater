@@ -66,6 +66,50 @@ func TestDiffLitellmMatchesAndTolerates(t *testing.T) {
 	}
 }
 
+// A drifted entry whose price line the regex cannot find must fail the
+// whole apply, not silently no-op while VERSION is bumped and a history
+// snapshot written.
+func TestApplyPricesFailsWhenPriceLineUnmatched(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte("2026-01-01\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// No space after the colon, so the price line regex cannot match.
+	entry := "id: test-model\nprovider: testco\ninput_per_mtok:2\noutput_per_mtok: 3\n"
+	if err := os.WriteFile(filepath.Join(dir, "models", "test-model.yaml"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	drift := Drift{ID: "test-model", TheirsIn: 4, TheirsOut: 8, TheirsOutKnown: true}
+	err := ApplyPrices(dir, []Drift{drift}, "2026-08-06")
+	if err == nil || !strings.Contains(err.Error(), "test-model.yaml") ||
+		!strings.Contains(err.Error(), "input_per_mtok") {
+		t.Fatalf("ApplyPrices() = %v, want an error naming the file and the unmatched line", err)
+	}
+	version, readErr := os.ReadFile(filepath.Join(dir, "VERSION"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if strings.TrimSpace(string(version)) != "2026-01-01" {
+		t.Errorf("VERSION = %q, want it untouched after the failure", version)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "history")); !os.IsNotExist(statErr) {
+		t.Error("history snapshot written despite the failed apply")
+	}
+
+	// The same guard covers the output line.
+	entry = "id: test-model\nprovider: testco\ninput_per_mtok: 2\noutput_per_mtok:3\n"
+	if err := os.WriteFile(filepath.Join(dir, "models", "test-model.yaml"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err = ApplyPrices(dir, []Drift{drift}, "2026-08-06")
+	if err == nil || !strings.Contains(err.Error(), "output_per_mtok") {
+		t.Fatalf("ApplyPrices() = %v, want the unmatched output line reported", err)
+	}
+}
+
 // An upstream record with input but no output cost must never read as
 // "output is now free". Our output price is not compared, not drifted,
 // and not applied over.

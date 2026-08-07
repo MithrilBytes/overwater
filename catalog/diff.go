@@ -142,7 +142,9 @@ var (
 
 // ApplyPrices rewrites the drifted entries in place, bumps VERSION, and
 // regenerates catalog.json, leaving everything else in each file
-// untouched.
+// untouched. Replacements are counted: a drifted entry whose price line
+// the regex cannot find is an error, because silently skipping it would
+// still bump VERSION and snapshot history as if the price had landed.
 func ApplyPrices(dir string, drifts []Drift, version string) error {
 	for _, d := range drifts {
 		path := filepath.Join(dir, "models", d.ID+".yaml")
@@ -150,9 +152,15 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 		if err != nil {
 			return err
 		}
-		out := reInputLine.ReplaceAll(raw, []byte("input_per_mtok: "+formatPrice(d.TheirsIn)))
+		out, n := replaceCounting(raw, reInputLine, "input_per_mtok: "+formatPrice(d.TheirsIn))
+		if n == 0 {
+			return fmt.Errorf("%s: no input_per_mtok line matched; price not applied", path)
+		}
 		if d.TheirsOutKnown {
-			out = reOutputLine.ReplaceAll(out, []byte("output_per_mtok: "+formatPrice(d.TheirsOut)))
+			out, n = replaceCounting(out, reOutputLine, "output_per_mtok: "+formatPrice(d.TheirsOut))
+			if n == 0 {
+				return fmt.Errorf("%s: no output_per_mtok line matched; price not applied", path)
+			}
 		}
 		if err := os.WriteFile(path, out, 0o644); err != nil {
 			return err
@@ -177,6 +185,17 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, "history", version+".json"), b, 0o644)
+}
+
+// replaceCounting swaps every match of re for repl and reports how many
+// lines it actually touched.
+func replaceCounting(raw []byte, re *regexp.Regexp, repl string) ([]byte, int) {
+	n := 0
+	out := re.ReplaceAllFunc(raw, func([]byte) []byte {
+		n++
+		return []byte(repl)
+	})
+	return out, n
 }
 
 func formatPrice(v float64) string {
