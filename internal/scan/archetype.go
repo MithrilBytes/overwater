@@ -2,6 +2,7 @@ package scan
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -38,75 +39,187 @@ var archetypePriority = []string{
 	ArchetypeChat,
 }
 
-// codeWords are matched against identifiers near the call (the function
-// name, the code in the region); promptWords against the resolved system
-// prompt, where a conversational word like "assistant" is evidence
-// rather than noise.
+// Scoring weights. Every number the scorer uses lives in this block, so
+// a human can read the classifier's priorities and retune them without
+// reading the tables.
+const (
+	// What the call asks the model to do.
+	weightSays     = 7  // the prompt names the task outright
+	weightFuncName = 5  // the enclosing function name
+	weightHint     = 3  // the prompt leans this way
+	weightCode     = 2  // an identifier near the call
+	weightDenied   = -5 // the prompt rules this task out in its own words
+
+	// What the call looks like.
+	weightEndpoint     = 6  // the SDK method or content part that was called
+	weightShapeStrong  = 4  // a schema or a token cap that only one task fits
+	weightShapeWeak    = 2  // a parameter that leans one way
+	weightShapeHint    = 1  // a parameter that barely leans
+	weightShapeAgainst = -4 // a parameter this task would not be written with
+)
+
+// Token caps read as intent: the budget bounds what the answer can be.
+// A twenty token cap holds a label or a boolean and nothing else; a
+// four thousand token cap is prose, a document, or a program.
+const (
+	capLabel = 24
+	capShort = 200
+	capLong  = 1500
+)
+
+// Score and margin a winner needs. Below scoreFloor the evidence names
+// no task at all and the answer is unknown, which rules that lean on
+// the archetype read as doubt rather than as a wrong answer.
+const (
+	scoreFloor   = 4
+	scoreHigh    = 9
+	marginHigh   = 4
+	scoreMedium  = 5
+	marginMedium = 2
+)
+
+// archetypeKeywords is one archetype's evidence table.
+//
+//	idents  identifier stems, matched against the enclosing function
+//	        name and against the code around the call
+//	says    phrases that name the task outright, matched against the
+//	        prompt text the call sends
+//	hints   phrases that lean that way without naming the task
+//	denies  phrases the prompt uses to rule the task out; a match both
+//	        scores against the archetype and suppresses its says and
+//	        hints, so "do not translate the text" is not translation
 type archetypeKeywords struct {
-	archetype   string
-	codeWords   []string
-	promptWords []string
+	archetype string
+	idents    []string
+	says      []string
+	hints     []string
+	denies    []string
 }
 
 var archetypeWords = []archetypeKeywords{
-	{ArchetypeClassification,
-		[]string{"classif", "categor", "triage", "sentiment"},
-		[]string{"classif", "categor", "triage", "sentiment"}},
-	{ArchetypeExtraction,
-		[]string{"extract", "parse", "invoice", "receipt"},
-		[]string{"extract", "parse", "invoice", "receipt"}},
-	{ArchetypeSummarization,
-		[]string{"summar", "digest", "recap"},
-		[]string{"summar", "digest", "recap"}},
-	{ArchetypeChat,
-		[]string{"chat"},
-		[]string{"chat", "conversation", "assistant"}},
-	{ArchetypeTranslation,
-		[]string{"translat", "localiz"},
-		[]string{"translat", "target language"}},
-	{ArchetypeReranking,
-		[]string{"rerank"},
-		[]string{"rerank", "order by relevance", "most relevant"}},
-	{ArchetypeModeration,
-		[]string{"moderat", "safety_gate", "content_filter"},
-		[]string{"moderat", "allow or block", "policy violation"}},
+	{
+		archetype: ArchetypeClassification,
+		idents:    []string{"classif", "categor", "triage", "sentiment", "intent", "priority", "churn", "grade", "detect"},
+		says: []string{"classif", "categor", "triage", "pick one", "choose one", "choose the single",
+			"single label", "one label", "exactly one word", "answer with one word", "one word:",
+			"which queue", "assign the", "label the", "tag the", "from the allowed list",
+			"one of the following", "answer with the label", "answer with the code"},
+		hints: []string{"label", "category", "intent", "priority", "urgency", "sentiment", "topic",
+			"risk", "iso code", "one word", "one of:"},
+	},
+	{
+		archetype: ArchetypeExtraction,
+		idents:    []string{"extract", "parse", "fields", "invoice", "receipt", "resume", "purchase_order"},
+		says: []string{"extract", "copy the", "copied from", "pull the", "read out the", "record the fields",
+			"return json with the keys", "list each commitment", "fill in the fields", "copy values"},
+		hints: []string{"json with", "fields", "do not guess", "never infer", "as written", "null when",
+			"leave a field empty"},
+	},
+	{
+		archetype: ArchetypeSummarization,
+		idents:    []string{"summar", "digest", "recap", "rollup", "roll_up", "tldr", "condense", "brief"},
+		says: []string{"summar", "sum up", "sums up", "condense", "tl;dr", "digest", "recap",
+			"release notes", "meeting notes", "key points", "main points", "brief on", "brief for"},
+		hints:  []string{"paragraph", "sentences", "bullets", "lead with", "plain language", "skip"},
+		denies: []string{"do not summarize", "no summary", "not a summary", "do not condense", "do not shorten"},
+	},
+	{
+		archetype: ArchetypeChat,
+		idents:    []string{"chat", "reply", "respond", "conversation", "companion", "concierge", "helpdesk"},
+		says: []string{"stay in character", "keep the conversation", "ask a follow up", "ask one question",
+			"answer the customer", "answer the user", "answer the reader", "answer visitors", "answer the caller",
+			"keep replies", "keep each reply", "chat naturally", "conversational", "talk the", "reply in",
+			"end with a question", "keep the tone", "in a friendly voice"},
+		hints: []string{"you are a", "you are the", "assistant", "friendly", "warm", "brief", "chat",
+			"conversation", "in character", "buddy"},
+		denies: []string{"do not answer", "no commentary", "nothing else", "output only", "no explanation",
+			"do not reply", "numbers only", "one word", "no prose"},
+	},
+	{
+		archetype: ArchetypeTranslation,
+		idents:    []string{"translat", "localiz", "locale", "toenglish", "to_english"},
+		says: []string{"translat", "localiz", "target language", "target locale", "in english", "into english",
+			"into the recipient", "into the language", "into their language"},
+		hints:  []string{"locale", "placeholder", "in the target"},
+		denies: []string{"do not translate", "never translate"},
+	},
+	{
+		archetype: ArchetypeReranking,
+		idents:    []string{"rerank", "rank", "reorder", "relevance", "order_", "_order"},
+		says: []string{"rerank", "rank the", "reorder", "order the", "sort the", "by relevance",
+			"most relevant", "best first", "in order of", "ordered by", "descending score", "relevance to"},
+		hints: []string{"relevance", "ranking", "candidates", "passages", "in order"},
+	},
+	{
+		archetype: ArchetypeModeration,
+		idents:    []string{"moderat", "gate", "guard", "policy", "safety", "abuse", "unsafe", "blocked"},
+		says: []string{"moderat", "policy", "allow or block", "answer allow", "safe or unsafe",
+			"community guidelines", "brand safe", "violat", "harassment", "screen the", "screens",
+			"approve or remove", "reject listings", "block "},
+		hints: []string{"flag", "abusive", "spam", "unsafe", "filter", "forbid", "guideline"},
+	},
 	// Words that mean the transcription task itself; the bare stem
 	// transcri would also match transcripts, which usually names the
 	// input of a summarizer, not this task.
-	{ArchetypeTranscription,
-		[]string{"transcrib", "transcription", "whisper", "speech_to_text"},
-		[]string{"transcrib", "transcription", "speech to text", "word for word", "verbatim"}},
-	{ArchetypeVision,
-		[]string{"vision", "ocr", "screenshot"},
-		[]string{"ocr", "in the image", "in this image"}},
-	{ArchetypeCodegen,
-		[]string{"codegen", "write_code", "generate_code", "writecode", "generatecode", "autocomplete"},
-		[]string{"write code", "generate code", "unit test", "sql"}},
+	{
+		archetype: ArchetypeTranscription,
+		idents:    []string{"transcrib", "transcription", "whisper", "speech_to_text", "dictation", "stt"},
+		says: []string{"transcrib", "word for word", "verbatim", "speech to text", "write out everything",
+			"exactly what the", "what the caller says"},
+		hints: []string{"speaker", "filler words", "false starts", "timestamp"},
+	},
+	{
+		archetype: ArchetypeVision,
+		idents:    []string{"vision", "ocr", "image", "photo", "screenshot", "chart", "slide", "visual"},
+		says: []string{"in this image", "in the image", "this photo", "this picture", "this screenshot",
+			"ocr", "reading order", "what is in this", "visible in", "see in this", "changed visually",
+			"printed on them", "plotted here"},
+		hints: []string{"image", "photo", "screenshot", "slide", "chart", "visually", "illegible"},
+	},
+	{
+		archetype: ArchetypeCodegen,
+		idents: []string{"codegen", "write_code", "generate_code", "writecode", "generatecode", "autocomplete",
+			"sql", "migration", "scaffold", "regex", "stub", "fim", "patch"},
+		says: []string{"write code", "generate code", "unit test", "pytest", "sql query", "output only sql", "the script",
+			"regular expression", "bash script", "terraform", "hcl only", "code only", "source only",
+			"compilable", "no diff markers", "jq filter", "migration sql", "emit "},
+		hints: []string{"sql", "code", "syntax", "controller", "module"},
+	},
+	{
+		archetype: ArchetypeAgentic,
+		idents:    []string{"agent", "scratchpad", "tool_", "toolconfig", "tools", "runner", "next_step", "nextstep"},
+		says: []string{"one tool call at a time", "take one action", "keep going until", "until you can",
+			"decide which tool", "use the tools", "keep querying", "plan, act", "and verify before",
+			"stop when", "then stop", "agent"},
+		hints: []string{"tool", "step", "plan", "loop"},
+	},
 }
 
-// Endpoint names, which are stronger evidence than any keyword.
-var calleeSignals = []struct {
+// Endpoints and content parts, which are stronger evidence than any
+// keyword: the SDK method a call reaches for is the task, spelled out.
+var endpointSignals = []struct {
 	marker    string
 	archetype string
 }{
 	{"moderations", ArchetypeModeration},
-	{"transcription", ArchetypeTranscription},
+	{"audio.transcriptions", ArchetypeTranscription},
+	{"audio.transcription", ArchetypeTranscription},
+	{"transcriptions.create", ArchetypeTranscription},
+	{"transcribeaudio", ArchetypeTranscription},
 	{"transcribe", ArchetypeTranscription},
+	{"input_audio", ArchetypeTranscription},
+	{"audio/", ArchetypeTranscription},
 	{".rerank", ArchetypeReranking},
 	{"fim.complete", ArchetypeCodegen},
 	{"image_url", ArchetypeVision},
+	{"image/", ArchetypeVision},
 	{"inline_data", ArchetypeVision},
 	{"inlinedata", ArchetypeVision},
+	{"imagecontentpart", ArchetypeVision},
+	{"createimagepart", ArchetypeVision},
+	{"imageurl", ArchetypeVision},
+	{"ofimage", ArchetypeVision},
 }
-
-// The enclosing function name is the strongest single signal, the
-// prompt states the task in its own words, and stray code identifiers
-// count least.
-const (
-	weightFuncName = 5
-	weightPrompt   = 3
-	weightCode     = 2
-)
 
 // An archetype pragma pins a call site the heuristics get wrong:
 //
@@ -136,73 +249,313 @@ func (a *analyzer) classify(p string, shape Shape, r region, tier string) (strin
 	if shape.EmbeddingCall || tier == "embedding" {
 		return ArchetypeEmbedding, "high"
 	}
-	return rank(a.archetypeScores(p, shape, r))
+	narrow := a.archetypeScores(p, shape, r)
+	if arch, conf, ok := narrow.winner(); ok {
+		return arch, conf
+	}
+	// The call's own region names no task. That is ordinary code: the
+	// client is built in a field initializer, the prompt is a constant
+	// at the top of the file, the tools are three methods away. Widen to
+	// the surrounding window, and take that answer with less confidence
+	// than one the call site made on its own.
+	window := region{start: max(0, r.hit-fileWindowBytes), end: min(len(content), r.hit+fileWindowBytes), hit: r.hit}
+	wide := a.archetypeScores(p, shape, window)
+	if arch, conf, ok := wide.winner(); ok {
+		if conf == "high" {
+			conf = "medium"
+		}
+		return arch, conf
+	}
+	// Neither pass found a word about the task. Whatever the parameters
+	// suggest is a guess, and says so.
+	arch, _ := rank(narrow.scores)
+	return arch, "low"
 }
 
-// archetypeScores weighs every archetype against the evidence around the
-// call: the enclosing function name, the code in the region, the
-// resolved system prompt, and the shape itself.
-func (a *analyzer) archetypeScores(p string, shape Shape, r region) map[string]int {
+// How far the widened pass reads either side of the reference. Wide
+// enough for the prompt constant at the top of a file, bounded so a
+// minified config does not turn the pass into a whole file scan per
+// reference.
+const fileWindowBytes = 4000
+
+// evidence is what the scorer reads about one call site. Each field is
+// a different kind of proof, and they are kept apart so that prose
+// cannot be read as code or the reverse.
+type evidence struct {
+	// idents holds code with every string blanked: identifiers only, so
+	// a prose fragment like "Triage notes: " cannot pose as code.
+	idents string
+	// markers holds code with only long strings blanked, so syntax level
+	// strings like "image_url" survive while prompts do not.
+	markers string
+	// prompt holds what the call sends the model: the resolved system
+	// prompt plus the string literals written in the call.
+	prompt   string
+	funcName string
+	// forcedTool is true when a tool choice names one tool, which the
+	// call often spells in the config object it points at rather than
+	// in the call itself.
+	forcedTool bool
+}
+
+func (a *analyzer) evidenceFor(p string, shape Shape, r region) evidence {
 	src := a.masked(p)
-	// Keyword evidence in code comes from identifiers alone: the fully
-	// masked view drops every string, so a short prose fragment like
-	// "Triage notes: " cannot pose as code.
-	code := strings.ToLower(src.all[r.start:r.end])
-	// The prompt's content already scores through promptWords; counting
-	// the name of the variable that holds it would count the same
-	// evidence twice.
+	idents := strings.ToLower(src.all[r.start:r.end])
+	// The prompt's content already scores as prompt evidence; counting
+	// the name of the variable that holds it would count it twice.
 	for _, ident := range promptIdents(src.prose[r.start:r.end]) {
-		code = strings.ReplaceAll(code, strings.ToLower(ident), " ")
+		idents = strings.ReplaceAll(idents, strings.ToLower(ident), " ")
 	}
 	// The enclosing function is the last definition before the model
 	// string, not before the head expanded region start.
 	funcName := strings.ToLower(enclosingFuncName(src.prose, r.hit))
+	// Its definition sits inside the region too, and scoring the same
+	// name as both the function and a nearby identifier doubles it.
+	if funcName != "" {
+		idents = strings.ReplaceAll(idents, funcName, " ")
+	}
+	// SDK paths name the transport, not the task: every OpenAI style
+	// call reads chat.completions whatever it is asking for.
+	for _, path := range sdkPaths {
+		idents = strings.ReplaceAll(idents, path, " ")
+	}
 	prompt := strings.ToLower(shape.SystemPromptText)
+	if lits := a.regionLiterals(p, r); lits != "" {
+		prompt += "\n" + strings.ToLower(lits)
+	}
+	// The regex runs only where a tool choice could be written; it is
+	// the widest read this function does.
+	forced := shape.ForcedTool
+	if !forced {
+		window := src.prose[max(0, r.hit-fileWindowBytes):min(len(src.prose), r.hit+fileWindowBytes)]
+		forced = strings.Contains(window, "hoice") && reForcedTool.MatchString(window)
+	}
+	return evidence{
+		idents:     idents,
+		markers:    strings.ToLower(src.prose[r.start:r.end]),
+		prompt:     prompt,
+		funcName:   funcName,
+		forcedTool: forced,
+	}
+}
 
-	scores := map[string]int{}
+var sdkPaths = []string{
+	"chat.completions", "chats.create", "chat.complete", "chat.stream", "chat()",
+	"chatcompletion", "chatclient", "chatmessage", "chatmodel", "chatrequest", "chatanthropic", "chatopenai",
+}
+
+// regionLiterals joins the string literals written inside the region.
+// The instruction is as often in a user message or a template as in the
+// system prompt, and it is the same evidence wherever it sits. Short
+// literals are skipped: an instruction is a sentence, while a config
+// value like "summarizer-worker" only looks like one.
+const (
+	regionLiteralsMaxBytes = 8000
+	promptLiteralMinBytes  = 30
+)
+
+func (a *analyzer) regionLiterals(p string, r region) string {
+	content := a.byPath[p]
+	spans := a.spans(p)
+	first := sort.Search(len(spans), func(i int) bool { return spans[i].end > r.start })
+	var b strings.Builder
+	for _, s := range spans[first:] {
+		if s.start >= r.end {
+			break
+		}
+		if s.kind != spanString {
+			continue
+		}
+		lo, hi := max(s.interiorStart, r.start), min(s.interiorEnd, r.end)
+		if hi-lo < promptLiteralMinBytes {
+			continue
+		}
+		b.WriteString(content[lo:hi])
+		b.WriteByte('\n')
+		if b.Len() > regionLiteralsMaxBytes {
+			break
+		}
+	}
+	return b.String()
+}
+
+// scoreSet is one pass of the scorer. named records, per archetype,
+// whether anything named the task for it: a function name, a phrase in
+// the prompt, an endpoint, an output schema. A winner with nothing
+// named was picked by a token cap and a temperature alone, which means
+// this pass read a window with no task in it.
+type scoreSet struct {
+	scores map[string]int
+	named  map[string]bool
+}
+
+// winner returns the archetype this pass names, if it names one.
+func (s scoreSet) winner() (string, string, bool) {
+	arch, conf := rank(s.scores)
+	return arch, conf, arch != ArchetypeUnknown && s.named[arch]
+}
+
+// archetypeScores weighs every archetype against the evidence around
+// the call: what the prompt asks for, what the enclosing function is
+// called, which endpoint was reached for, and the shape of the call.
+func (a *analyzer) archetypeScores(p string, shape Shape, r region) scoreSet {
+	ev := a.evidenceFor(p, shape, r)
+	set := scoreSet{scores: map[string]int{}, named: map[string]bool{}}
+	// names is false for a stem that only turned up in a nearby
+	// identifier: that is corroboration, not a statement of the task.
+	add := func(arch string, points int, names bool) {
+		set.scores[arch] += points
+		set.named[arch] = set.named[arch] || names
+	}
+
 	for _, fam := range archetypeWords {
-		if containsAny(funcName, fam.codeWords) {
-			scores[fam.archetype] += weightFuncName
+		if containsAny(ev.funcName, fam.idents) {
+			add(fam.archetype, weightFuncName, true)
 		}
-		if containsAny(code, fam.codeWords) {
-			scores[fam.archetype] += weightCode
+		if containsAny(ev.idents, fam.idents) {
+			add(fam.archetype, weightCode, false)
 		}
-		if prompt != "" && containsAny(prompt, fam.promptWords) {
-			scores[fam.archetype] += weightPrompt
+		if ev.prompt == "" {
+			continue
+		}
+		if containsAny(ev.prompt, fam.denies) {
+			add(fam.archetype, weightDenied, true)
+			continue
+		}
+		if containsAny(ev.prompt, fam.says) {
+			add(fam.archetype, weightSays, true)
+		}
+		if containsAny(ev.prompt, fam.hints) {
+			add(fam.archetype, weightHint, true)
 		}
 	}
-	for _, sig := range calleeSignals {
-		if strings.Contains(code, sig.marker) {
-			scores[sig.archetype] += 4
+	for _, sig := range endpointSignals {
+		if strings.Contains(ev.markers, sig.marker) {
+			add(sig.archetype, weightEndpoint, true)
 		}
 	}
-	if shape.ImageDetailHigh {
-		scores[ArchetypeVision] += 2
-	}
-	if shape.SchemaEnumOnly {
-		scores[ArchetypeClassification] += 4
+	shapeScores(add, shape, ev)
+	return set
+}
+
+// shapeScores reads the call's parameters. They carry task evidence of
+// their own: what the output schema looks like, how much room the
+// answer was given, and whether the call was set up to sample or to
+// decide.
+// An output schema and a tool list are parsed call parameters, not
+// stray words nearby: only one task is written with each, so they name
+// it. A token cap or a temperature only leans.
+func shapeScores(add func(arch string, points int, names bool), shape Shape, ev evidence) {
+	scores := func(arch string, points int) { add(arch, points, false) }
+	if shape.SchemaEnumOnly || enumOnlyOutput(ev.markers) {
+		add(ArchetypeClassification, weightShapeStrong, true)
 	}
 	if shape.SchemaMultiField {
-		scores[ArchetypeExtraction] += 3
+		add(ArchetypeExtraction, weightShapeStrong, true)
+	}
+	if singleBooleanSchema(ev.markers) {
+		add(ArchetypeModeration, weightShapeStrong, true)
 	}
 	if shape.JSONSchema {
-		scores[ArchetypeExtraction]++
+		scores(ArchetypeExtraction, weightShapeHint)
+		scores(ArchetypeChat, weightShapeAgainst)
 	}
-	if shape.ForcedTool {
-		scores[ArchetypeExtraction] += 2
+	if ev.forcedTool {
+		// A forced tool is a schema by another name: the model fills the
+		// fields in, it does not choose what to do next.
+		add(ArchetypeExtraction, weightShapeStrong, true)
+		scores(ArchetypeAgentic, weightShapeAgainst)
 	}
-	if shape.Tools && !shape.ForcedTool {
-		scores[ArchetypeAgentic] += 2
+	switch {
+	case ev.forcedTool:
+		// Already counted as a schema above.
+	case shape.Tools:
+		add(ArchetypeAgentic, weightShapeStrong+weightShapeWeak, true)
+	case strings.Contains(ev.markers, "tool"):
+		// Tools passed by name or held in a config object: the list is
+		// not readable from here, but the call still hands the model
+		// something to call.
+		add(ArchetypeAgentic, weightShapeWeak, true)
+	default:
+		// A loop with nothing to call is not an agent loop.
+		scores(ArchetypeAgentic, weightShapeAgainst)
 	}
 	if shape.Streaming {
-		scores[ArchetypeChat] += 2
+		scores(ArchetypeChat, weightShapeWeak)
 	}
-	return scores
+	if shape.ImageDetailHigh {
+		scores(ArchetypeVision, weightShapeWeak)
+	}
+	if t := shape.Temperature; t != nil {
+		switch {
+		case *t == 0:
+			for _, arch := range []string{ArchetypeClassification, ArchetypeExtraction,
+				ArchetypeModeration, ArchetypeReranking, ArchetypeTranslation} {
+				scores(arch, weightShapeWeak)
+			}
+			scores(ArchetypeChat, weightShapeAgainst)
+		case *t >= 0.6:
+			scores(ArchetypeChat, weightShapeStrong)
+			for _, arch := range []string{ArchetypeClassification, ArchetypeExtraction,
+				ArchetypeModeration, ArchetypeReranking} {
+				scores(arch, weightShapeAgainst)
+			}
+		}
+	}
+	if shape.MaxTokens == nil {
+		return
+	}
+	switch n := *shape.MaxTokens; {
+	case n <= capLabel:
+		scores(ArchetypeClassification, weightShapeStrong)
+		scores(ArchetypeModeration, weightShapeStrong)
+		for _, arch := range []string{ArchetypeSummarization, ArchetypeChat, ArchetypeCodegen,
+			ArchetypeAgentic, ArchetypeExtraction, ArchetypeTranslation, ArchetypeTranscription,
+			ArchetypeVision} {
+			scores(arch, weightShapeAgainst)
+		}
+	case n <= capShort:
+		scores(ArchetypeClassification, weightShapeHint)
+		scores(ArchetypeModeration, weightShapeHint)
+		scores(ArchetypeReranking, weightShapeHint)
+	case n >= capLong:
+		for _, arch := range []string{ArchetypeSummarization, ArchetypeCodegen, ArchetypeAgentic,
+			ArchetypeTranscription, ArchetypeTranslation} {
+			scores(arch, weightShapeWeak)
+		}
+		scores(ArchetypeClassification, weightShapeAgainst)
+		scores(ArchetypeModeration, weightShapeAgainst)
+		scores(ArchetypeReranking, weightShapeAgainst)
+	}
+}
+
+// An output schema that is one enum and nothing else asks for a label.
+// schemaFacts reads this off a properties block; a bare enum schema,
+// which is how the Google SDK spells it, has no properties block to
+// read.
+func enumOnlyOutput(markers string) bool {
+	if !strings.Contains(markers, "enum") || strings.Contains(markers, "properties") {
+		return false
+	}
+	return strings.Contains(markers, "schema") || strings.Contains(markers, "x.enum")
+}
+
+// A schema whose only field is a boolean is a gate: the call asks for a
+// verdict, not for a label or a set of fields.
+var reBoolField = regexp.MustCompile(`z\.boolean\(|["']boolean["']`)
+
+func singleBooleanSchema(markers string) bool {
+	if len(reBoolField.FindAllString(markers, -1)) != 1 {
+		return false
+	}
+	return strings.Count(markers, "z.") <= 2 && strings.Count(markers, `"type"`) <= 2
 }
 
 // rank returns the highest scoring archetype and how sure of it we are.
 // A win needs both an absolute score and a margin over the runner up;
 // ties fall to archetypePriority, which is ordered narrowest first.
+// Nothing wins by default: too little evidence is reported as unknown,
+// which the rules read as doubt.
 func rank(scores map[string]int) (string, string) {
 	best, bestScore, secondScore := "", 0, 0
 	for _, arch := range archetypePriority {
@@ -213,17 +566,17 @@ func rank(scores map[string]int) (string, string) {
 			secondScore = s
 		}
 	}
-	if bestScore == 0 {
+	if bestScore < scoreFloor {
 		return ArchetypeUnknown, "low"
 	}
 	margin := bestScore - secondScore
 	switch {
-	case bestScore >= 4 && margin >= 3:
+	case bestScore >= scoreHigh && margin >= marginHigh:
 		return best, "high"
-	case bestScore <= 2 || margin <= 1:
-		return best, "low"
-	default:
+	case bestScore >= scoreMedium && margin >= marginMedium:
 		return best, "medium"
+	default:
+		return best, "low"
 	}
 }
 
