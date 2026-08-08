@@ -21,9 +21,9 @@ func minifiedRegistry(n int) string {
 	return b.String()
 }
 
-// File scoped facts must be read once per file. Reading them per call
-// site is what made a minified config cost minutes: the work is
-// identical for every reference in the file.
+// File scoped facts are read once per file. Per call site the work is
+// identical for every reference, which costs minutes on a minified
+// config.
 func TestFileFactsRunOncePerFile(t *testing.T) {
 	files := []file{
 		{path: "registry.json", data: []byte(minifiedRegistry(60))},
@@ -45,11 +45,10 @@ func TestFileFactsRunOncePerFile(t *testing.T) {
 }
 
 // No call site may read a region that grows with the file. A minified
-// file is one enormous line, so the line based bounds degenerate: both
-// the extent path (registry.json, whose objects name a model) and the
-// fallback window path (ids.json, a bare list with no model key and no
-// closer within reach) used to hand every reference a region as long as
-// its own offset, which is quadratic in references per file.
+// file is one enormous line, so the line based bounds degenerate on both
+// paths: the extent path (registry.json, whose objects name a model) and
+// the fallback window (ids.json, a bare list with no model key and no
+// closer within reach). Unbounded, each is quadratic in references.
 func TestRegionsBoundedInMinified(t *testing.T) {
 	var ids strings.Builder
 	ids.WriteString(`{"ids":[`)
@@ -61,10 +60,8 @@ func TestRegionsBoundedInMinified(t *testing.T) {
 	}
 	ids.WriteString("]}")
 
-	// Spelled as a literal rather than from the constants above, so that
-	// widening a bound cannot quietly widen the test with it. Generous:
-	// the head expansion and the fallback window both sit well under it,
-	// while the unbounded version reached the whole file.
+	// A literal, not the constants above: widening a bound must not
+	// quietly widen the test with it.
 	const bound = 24000
 	names := mustCatalog(t).Names()
 	for _, tc := range []struct{ path, content string }{

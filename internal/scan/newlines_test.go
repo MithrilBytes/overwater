@@ -38,10 +38,9 @@ func writeRepo(t *testing.T, name, content string) string {
 	return dir
 }
 
-// Line endings must not change the verdict. Carriage returns used to
-// count as prompt characters, so identical source scanned clean with LF
-// and reported a finding with CRLF, making the answer depend on which
-// platform checked the repo out.
+// Line endings must not change the verdict. Carriage returns counting as
+// prompt characters makes the answer depend on which platform checked
+// the repo out.
 func TestCRLFMatchesLF(t *testing.T) {
 	lf := crlfSource()
 	crlf := strings.ReplaceAll(lf, "\n", "\r\n")

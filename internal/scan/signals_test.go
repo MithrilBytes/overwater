@@ -107,7 +107,7 @@ func TestRetriesAbsentStaysNil(t *testing.T) {
 	}
 }
 
-func TestDimensionsFromEmbeddingKwarg(t *testing.T) {
+func TestDimensionsFromKwarg(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"embed.py": `def embed_chunks(chunks):
     return client.embeddings.create(
         model="text-embedding-3-large",
@@ -133,7 +133,7 @@ func TestDimensionsAbsentStaysNil(t *testing.T) {
 	}
 }
 
-func TestImageDetailHighInContentPart(t *testing.T) {
+func TestImageDetailHighNested(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"ocr.ts": `async function ocrReceipt(url: string) {
   return client.chat.completions.create({
     model: "gpt-4o",
@@ -147,9 +147,8 @@ func TestImageDetailHighInContentPart(t *testing.T) {
 	}
 }
 
-// The walker must skip the repo's own .overwater.yaml the same way it
-// skips .overwater.json: config may name model ids and rule ids
-// without becoming call sites.
+// .overwater.yaml is skipped like .overwater.json: our own config names
+// model ids without being a call site.
 func TestWalkSkipsOverwaterConfig(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		".overwater.yaml": "disable: [deprecated-model]\n# migrating off gpt-5.1\n",
@@ -173,10 +172,9 @@ func TestImageDetailLowStaysFalse(t *testing.T) {
 	}
 }
 
-// A system content block whose text is written inline must measure the
-// same as the same prompt passed as a bare string. Reading only
-// identifiers and backtick literals made the inline spelling measure
-// zero, and a zero length prompt can never trip the caching rule.
+// A system content block written inline must measure the same as the
+// bare string spelling. A prompt that measures zero never trips the
+// caching rule.
 func TestSystemBlockInlineLiteral(t *testing.T) {
 	prompt := strings.Repeat("You cite the source document for every claim you make. ", 80)
 	if len(prompt) < 4400 {

@@ -41,9 +41,9 @@ func TestSpanInvariants(t *testing.T) {
 	}
 }
 
-// The auditor's repro: an unterminated triple quote at EOF after a model
-// string used to underflow the span interior and panic nearbyStrings.
-// The full pipeline must survive every hostile file.
+// An unterminated triple quote at EOF after a model string can underflow
+// the span interior and panic nearbyStrings. The pipeline must survive
+// every hostile file.
 func TestAnalyzeSurvivesHostileFiles(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		"panic.py":  "m = \"gpt-4o\"\nx = \"\"\"a\n",

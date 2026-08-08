@@ -18,8 +18,8 @@ func TestNegatedPhrasesDoNotScore(t *testing.T) {
 		{"contraction", "Don't reply to the customer.", false},
 		{"avoid", "Avoid reply to the customer entirely.", false},
 		// A negation binds to its own clause, not to the next one.
-		{"negation in the previous sentence", "Never promise refunds. Reply to the customer warmly.", true},
-		{"negation in the previous clause", "Avoid small talk; reply to the customer warmly.", true},
+		{"previous sentence", "Never promise refunds. Reply to the customer warmly.", true},
+		{"previous clause", "Avoid small talk; reply to the customer warmly.", true},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// A JSON schema example inside prompt prose is prose, not a schema: the
-// fallback schema facts must read the prose masked region, where long
-// string interiors are blank.
-func TestSchemaInPromptDoesNotCount(t *testing.T) {
+// A JSON schema example inside a prompt is prose, not a schema: the
+// fallback reads the prose masked region, where long string interiors
+// are blank.
+func TestSchemaInPromptIgnored(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"help.py": `def answer_question(q):
     return client.messages.create(
         model="claude-sonnet-5",
@@ -30,8 +30,8 @@ Keep every answer short.""",
 }
 
 // A real inline schema, written as code, still yields schema facts
-// through the prose masked fallback.
-func TestInlineSchemaStillCounts(t *testing.T) {
+// through the same fallback.
+func TestInlineSchemaCounts(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"fields.py": `def pull_fields(text):
     return client.messages.create(
         model="claude-sonnet-5",
@@ -65,10 +65,9 @@ func siteInFile(t *testing.T, r *Report, file string) *Site {
 	return nil
 }
 
-// An incremental scan restricted to one file must resolve that file
-// with the same power a full scan has: the imported prompt lives in a
-// file outside the only set.
-func TestIncrementalKeepsImportResolution(t *testing.T) {
+// An incremental scan restricted to one file resolves it exactly as a
+// full scan does; the imported prompt lives outside the only set.
+func TestIncrementalResolvesImports(t *testing.T) {
 	guide := strings.Repeat("Summarize the support thread into three bullets for the on call engineer. ", 3)
 	files := map[string]string{
 		"prompts.ts": "export const GUIDE = `" + guide + "`;\n",
@@ -115,9 +114,9 @@ export async function digestThread(text: string) {
 	}
 }
 
-// Config tracing must also survive incremental scans: the .env file is
-// outside the only set, yet the reader site still resolves.
-func TestIncrementalKeepsConfigTracing(t *testing.T) {
+// Same for config tracing: the .env file is outside the only set, yet
+// the reader site still resolves.
+func TestIncrementalTracesConfig(t *testing.T) {
 	dir := writeTree(t, map[string]string{
 		".env": "SUMMARY_MODEL=gpt-5.1\n",
 		"worker.js": `const client = new (require("openai"))();

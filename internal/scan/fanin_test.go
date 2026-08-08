@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// wrapperLib is the shape the whole layer exists for: one helper holds
-// the SDK call, everything else calls the helper.
+// wrapperLib: one helper holds the SDK call, everything else calls the
+// helper.
 const wrapperLib = `import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
@@ -34,9 +34,8 @@ func fanInSite(t *testing.T, r *Report, file string) Site {
 	return Site{}
 }
 
-// The helper is one call site and forty calls. Fan in is the number the
-// cost estimate was missing.
-func TestFanInCountsCallersAcrossFiles(t *testing.T) {
+// One call site in llm.js, three calls to it across two other files.
+func TestFanInAcrossFiles(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		"llm.js": wrapperLib,
 		"a.js": `const { complete } = require("./llm");
@@ -62,9 +61,8 @@ async function draftReply(text) {
 	}
 }
 
-// A wrapper called from forty files is forty times a leaf call, and the
-// count has to survive the file count, not saturate at some cap.
-func TestFanInScalesWithCallerCount(t *testing.T) {
+// The count tracks the caller count; it does not saturate at a cap.
+func TestFanInScalesWithCallers(t *testing.T) {
 	files := map[string]string{"llm.js": wrapperLib}
 	for i := 0; i < 40; i++ {
 		files[fmt.Sprintf("use%02d.js", i)] = fmt.Sprintf(
@@ -76,10 +74,9 @@ func TestFanInScalesWithCallerCount(t *testing.T) {
 	}
 }
 
-// The typed TypeScript spelling, called from module scope in files
-// that hold no model string of their own. Those files are the whole
-// problem: without fan in they contribute nothing to the estimate.
-func TestFanInTypedTypeScriptWrapper(t *testing.T) {
+// The typed TypeScript spelling, called from module scope in files that
+// hold no model string of their own.
+func TestFanInTypedTSWrapper(t *testing.T) {
 	files := map[string]string{
 		"llm.ts": `import Anthropic from "@anthropic-ai/sdk";
 
@@ -112,9 +109,8 @@ export async function complete(prompt: string, model = "claude-opus-5") {
 	}
 }
 
-// Two definitions of one name is not knowledge. The count reports
-// ambiguous and stays at the floor rather than crediting one wrapper
-// with the other's callers.
+// Two definitions of one name: the count stays at the floor rather than
+// crediting one wrapper with the other's callers.
 func TestFanInAmbiguousName(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		"a/llm.js": wrapperLib,
@@ -135,9 +131,9 @@ func TestFanInAmbiguousName(t *testing.T) {
 	}
 }
 
-// A helper nobody in the repo calls is an entry point or an export.
-// That is unresolved, not fan in 1 pretending to be knowledge.
-func TestFanInUnresolvedWithoutCallers(t *testing.T) {
+// A helper nobody in the repo calls is an entry point or an export:
+// unresolved, and 1 is a floor rather than a count.
+func TestFanInUnresolved(t *testing.T) {
 	site := fanInSite(t, analyzeTemp(t, map[string]string{"llm.js": wrapperLib}), "llm.js")
 	if site.FanInStatus != FanInUnresolved || site.FanIn != 1 {
 		t.Errorf("fan in = %d (%s), want 1 unresolved", site.FanIn, site.FanInStatus)
@@ -173,8 +169,8 @@ export async function route(text: string) {
 	}
 }
 
-// The point of the whole thing: a wrapper whose model is a parameter is
-// called with one model in most places and another in the rest.
+// A wrapper whose model is a parameter, called with one model in most
+// places and another in the rest.
 func TestCallerModelsFromLiterals(t *testing.T) {
 	files := map[string]string{"llm.js": wrapperLib}
 	for i := 0; i < 3; i++ {
@@ -259,9 +255,9 @@ def interactive(text):
 	}
 }
 
-// The default written as a shared constant: the site sits at file
-// scope, but the traffic is at the wrapper's callers.
-func TestCallerModelsThroughDefaultConstant(t *testing.T) {
+// The default written as a constant: the site sits at file scope, but
+// the traffic is at the wrapper's callers.
+func TestCallerModelsDefaultConstant(t *testing.T) {
 	site := fanInSite(t, analyzeTemp(t, map[string]string{
 		"llm.ts": `const DEFAULT_MODEL = "claude-opus-5";
 
@@ -297,9 +293,9 @@ export async function label(t: string) {
 	}
 }
 
-// Two wrappers sharing one default constant cannot both claim the
-// site, so neither does.
-func TestCallerModelsSharedConstantStaysDirect(t *testing.T) {
+// Two wrappers sharing one default constant cannot both claim the site,
+// so neither does.
+func TestCallerModelsSharedConstant(t *testing.T) {
 	site := fanInSite(t, analyzeTemp(t, map[string]string{
 		"llm.ts": `const DEFAULT_MODEL = "claude-opus-5";
 
@@ -354,7 +350,7 @@ export async function normal(t: string) {
 
 // A caller that forwards its own parameter is followed one hop back to
 // whoever decided the value.
-func TestCallerModelsThroughForwardingWrapper(t *testing.T) {
+func TestCallerModelsForwarded(t *testing.T) {
 	site := fanInSite(t, analyzeTemp(t, map[string]string{
 		"llm.js": wrapperLib,
 		"mid.js": `async function ask(text, model) {
@@ -372,8 +368,8 @@ async function cheap(text) {
 	}
 }
 
-// Self recursion and mutual recursion must terminate. The assertion is
-// that the scan returns at all.
+// Self and mutual recursion must terminate; the scan returning at all
+// is half the assertion.
 func TestFanInRecursionTerminates(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		"loop.js": `async function retryComplete(text, model = "claude-opus-5") {
@@ -459,8 +455,8 @@ func TestFanInCountsSelfCalls(t *testing.T) {
 	}
 }
 
-// Fan in and the caller models must be byte identical across runs, or
-// the goldens are a coin flip.
+// Fan in and the caller models must be identical across runs; the
+// goldens depend on it.
 func TestFanInIsDeterministic(t *testing.T) {
 	files := map[string]string{"llm.js": wrapperLib}
 	for i := 0; i < 6; i++ {
@@ -493,11 +489,11 @@ func TestFanInIsDeterministic(t *testing.T) {
 	}
 }
 
-// The index reads two of the three definition patterns by regex and
-// the third by byte scan. The two paths together must still see every
-// definition the extent walker's patterns do, or adding a pattern
-// there silently stops counting a language here.
-func TestIndexSeesEveryDefinitionPattern(t *testing.T) {
+// The index reads two definition patterns by regex and the third by
+// byte scan. Both paths together must see every definition the extent
+// walker does, or adding a pattern there silently stops counting a
+// language here.
+func TestIndexSeesEveryDefPattern(t *testing.T) {
 	src := `func describe(site *Site, tier string) {
 	return nil
 }
@@ -528,12 +524,10 @@ def extract_invoice(text):
 	}
 }
 
-// The index is a second pass over every file in the repo, so it has to
-// stay linear in file size. A minified bundle is one line holding
-// thousands of calls, which is where a backward scan per call turns
-// quadratic. Generous by three orders of magnitude: the linear version
-// indexes this in about ten milliseconds, the quadratic one takes
-// minutes.
+// The index is a second pass over every file, so it must stay linear in
+// file size. A minified bundle is one line holding thousands of calls,
+// where a backward scan per call turns quadratic. The bound is generous
+// by three orders of magnitude.
 func TestIndexBoundedInMinified(t *testing.T) {
 	var b strings.Builder
 	b.WriteString("function boot(){")
@@ -555,9 +549,9 @@ func TestIndexBoundedInMinified(t *testing.T) {
 	}
 }
 
-// The five shipped fixtures hold no wrapper of this shape, so nothing
-// they report may move. This pins that: every fixture site is either
-// direct or a function with at most one visible caller.
+// The five shipped fixtures hold no wrapper of this shape, so fan in
+// must not move what they report. Every fixture site is direct or a
+// function with at most one visible caller.
 func TestFixturesHaveNoWrappers(t *testing.T) {
 	for _, fixture := range []string{
 		"clean-app", "node-cron-summarizer", "py-extraction",

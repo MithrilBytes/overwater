@@ -8,19 +8,19 @@ import (
 	"testing"
 )
 
-// The corpus is split in labels.json: tune cases are the ones a change
-// may be developed against, holdout cases only measure it. holdoutFloor
-// is the ratchet. Raise it when the classifier earns it; never lower it
-// to make a change fit.
+// The corpus is split in labels.json: tune cases are what a change may
+// be developed against, holdout cases only measure it. These floors are
+// a ratchet. Raise them when the classifier earns it; never lower one to
+// make a change fit.
 const (
 	holdoutFloor = 0.95
 	tuneFloor    = 0.95
 )
 
 // Per class floors on the holdout, so a regression in one archetype
-// cannot hide behind a good total. Each is what the classifier scores
-// today, less about one case; embedding is exact because an embedding
-// endpoint is read off the call rather than scored.
+// cannot hide behind a good total. Each is today's score less about one
+// case; embedding is exact, since an embedding endpoint is read off the
+// call rather than scored.
 var classFloors = map[string]struct{ precision, recall float64 }{
 	ArchetypeAgentic:        {0.80, 0.80},
 	ArchetypeChat:           {0.80, 0.80},
@@ -103,9 +103,8 @@ func TestCorpusAccuracy(t *testing.T) {
 		perSplit[c.Split].fp++
 		get(c.Split, c.Archetype).fn++
 		get(c.Split, got).fp++
-		// Tune misses are working material. Holdout misses are not:
-		// reading them turns the holdout into a second tune set, so
-		// they stay behind an env var a human sets deliberately.
+		// Reading holdout misses turns the holdout into a second tune set,
+		// so they stay behind an env var a human sets deliberately.
 		if c.Split == "tune" || os.Getenv("OVERWATER_SHOW_HOLDOUT") != "" {
 			t.Logf("%s miss: %s labeled %s, classified %s (%s confidence)",
 				c.Split, c.File, c.Archetype, got, sites[0].ArchetypeConfidence)

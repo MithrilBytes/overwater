@@ -26,9 +26,8 @@ func analyzeTemp(t *testing.T, files map[string]string) *Report {
 	return r
 }
 
-// Two calls close together must each keep their own parameters. The old
-// fixed line window let the first call's max_tokens bleed into the
-// second; call extents do not.
+// Two calls close together each keep their own parameters: a fixed line
+// window would let the first call's max_tokens bleed into the second.
 func TestAdjacentCallsDoNotBleed(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"app.js": `const OpenAI = require("openai");
 const client = new OpenAI();
@@ -184,9 +183,9 @@ export async function judgeThing(input: string) {
 	}
 }
 
-// Fixture level checks: schema semantics land on the real fixtures, and
-// the clean-app draft site, whose only classification evidence is a
-// shared system prompt, is graded low confidence instead of asserted.
+// Schema semantics on the real fixtures. The clean-app draft site,
+// whose only evidence is a shared system prompt, must grade low rather
+// than assert an archetype.
 func TestFixtureSchemaAndConfidence(t *testing.T) {
 	firehose := analyzeFixture(t, "ts-chat-firehose")
 	if !firehose.Sites[1].Shape.SchemaEnumOnly {

@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// Python spells booleans capitalized; stream=True must read as
-// streaming instead of the structural layer overriding the regex layer
-// that had it right.
+// Python spells booleans capitalized: stream=True must read as
+// streaming through the structural layer too.
 func TestStreamFromPythonKwarg(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"chat.py": `def chat_reply(text):
     return client.chat.completions.create(
@@ -36,10 +35,9 @@ func TestMaxTokensUnderscoreSeparators(t *testing.T) {
 	}
 }
 
-// Google GenAI's typed config is a constructor call, which is the form
-// the current docs use. Its keyword arguments are the call's parameters
-// and must read the same as the dict spelling, which only descended into
-// values that started with a brace.
+// Google GenAI's typed config is a constructor call, the form the
+// current docs use. Its keyword arguments must read the same as the
+// dict spelling.
 func TestTypedConfigWrapper(t *testing.T) {
 	const typed = `from google import genai
 from google.genai import types
@@ -150,9 +148,9 @@ func TestFuncNameWordBoundary(t *testing.T) {
 	}
 }
 
-// The plural noun transcripts describes the input, not the task: a
-// summarizer of transcripts is not transcription.
-func TestTranscriptsIsNotTranscription(t *testing.T) {
+// transcripts names the input, not the task: a summarizer of
+// transcripts is not transcription.
+func TestTranscriptsNotTranscription(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"notes.py": `def prepare_notes(transcript):
     return client.messages.create(
         model="claude-sonnet-5",
