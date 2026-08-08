@@ -49,10 +49,9 @@ var (
 	reBatchCtx = regexp.MustCompile(`cron\.schedule|node-cron|crontab|schedule\.every|celery|BackgroundScheduler`)
 )
 
-// fileFacts are the shape facts a call site inherits from its whole file
-// rather than from its own region. Computed once per file: evaluating
-// them per site made scan cost quadratic in the number of model
-// references, and a minified config full of model ids took minutes.
+// fileFacts are the shape facts a call site inherits from its whole
+// file rather than from its own region. Computed once per file; per
+// site is quadratic in the number of model references.
 type fileFacts struct {
 	batchContext bool
 	batchAPI     bool

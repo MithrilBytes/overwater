@@ -14,16 +14,14 @@ import (
 // Fan in: how many places in the repo reach a call site through the
 // function that holds it, and which models those callers pass in.
 //
-// A repo that centralizes its LLM calls behind one helper reports a
-// single call site today. The traffic is at the helper's callers, and
-// so is the model, when the helper takes it as a parameter. Layer 5
-// builds a repo wide index of function definitions and calls, matches
-// by name only, and refuses to guess when a name is defined more than
-// once.
+// A repo that centralizes its LLM calls behind one helper has a single
+// call site; the traffic is at the helper's callers, and so is the
+// model when the helper takes it as a parameter. Layer 5 builds a repo
+// wide index of definitions and calls, matches by name only, and
+// refuses to guess when a name is defined more than once.
 //
-// Names are matched within one language family at a time only by
-// accident of extension: there is no cross language resolution here,
-// and none is attempted.
+// There is no cross language resolution: names land in one language
+// family only by accident of extension.
 
 const (
 	// paramsGap bounds the distance from a function name to its
@@ -176,8 +174,8 @@ func (a *analyzer) buildIndex() *repoIndex {
 }
 
 // parallelOver runs fn over 0..n-1, striding rather than handing each
-// index over a channel: the per file work here is small enough that a
-// channel round trip costs more than the work itself.
+// index over a channel: the per file work is smaller than a channel
+// round trip.
 func parallelOver(n int, fn func(i int)) {
 	if n < 1 {
 		return
@@ -239,10 +237,10 @@ func (a *analyzer) fileDefs(p string) []*funcDef {
 	return defs
 }
 
-// The keyword anchored definition forms, which is every pattern in
-// reFuncDefs but the C family one. That one has no literal to anchor
-// on, and a regex without one costs a full automaton pass over every
-// file in the repo, so cStyleDefs scans for it by byte instead.
+// The keyword anchored definition forms: every pattern in reFuncDefs
+// but the C family one, which has no literal to anchor on. cStyleDefs
+// scans for that one by byte, since an unanchored regex costs a full
+// automaton pass over every file in the repo.
 var reKeywordFuncDefs = reFuncDefs[:2]
 
 // cStyleDefs finds C family definitions, name(args) {, matching the
@@ -308,11 +306,10 @@ func paramsOpen(all string, from int) (int, bool) {
 
 // closeDefs assigns each definition the end of its body by indentation:
 // the body ends at the first later line indented no deeper than the
-// definition itself. Braces are not load bearing here, which is what
-// lets one rule serve Python and the C family at once. A line holding
-// only an opening brace is skipped so Allman style bodies survive, and
-// no definition closes before its parameter list does, so a signature
-// split over several lines stays open.
+// definition. Braces are not load bearing, so one rule serves Python
+// and the C family. A line holding only an opening brace is skipped for
+// Allman style bodies, and no definition closes before its parameter
+// list does, so a signature split over several lines stays open.
 func closeDefs(all string, starts []int, defs []*funcDef) {
 	type open struct{ idx, indent int }
 	var stack []open
@@ -474,9 +471,8 @@ func trimRange(s string, start, end int) (int, int) {
 
 // A call is a name followed by an opening parenthesis. Method calls
 // count only through a self reference: client.messages.create is the
-// SDK, not a repo function that happens to be named create. Scanned
-// byte by byte rather than by regex, since this runs over every file in
-// the repo and the pattern has no literal prefix to anchor on.
+// SDK, not a repo function named create. Scanned by byte, not regex,
+// for the same reason cStyleDefs is.
 var selfReceivers = map[string]bool{"self": true, "this": true, "cls": true}
 
 type fileCall struct {
@@ -580,8 +576,7 @@ func modelParamOf(d *funcDef) (*funcParam, int, int) {
 // where its model is a wrapper's default, what callers pass instead.
 func (a *analyzer) applyFanIn(report *Report, names map[string]*catalog.Model) {
 	idx := a.index()
-	// Two sites can share a wrapper, and reading its callers twice
-	// reads the same answer.
+	// Cached: two sites can share a wrapper.
 	resolved := map[*funcDef][]CallerModel{}
 	for i := range report.Sites {
 		s := &report.Sites[i]
@@ -636,9 +631,9 @@ func modelDefaultConst(content string, d *funcDef) string {
 }
 
 // constDefaultOwner finds the function whose model parameter defaults
-// to the constant a file scope site defines. Without this hop a shared
-// default model constant reads as a leaf, while the traffic it prices
-// sits at the wrapper's callers.
+// to the constant a file scope site defines. Without this hop a default
+// model constant reads as a leaf, though its traffic is at the
+// wrapper's callers.
 func (a *analyzer) constDefaultOwner(idx *repoIndex, p string, hit int) *funcDef {
 	owners := idx.constOwners[p]
 	if len(owners) == 0 {

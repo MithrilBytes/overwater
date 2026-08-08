@@ -51,9 +51,8 @@ func newAnalyzer(files []file) *analyzer {
 }
 
 // cached returns cache[p], computing it on a miss. The computation runs
-// outside the lock: when two workers cross into the same file one of
-// them does the work twice, which beats serializing every worker behind
-// the slowest mask.
+// outside the lock, so two workers entering the same file may both do
+// it.
 func cached[T any](a *analyzer, cache map[string]T, p string, compute func() T) T {
 	a.mu.Lock()
 	v, ok := cache[p]
@@ -87,7 +86,7 @@ func (a *analyzer) spans(p string) []span {
 	})
 }
 
-// lineStarts caches the line index. Rebuilding it per call site is a
+// lineStarts caches the line index; rebuilding it per call site is a
 // full pass over the file each time.
 func (a *analyzer) lineStarts(p string) []int {
 	return cached(a, a.lineCache, p, func() []int {

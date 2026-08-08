@@ -9,7 +9,8 @@ import (
 
 // Structural parsing reads a call's callee chain and the properties of
 // the argument that names the model, rather than regexing a window. No
-// cgo: tree-sitter bindings would break the static release binaries.
+// cgo: the release binaries are static and the action pins them by
+// checksum, which tree-sitter bindings would break.
 //
 // Two styles cover the supported languages: property (key: value inside
 // an object literal or argument list, props.go) and builder

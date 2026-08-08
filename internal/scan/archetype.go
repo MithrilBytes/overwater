@@ -39,9 +39,7 @@ var archetypePriority = []string{
 	ArchetypeChat,
 }
 
-// Scoring weights. Every number the scorer uses lives in this block, so
-// a human can read the classifier's priorities and retune them without
-// reading the tables.
+// Scoring weights. Every number the scorer uses lives in this block.
 const (
 	// What the call asks the model to do.
 	weightSays     = 7  // the prompt names the task outright
@@ -58,18 +56,16 @@ const (
 	weightShapeAgainst = -4 // a parameter this task would not be written with
 )
 
-// Token caps read as intent: the budget bounds what the answer can be.
-// A twenty token cap holds a label or a boolean and nothing else; a
-// four thousand token cap is prose, a document, or a program.
+// Token caps read as intent: capLabel fits a label or a boolean,
+// capLong fits prose, a document, or a program.
 const (
 	capLabel = 24
 	capShort = 200
 	capLong  = 1500
 )
 
-// Score and margin a winner needs. Below scoreFloor the evidence names
-// no task at all and the answer is unknown, which rules that lean on
-// the archetype read as doubt rather than as a wrong answer.
+// Score and margin a winner needs. Below scoreFloor the answer is
+// unknown, which the rules read as doubt rather than as a wrong answer.
 const (
 	scoreFloor   = 4
 	scoreHigh    = 9
@@ -159,9 +155,8 @@ var archetypeWords = []archetypeKeywords{
 			"approve or remove", "reject listings", "block "},
 		hints: []string{"flag", "abusive", "spam", "unsafe", "filter", "forbid", "guideline"},
 	},
-	// Words that mean the transcription task itself; the bare stem
-	// transcri would also match transcripts, which usually names the
-	// input of a summarizer, not this task.
+	// The stem is transcrib, not transcri: transcripts usually names a
+	// summarizer's input, not this task.
 	{
 		archetype: ArchetypeTranscription,
 		idents:    []string{"transcrib", "transcription", "whisper", "speech_to_text", "dictation", "stt"},
@@ -196,8 +191,8 @@ var archetypeWords = []archetypeKeywords{
 	},
 }
 
-// Endpoints and content parts, which are stronger evidence than any
-// keyword: the SDK method a call reaches for is the task, spelled out.
+// Endpoints and content parts. Scored above any keyword: the SDK method
+// a call reaches for names the task outright.
 var endpointSignals = []struct {
 	marker    string
 	archetype string
@@ -254,11 +249,9 @@ func (a *analyzer) classify(p string, shape Shape, r region, tier string) (strin
 	if arch, conf, ok := narrow.winner(); ok {
 		return arch, conf
 	}
-	// The call's own region names no task. That is ordinary code: the
-	// client is built in a field initializer, the prompt is a constant
-	// at the top of the file, the tools are three methods away. Widen to
-	// the surrounding window, and take that answer with less confidence
-	// than one the call site made on its own.
+	// The region names no task, which is ordinary: the prompt is often a
+	// constant at the top of the file. Widen, and downgrade the answer,
+	// since the call site did not make it on its own.
 	window := region{start: max(0, r.hit-fileWindowBytes), end: min(len(content), r.hit+fileWindowBytes), hit: r.hit}
 	wide := a.archetypeScores(p, shape, window)
 	if arch, conf, ok := wide.winner(); ok {
@@ -267,21 +260,19 @@ func (a *analyzer) classify(p string, shape Shape, r region, tier string) (strin
 		}
 		return arch, conf
 	}
-	// Neither pass found a word about the task. Whatever the parameters
-	// suggest is a guess, and says so.
+	// Neither pass found a word about the task, so the parameters are all
+	// that is left. Reported low.
 	arch, _ := rank(narrow.scores)
 	return arch, "low"
 }
 
 // How far the widened pass reads either side of the reference. Wide
-// enough for the prompt constant at the top of a file, bounded so a
-// minified config does not turn the pass into a whole file scan per
-// reference.
+// enough for a prompt constant at the top of a file, bounded so a
+// minified config does not become a whole file scan per reference.
 const fileWindowBytes = 4000
 
-// evidence is what the scorer reads about one call site. Each field is
-// a different kind of proof, and they are kept apart so that prose
-// cannot be read as code or the reverse.
+// evidence is what the scorer reads about one call site. The fields stay
+// apart so prose cannot be read as code or the reverse.
 type evidence struct {
 	// idents holds code with every string blanked: identifiers only, so
 	// a prose fragment like "Triage notes: " cannot pose as code.
@@ -345,11 +336,10 @@ var sdkPaths = []string{
 	"chatcompletion", "chatclient", "chatmessage", "chatmodel", "chatrequest", "chatanthropic", "chatopenai",
 }
 
-// regionLiterals joins the string literals written inside the region.
-// The instruction is as often in a user message or a template as in the
-// system prompt, and it is the same evidence wherever it sits. Short
-// literals are skipped: an instruction is a sentence, while a config
-// value like "summarizer-worker" only looks like one.
+// regionLiterals joins the string literals written inside the region:
+// the instruction sits in a user message or a template as often as in
+// the system prompt. Literals under promptLiteralMinBytes are skipped,
+// so a config value like "summarizer-worker" is not read as one.
 const (
 	regionLiteralsMaxBytes = 8000
 	promptLiteralMinBytes  = 30
@@ -382,9 +372,8 @@ func (a *analyzer) regionLiterals(p string, r region) string {
 
 // scoreSet is one pass of the scorer. named records, per archetype,
 // whether anything named the task for it: a function name, a phrase in
-// the prompt, an endpoint, an output schema. A winner with nothing
-// named was picked by a token cap and a temperature alone, which means
-// this pass read a window with no task in it.
+// the prompt, an endpoint, an output schema. A winner with nothing named
+// was picked by a token cap and a temperature alone.
 type scoreSet struct {
 	scores map[string]int
 	named  map[string]bool
@@ -439,13 +428,10 @@ func (a *analyzer) archetypeScores(p string, shape Shape, r region) scoreSet {
 	return set
 }
 
-// shapeScores reads the call's parameters. They carry task evidence of
-// their own: what the output schema looks like, how much room the
-// answer was given, and whether the call was set up to sample or to
-// decide.
-// An output schema and a tool list are parsed call parameters, not
-// stray words nearby: only one task is written with each, so they name
-// it. A token cap or a temperature only leans.
+// shapeScores reads the call's parameters: the output schema, the room
+// the answer was given, and whether the call samples or decides.
+// A schema and a tool list are parsed parameters and name a task; a
+// token cap or a temperature only leans.
 func shapeScores(add func(arch string, points int, names bool), shape Shape, ev evidence) {
 	scores := func(arch string, points int) { add(arch, points, false) }
 	if shape.SchemaEnumOnly || enumOnlyOutput(ev.markers) {
@@ -552,11 +538,10 @@ func singleBooleanSchema(markers string) bool {
 	return strings.Count(markers, "z.") <= 2 && strings.Count(markers, `"type"`) <= 2
 }
 
-// rank returns the highest scoring archetype and how sure of it we are.
-// A win needs both an absolute score and a margin over the runner up;
-// ties fall to archetypePriority, which is ordered narrowest first.
-// Nothing wins by default: too little evidence is reported as unknown,
-// which the rules read as doubt.
+// rank returns the highest scoring archetype and a confidence. A win
+// needs both an absolute score and a margin over the runner up; ties
+// fall to archetypePriority, narrowest first. Nothing wins by default:
+// too little evidence reports unknown.
 func rank(scores map[string]int) (string, string) {
 	best, bestScore, secondScore := "", 0, 0
 	for _, arch := range archetypePriority {
@@ -619,9 +604,8 @@ func containsAny(s string, words []string) bool {
 	return false
 }
 
-// Words that flip the phrase after them. A prompt saying "never reply to
-// the customer" is describing what the call must not do, and scoring it
-// as if it said "reply to the customer" reads the instruction backwards.
+// Words that flip the phrase after them. "never reply to the customer"
+// must not score as "reply to the customer".
 var negators = []string{"never ", "not ", "n't ", "avoid ", "without "}
 
 // saysAny is containsAny for task phrases: a match preceded by a negator
