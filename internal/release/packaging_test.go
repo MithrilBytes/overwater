@@ -268,7 +268,7 @@ func TestPriceReleaseCallsRelease(t *testing.T) {
 		"pull_request",
 		"merged == true",
 		"price-watch/",
-		"-next-update",
+		"-next-tags",
 		"uses: ./.github/workflows/release.yml",
 	} {
 		if !strings.Contains(src, want) {
@@ -288,5 +288,25 @@ func TestPriceReleaseCallsRelease(t *testing.T) {
 	}
 	if !strings.Contains(rel, "TAG: ${{ inputs.tag || github.ref_name }}") {
 		t.Error("release.yml does not fall back to github.ref_name for a plain tag push")
+	}
+}
+
+// The twin exists only so go install resolves a three component
+// version; dropping it would strand price updates for module users.
+func TestPriceReleasePushesTwin(t *testing.T) {
+	src := repoFile(t, ".github", "workflows", "price-release.yml")
+	for _, want := range []string{
+		"-next-tags",
+		`git tag "$update"`,
+		`git tag "$twin"`,
+		`git push origin "$update" "$twin"`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("price-release.yml is missing %q", want)
+		}
+	}
+	// The release attaches to the update tag, not the twin.
+	if !strings.Contains(src, `echo "tag=$update"`) {
+		t.Error("price-release.yml does not hand the update tag to the release job")
 	}
 }

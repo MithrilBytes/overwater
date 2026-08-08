@@ -25,17 +25,26 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	prev := fs.String("prev", "", "previous tag, empty for the first release")
 	tag := fs.String("tag", "", "tag being released")
 	repo := fs.String("repo", "", "owner/name slug for the commit link")
-	nextUpdate := fs.String("next-update", "", "print the tag one update above this one and exit")
+	nextTags := fs.Bool("next-tags", false, "read tags on stdin, print the update tag and its semver twin, and exit")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if *nextUpdate != "" {
-		next, err := release.NextUpdate(*nextUpdate)
+	if *nextTags {
+		var tags []string
+		sc := bufio.NewScanner(stdin)
+		for sc.Scan() {
+			tags = append(tags, sc.Text())
+		}
+		if err := sc.Err(); err != nil {
+			fmt.Fprintf(stderr, "relnotes: reading tags: %v\n", err)
+			return 2
+		}
+		update, twin, err := release.NextTags(tags)
 		if err != nil {
 			fmt.Fprintf(stderr, "relnotes: %v\n", err)
 			return 2
 		}
-		fmt.Fprintln(stdout, next)
+		fmt.Fprintf(stdout, "%s %s\n", update, twin)
 		return 0
 	}
 	if *tag == "" || *repo == "" {
