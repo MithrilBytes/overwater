@@ -41,7 +41,7 @@ func TestMeasuredSiteVolume(t *testing.T) {
 }
 
 // A model key covers every site on that model, split evenly.
-func TestModelVolumeSplitsAcrossSites(t *testing.T) {
+func TestModelVolumeSplits(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})
 	b := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})
@@ -81,7 +81,6 @@ func TestSiteKeyBeatsModelKey(t *testing.T) {
 	}
 }
 
-// Measured traffic beats a volume pragma.
 func TestMeasuredBeatsPragma(t *testing.T) {
 	engine, cat := loadEngine(t)
 	s := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})
@@ -114,9 +113,9 @@ func TestUnmatchedVolumeKeys(t *testing.T) {
 	}
 }
 
-// The budget check and the printed report price the same call sites the
-// same way, or CI fails over a number nobody can see.
-func TestTotalMonthlyUSDUsesMeasuredVolumes(t *testing.T) {
+// The budget check and the printed report price the same call sites
+// the same way.
+func TestTotalMonthlyUSDMeasured(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})
 	b := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})

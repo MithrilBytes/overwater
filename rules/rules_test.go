@@ -29,9 +29,9 @@ func evaluateFixture(t *testing.T, name string) []Finding {
 		t.Fatal(err)
 	}
 	findings := engine.Evaluate(report, cat)
-	// The fixture tables pin the human visible fields; fingerprint
-	// material is covered by the baseline tests. Blank it here so the
-	// tables stay readable, after checking it is populated at all.
+	// The tables below pin the human visible fields; the baseline tests
+	// cover the fingerprint. Check the hash is there, then blank it so
+	// the tables stay readable.
 	for i := range findings {
 		if findings[i].SiteHash == "" {
 			t.Errorf("finding %s at %s:%d has no site hash", findings[i].RuleID, findings[i].File, findings[i].Line)
@@ -54,8 +54,8 @@ func TestLoadRulesAndEstimates(t *testing.T) {
 	}
 }
 
-// The expected findings below are the same facts the goldens under
-// goldens/ state in prose. If one side changes, the other must too.
+// These tables and the goldens under goldens/ state the same facts.
+// Change one, change the other.
 
 func TestEvaluateTsChatFirehose(t *testing.T) {
 	got := evaluateFixture(t, "ts-chat-firehose")
@@ -191,7 +191,7 @@ func TestEvaluateCleanApp(t *testing.T) {
 	}
 }
 
-func TestFlagWithoutHostBecomesFinding(t *testing.T) {
+func TestFlagWithoutHost(t *testing.T) {
 	engine, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -450,7 +450,6 @@ func TestDisableRemovesRules(t *testing.T) {
 	}
 }
 
-// Nothing done to a clone may reach the engine it came from.
 func TestCloneIsolates(t *testing.T) {
 	engine, cat := loadEngine(t)
 	clone := engine.Clone()
@@ -508,8 +507,8 @@ func TestSetThresholdRejects(t *testing.T) {
 	}
 }
 
-// Every closed set is checked at load. Providers stay unvalidated on
-// purpose: the catalog owns that namespace, not a fixed list here.
+// Every closed set is checked at load. Providers are not: the catalog
+// owns that namespace.
 func TestRuleValidateRejects(t *testing.T) {
 	valid := func() Rule {
 		return Rule{
@@ -544,8 +543,7 @@ func TestRuleValidateRejects(t *testing.T) {
 			}
 		})
 	}
-	// The documented exception: an unknown provider loads, because the
-	// catalog, not the rules engine, owns the provider namespace.
+	// The exception: an unknown provider still loads.
 	r := valid()
 	r.When.Provider = []string{"anthorpic"}
 	if err := r.validate(); err != nil {
@@ -669,10 +667,9 @@ func TestTranscriptionOnCron(t *testing.T) {
 	}
 }
 
-// cachedMonthlyUSD with a steady state read fraction below one charges
-// the remaining system tokens at the cache write rate. Estimates are
-// built locally so the shipped estimates.yaml (fraction 1.0, which
-// zeroes the write term) stays untouched.
+// Below a read fraction of 1.0 the remaining system tokens are charged
+// at the cache write rate. Estimates are built locally; the shipped
+// fraction is 1.0, which zeroes the write term.
 func TestCachedMonthlyUSDWriteRate(t *testing.T) {
 	e := &Engine{}
 	e.Est.Volume.CallsPerMonth = 10000
@@ -701,10 +698,10 @@ func TestCachedMonthlyUSDWriteRate(t *testing.T) {
 	}
 }
 
-// pricey-embeddings needs a cheaper same provider embedding to point
-// at. mistral-embed and gemini-embedding-001 are their providers' only
-// embeddings, and cohere's alternative costs more; none may draw a
-// finding. The openai pair keeps its nomination.
+// pricey-embeddings needs a cheaper same provider embedding to name.
+// mistral-embed and gemini-embedding-001 are their providers' only
+// ones, and cohere's alternative costs more. The openai pair still
+// nominates.
 func TestNoCheaperEmbedding(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
@@ -726,10 +723,9 @@ func TestNoCheaperEmbedding(t *testing.T) {
 	}
 }
 
-// The price_multiplier strategy prefers the model's own published
-// batch_multiplier over the rule's flat yaml multiplier, which stays
-// the fallback for entries without one. Both are 0.5 in shipped data,
-// so this only shows on a synthetic catalog.
+// price_multiplier prefers the model's own batch_multiplier; the yaml
+// multiplier is the fallback for entries without one. Both are 0.5 in
+// shipped data, so this needs a synthetic catalog.
 func TestPriceMultiplierPrefersModel(t *testing.T) {
 	engine, err := Load()
 	if err != nil {
@@ -771,9 +767,8 @@ func TestPriceMultiplierPrefersModel(t *testing.T) {
 	}
 }
 
-// Cohere's only active embedding besides embed-english-v3.0 is
-// embed-v4.0, and it is pricier, so nominate must fall back to the
-// no-candidate wording instead of proposing a raise.
+// Cohere's other active embedding, embed-v4.0, is pricier, so nominate
+// falls back to the no-candidate wording.
 func TestNominateNeverRaisesCost(t *testing.T) {
 	engine, cat := loadEngine(t)
 	current := cat.ByName("embed-english-v3.0")

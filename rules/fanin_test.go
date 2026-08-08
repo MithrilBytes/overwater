@@ -10,8 +10,7 @@ import (
 )
 
 // analyzeRepo scans a repository written from a file map, so the fan in
-// tests see the call graph the scanner really builds rather than a
-// hand set field.
+// tests see the call graph the scanner builds, not a hand set field.
 func analyzeRepo(t *testing.T, cat *catalog.Catalog, files map[string]string) *scan.Report {
 	t.Helper()
 	dir := t.TempDir()
@@ -40,7 +39,6 @@ func wrapper(ref string, count int) scan.Site {
 	return s
 }
 
-// The helper everyone calls is priced for everyone who calls it.
 func TestFanInMultipliesUniformCallers(t *testing.T) {
 	engine, cat := loadEngine(t)
 	s := wrapper("claude-opus-5", 4)
@@ -60,10 +58,9 @@ func TestFanInMultipliesUniformCallers(t *testing.T) {
 	}
 }
 
-// The case the whole layer exists for: a helper with the model written
-// inside it, called from two hundred places, is two hundred call sites
-// worth of traffic.
-func TestFanInPricesAHelperWithNoModelParameter(t *testing.T) {
+// A helper with the model written inside it, called from two hundred
+// places, is two hundred call sites of traffic.
+func TestFanInFixedModelHelper(t *testing.T) {
 	engine, cat := loadEngine(t)
 	s := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})
 	s.FanIn, s.FanInStatus, s.FanInFunc = 200, scan.FanInExact, "complete"
@@ -73,9 +70,9 @@ func TestFanInPricesAHelperWithNoModelParameter(t *testing.T) {
 	}
 }
 
-// A count nobody could establish is not a count. Only an exact
-// resolution multiplies, whatever number rides along with it.
-func TestFanInOnlyMultipliesExactResolutions(t *testing.T) {
+// Only an exact resolution multiplies, whatever number rides along
+// with it.
+func TestFanInNeedsExactResolution(t *testing.T) {
 	engine, cat := loadEngine(t)
 	for _, status := range []string{scan.FanInDirect, scan.FanInAmbiguous, scan.FanInUnresolved} {
 		t.Run(status, func(t *testing.T) {
@@ -93,8 +90,8 @@ func TestFanInOnlyMultipliesExactResolutions(t *testing.T) {
 	}
 }
 
-// The wrapper the trap is about: a default model and eight callers,
-// three of which pass a model of their own.
+// A wrapper with a default model and eight callers, three of which
+// pass a model of their own.
 const mixedWrapper = `import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
@@ -111,7 +108,7 @@ export async function complete(prompt, model = "claude-opus-5") {
 // The three callers that pass their own model are call sites already.
 // The wrapper answers for the five that take its default, so the repo
 // is priced for the eight calls it makes and not for eleven.
-func TestFanInMixedCallersAreNotBilledTwice(t *testing.T) {
+func TestFanInMixedCallers(t *testing.T) {
 	engine, cat := loadEngine(t)
 	files := map[string]string{"llm.js": mixedWrapper}
 	for _, name := range []string{"cheap0", "cheap1", "cheap2"} {
@@ -169,7 +166,7 @@ func TestPragmaBeatsFanIn(t *testing.T) {
 
 // --volume and a config volume are per call site assumptions, and a
 // helper's callers are call sites, so fan in multiplies them.
-func TestFanInMultipliesTheFlagVolume(t *testing.T) {
+func TestFanInMultipliesFlagVolume(t *testing.T) {
 	engine, cat := loadEngine(t)
 	engine.DefaultVolumeSource = VolumeFlag
 	engine.Est.Volume.CallsPerMonth = 2000
@@ -181,7 +178,7 @@ func TestFanInMultipliesTheFlagVolume(t *testing.T) {
 
 // No fixture centralizes its calls, so no fixture gains a multiplier
 // and the five goldens hold still.
-func TestFixturesHaveNoFanInMultiplier(t *testing.T) {
+func TestFixturesFanInIsOne(t *testing.T) {
 	engine, cat := loadEngine(t)
 	for _, name := range []string{
 		"ts-chat-firehose", "py-extraction", "node-cron-summarizer",
