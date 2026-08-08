@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// TestMain isolates the catalog cache so tests never read or write the
-// developer's real cache, and a dev machine's newer cached prices can
-// never change test results.
+// TestMain isolates the catalog cache: tests never touch the
+// developer's real one, and its prices never change results.
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "overwater-test-cache")
 	if err == nil {

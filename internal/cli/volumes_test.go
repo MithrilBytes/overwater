@@ -10,7 +10,6 @@ import (
 	"testing"
 )
 
-// writeFile drops one file into a temp dir and returns its path.
 func writeFile(t *testing.T, dir, name, body string) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
@@ -20,7 +19,6 @@ func writeFile(t *testing.T, dir, name, body string) string {
 	return path
 }
 
-// run executes one command and returns its code and both streams.
 func run(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
@@ -133,8 +131,8 @@ func TestScanVolumesMalformedExitsTwo(t *testing.T) {
 	}
 }
 
-// The budget check prices what the report prices: a volume that triples
-// the reported spend triples the number the budget compares.
+// The budget check prices what the report prices: triple the volume,
+// triple the number the budget compares.
 func TestBudgetAgreesWithMeasuredVolumes(t *testing.T) {
 	base := volumesScan(t, repoWith(t, ""))
 	if len(base.Findings) != 1 {

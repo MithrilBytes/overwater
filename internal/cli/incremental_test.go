@@ -58,9 +58,9 @@ func readBaseline(t *testing.T, path string) (string, []string) {
 	return doc.Commit, files
 }
 
-// --update-baseline records the repo's HEAD, and --incremental then
-// scans only what git reports changed: the untracked file's finding is
-// counted and the committed baselined files are never rescanned.
+// --update-baseline records the repo's HEAD; --incremental then scans
+// only what git reports changed. The untracked file's finding counts,
+// the committed baselined files are never rescanned.
 func TestIncrementalScansChangedFiles(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
@@ -208,11 +208,10 @@ func TestIncrementalCoverageNote(t *testing.T) {
 	}
 }
 
-// Under the default core.quotePath, git wraps any path holding a non
-// ASCII byte in quotes and octal escapes it, and that string matches no
-// real file: --incremental used to drop the file and report a clean run
-// over a live deprecated model call. NUL terminated listings carry the
-// raw bytes the walker sees.
+// Under the default core.quotePath, git quotes and octal escapes any
+// path holding a non ASCII byte, and that string matches no real file:
+// --incremental used to drop the file and report clean over a live
+// deprecated model call. NUL terminated listings carry the raw bytes.
 func TestIncrementalFindsNonASCIIPaths(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
@@ -255,7 +254,7 @@ func TestIncrementalFindsNonASCIIPaths(t *testing.T) {
 }
 
 // Without a recorded commit the scan falls back to a full one with a
-// single stderr note. No git repository is needed to exercise this.
+// stderr note; no git repository needed.
 func TestIncrementalFallsBackWithoutCommit(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")

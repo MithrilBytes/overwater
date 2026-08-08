@@ -67,8 +67,7 @@ func TestExplainWithoutIDListsRules(t *testing.T) {
 	}
 }
 
-// An unknown id is exit 2 with the ids that do exist, so a typo from a
-// CI log is one command away from the right one.
+// An unknown id is exit 2 plus the ids that do exist.
 func TestExplainUnknownID(t *testing.T) {
 	code, stdout, stderr := runExplainArgs(t, "retry-amplifcation")
 	if code != ExitError {
@@ -95,9 +94,8 @@ func TestExplainTooManyIDs(t *testing.T) {
 	}
 }
 
-// Every rule explains itself. A rule whose candidate note or tripwire
-// were empty could not load, but a predicate that renders to nothing
-// would print a headless block.
+// Every rule explains itself. An empty note or tripwire cannot load,
+// but a predicate that renders to nothing would print a headless block.
 func TestExplainCoversEveryRule(t *testing.T) {
 	_, list, _ := runExplainArgs(t)
 	for _, line := range strings.Split(list, "\n") {

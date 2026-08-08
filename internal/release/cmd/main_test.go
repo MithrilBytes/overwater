@@ -25,8 +25,7 @@ func TestRunRendersStdinSubjects(t *testing.T) {
 	}
 }
 
-// An empty range is a real case: a tag that moves no commits still gets
-// notes rather than an error.
+// A tag that moves no commits still gets notes, not an error.
 func TestRunAcceptsAnEmptyLog(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"-prev", "v2.1.0", "-tag", "v2.1.1", "-repo", "r/r"}, strings.NewReader(""), &stdout, &stderr)

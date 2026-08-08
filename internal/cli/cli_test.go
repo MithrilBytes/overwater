@@ -215,8 +215,8 @@ func TestCatalogBuildWritesOutput(t *testing.T) {
 	}
 }
 
-// The exit code contract, edge by edge: every usage error across every
-// command is operational (2), lands on stderr, and leaves stdout empty.
+// The exit code contract: every usage error is exit 2, lands on stderr,
+// and leaves stdout empty.
 func TestUsageErrorsExitTwo(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "absent")
 	cases := []struct {

@@ -33,9 +33,9 @@ func writeCatalogDir(t *testing.T) string {
 	return dir
 }
 
-// The nightly price watch drives catalog diff; this walks its whole
-// happy path through the cli: report drift, then -write applies it,
-// bumps VERSION, rebuilds catalog.json, and snapshots history.
+// The nightly price watch drives catalog diff. The whole happy path:
+// report drift, then -write applies it, bumps VERSION, rebuilds
+// catalog.json, and snapshots history.
 func TestCatalogDiffReportsAndWritesDrift(t *testing.T) {
 	dir := writeCatalogDir(t)
 	litellm := filepath.Join(t.TempDir(), "litellm.json")

@@ -173,9 +173,8 @@ func TestRenderPinsVersionAndPerPlatformHashes(t *testing.T) {
 	}
 }
 
-// A platform with no SHA256SUMS line must stop the run. Writing the
-// manifest with an empty checksum field would install whatever the
-// release URL happens to serve.
+// A platform with no SHA256SUMS line must stop the run before anything
+// is written.
 func TestRenderRejectsMissingAsset(t *testing.T) {
 	for _, asset := range Assets {
 		t.Run(asset, func(t *testing.T) {

@@ -104,8 +104,8 @@ func TestConfigBudgetFailureExitsOne(t *testing.T) {
 	}
 }
 
-// --fail-on none is the promise that this run never exits 1, and the
-// budget keeps that promise too: the line still prints, the code stays 0.
+// --fail-on none never exits 1, budget included: the line still prints,
+// the code stays 0.
 func TestFailOnNoneIgnoresBudget(t *testing.T) {
 	code, _, stderr := scanRepo(t, repoWith(t, "budget_monthly_usd: 1\n"), "-fail-on", "none")
 	if code != ExitClean {

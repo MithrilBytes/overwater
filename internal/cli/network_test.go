@@ -39,7 +39,7 @@ func swapTransport(t *testing.T, tr http.RoundTripper) {
 	t.Cleanup(func() { httpClient.Transport = old })
 }
 
-// The trust boundary, enforced: zero requests under --offline.
+// --offline means zero requests.
 func TestScanOfflineMakesZeroRequests(t *testing.T) {
 	tr := &countingTransport{deny: true}
 	swapTransport(t, tr)
@@ -55,7 +55,6 @@ func TestScanOfflineMakesZeroRequests(t *testing.T) {
 	}
 }
 
-// A plain scan makes no requests at all.
 func TestPlainScanMakesZeroRequests(t *testing.T) {
 	tr := &countingTransport{deny: true}
 	swapTransport(t, tr)
@@ -67,8 +66,7 @@ func TestPlainScanMakesZeroRequests(t *testing.T) {
 	}
 }
 
-// With --refresh the scanner makes exactly the catalog request and
-// nothing else.
+// --refresh makes exactly the catalog request and nothing else.
 func TestScanRefreshHitsCatalogOnly(t *testing.T) {
 	tr := &countingTransport{}
 	swapTransport(t, tr)

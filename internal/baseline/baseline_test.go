@@ -68,8 +68,8 @@ func TestOutsideKeepsUnscannedEntries(t *testing.T) {
 }
 
 // The incremental update path end to end: findings become dated
-// entries, survive the disk round trip, and Outside then carves out
-// exactly the unscanned files with their dates intact.
+// entries, survive the disk round trip, and Outside carves out the
+// unscanned files with their dates intact.
 func TestIncrementalUpdateRoundTrip(t *testing.T) {
 	findings := []rules.Finding{
 		finding("r1", "scanned.ts", "aaaa"),
@@ -181,8 +181,8 @@ func TestAgedMatches(t *testing.T) {
 	}
 }
 
-// A recorded date that does not parse can never age out quietly: it
-// comes back as always aged with Days -1 so the caller can name it.
+// A date that does not parse comes back as always aged, Days -1, so the
+// caller can name it.
 func TestAgedMatchesBadDate(t *testing.T) {
 	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
 	matched := finding("r", "f.ts", "aaaa")

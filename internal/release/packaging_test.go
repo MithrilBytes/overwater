@@ -10,10 +10,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// The release workflow, the image workflow, and the Dockerfile all claim
-// to ship the same thing. Nothing in CI compiles them together, so their
-// agreement is pinned here: the version stamp, the Go toolchain, the base
-// image, the default command, and the permissions each workflow holds.
+// The release workflow, the image workflow, and the Dockerfile all ship
+// the same thing, and nothing in CI compiles them together. Their
+// agreement is pinned here: version stamp, Go toolchain, base image,
+// default command, and the permissions each workflow holds.
 
 func repoFile(t *testing.T, parts ...string) string {
 	t.Helper()
@@ -112,8 +112,8 @@ func TestDockerfileBuilderMatchesGoMod(t *testing.T) {
 }
 
 // The runtime stage has to be static (the binary is CGO_ENABLED=0) and
-// has to carry root CA certificates, because catalog refresh is an HTTPS
-// fetch and a certificate-less base fails it with an unverifiable error.
+// has to carry root CA certificates: catalog refresh is an HTTPS fetch,
+// and a certificate-less base fails it as unverifiable.
 func TestImageIsStaticAndCanReachHTTPS(t *testing.T) {
 	dockerfile := repoFile(t, "Dockerfile")
 	if !strings.Contains(dockerfile, "CGO_ENABLED=0") {

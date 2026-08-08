@@ -12,9 +12,8 @@ import (
 )
 
 // The composite action ships from this repo, so its hardening is pinned
-// here: inputs reach bash only through env, never by interpolation into
-// the script text, and report fences are four backticks so repo
-// controlled paths containing ``` cannot break out.
+// here: inputs reach bash only through env, and report fences are four
+// backticks so a repo controlled path containing ``` cannot break out.
 
 type actionStep struct {
 	Name string `yaml:"name"`
@@ -41,8 +40,7 @@ func actionSteps(t *testing.T) []actionStep {
 	return doc.Runs.Steps
 }
 
-// An input interpolated into a run script is re parsed as shell; every
-// input must arrive via an env: block instead.
+// An input interpolated into a run script is re parsed as shell.
 func TestActionInputsNotInlined(t *testing.T) {
 	re := regexp.MustCompile(`\$\{\{\s*inputs\.`)
 	for _, s := range actionSteps(t) {
@@ -68,8 +66,7 @@ func TestActionReportFencesAreFourBackticks(t *testing.T) {
 	t.Fatal("action.yml has no scan step")
 }
 
-// Every run script must at least parse; bash -n is the closest thing to
-// running the action locally.
+// bash -n is the closest thing to running the action locally.
 func TestActionScriptsParseAsBash(t *testing.T) {
 	bash, err := exec.LookPath("bash")
 	if err != nil {

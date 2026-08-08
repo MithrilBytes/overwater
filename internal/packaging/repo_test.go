@@ -9,10 +9,9 @@ import (
 )
 
 // action.yml is the repository's record of which release is pinned: it
-// already names a version and a sha256 per platform. The manifests
-// describe the same release, so they are checked against it. A bump
-// that touches one and not the other fails here rather than in a user's
-// package manager.
+// names a version and a sha256 per platform. The manifests describe the
+// same release, so they are checked against it. A bump that touches one
+// and not the other fails here, not in a user's package manager.
 
 var (
 	actionVersionRe = regexp.MustCompile(`version="(v[0-9]+\.[0-9]+\.[0-9]+)"`)
@@ -74,11 +73,10 @@ func TestFlakePinsTheSameRelease(t *testing.T) {
 	}
 }
 
-// Nix is not a build dependency of this repository and is not installed
-// on every machine, so these are the checks that hold without it: the
-// flake declares the outputs a user invokes, stamps the same symbol the
-// release workflow stamps, pins nixpkgs to a release branch rather than
-// a rolling one, and has balanced braces.
+// Nix is not a build dependency here, so these are the checks that hold
+// without it: the flake declares the outputs a user invokes, stamps the
+// symbol the release workflow stamps, pins nixpkgs to a release branch
+// rather than a rolling one, and has balanced braces.
 func TestFlakeStructure(t *testing.T) {
 	flake := repoFile(t, FlakePath)
 	for _, want := range []string{

@@ -183,8 +183,8 @@ func TestBaselineAgingNags(t *testing.T) {
 	}
 }
 
-// A recorded date that does not parse gets its own nag instead of
-// silently never aging, and still never moves the exit code.
+// A date that does not parse nags instead of silently never aging, and
+// still never moves the exit code.
 func TestUnreadableRecordedDateNags(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -206,9 +206,8 @@ func TestUnreadableRecordedDateNags(t *testing.T) {
 	}
 }
 
-// The age limit is a property of the baseline, not of the failure
-// policy: any and none get the same nags as new, and the nag still
-// never moves the exit code away from what the policy says.
+// The age limit belongs to the baseline, not the failure policy: any
+// and none nag like new, and the nag never moves the exit code.
 func TestAgingNagsRegardlessOfFailOn(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")

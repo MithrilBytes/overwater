@@ -29,7 +29,6 @@ func configuredRoots(t *testing.T, cfgA, cfgB string) (string, string) {
 	return a, b
 }
 
-// scanJSON runs scan -json with arbitrary arguments.
 func scanJSON(t *testing.T, args ...string) (int, jsonReport, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
@@ -43,10 +42,9 @@ func scanJSON(t *testing.T, args ...string) (int, jsonReport, string) {
 	return code, report, stderr.String()
 }
 
-// One engine per process, filtered in place per root, made a repo's
-// disable list outlive the repo: whichever root carried it silenced the
-// rule for every root scanned after it. Same repos, same command,
-// opposite verdict from argument order alone.
+// A repo's disable list must not outlive its root. It used to: one
+// engine filtered in place per root gave the same repos opposite
+// verdicts from argument order alone.
 func TestConfigDisableStaysInItsRoot(t *testing.T) {
 	a, b := configuredRoots(t, "disable: [deprecated-model]\n", "")
 	for _, order := range [][]string{{a, b}, {b, a}} {
@@ -61,9 +59,8 @@ func TestConfigDisableStaysInItsRoot(t *testing.T) {
 	}
 }
 
-// The same leak in fleet, where one pipeline served the whole list
-// file: the first repo's disable decided what the rest of the fleet
-// could still be caught for.
+// The same leak in fleet: one pipeline served the whole list file, so
+// the first repo's disable decided what the rest could be caught for.
 func TestFleetConfigStaysPerRepo(t *testing.T) {
 	a, b := configuredRoots(t, "disable: [deprecated-model]\n", "")
 	dir := t.TempDir()
@@ -95,9 +92,9 @@ func TestFleetConfigStaysPerRepo(t *testing.T) {
 	}
 }
 
-// A per repo volume leaked into the shared estimates too, so a merged
-// report could print a header at one root's volume over a body priced
-// at another's. One report gets one volume, whatever the order.
+// One report gets one volume, whatever the order. A per repo volume
+// used to leak into the shared estimates, heading a merged report at
+// one root's volume over a body priced at another's.
 func TestVolumeDisagreementUsesDefault(t *testing.T) {
 	a, b := configuredRoots(t, "volume: 1000000\n", "")
 	_, solo, _ := scanJSON(t, b)

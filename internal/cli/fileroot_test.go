@@ -18,9 +18,9 @@ func twoFileRepo(t *testing.T) string {
 	return repo
 }
 
-// A file path as a root reports that file and leaves its neighbours
-// alone. The old failure was the config loader opening root as a
-// directory, which never mentioned the path the user typed.
+// A file root reports that file and leaves its neighbours alone. The
+// config loader used to open the root as a directory and never name the
+// path the user typed.
 func TestScanFileRootScansOnlyThatFile(t *testing.T) {
 	repo := twoFileRepo(t)
 	code, stdout, stderr := runScanArgs(t, filepath.Join(repo, "legacy.js"))
@@ -73,8 +73,7 @@ func TestScanFileRootUsesDirectoryConfig(t *testing.T) {
 }
 
 // A pre commit hook passes a list of files. Files from one directory
-// merge into one scan of it, so neither the walk nor the report is
-// repeated and no multi root prefix appears.
+// merge into one scan of it: no repeated walk, no multi root prefix.
 func TestScanFileRootsInOneDirectoryMerge(t *testing.T) {
 	repo := twoFileRepo(t)
 	code, stdout, stderr := runScanArgs(t, filepath.Join(repo, "legacy.js"), filepath.Join(repo, "classify.js"))
@@ -103,8 +102,8 @@ func TestScanFileRootsAcrossDirectories(t *testing.T) {
 	}
 }
 
-// MODELS.md is the repository's verdict, so a one file scan has no
-// business writing one.
+// MODELS.md is the repository's verdict; a one file scan does not write
+// one.
 func TestScanFileRootRejectsModelsMD(t *testing.T) {
 	repo := twoFileRepo(t)
 	code, _, stderr := runScanArgs(t, "-models-md", filepath.Join(repo, "legacy.js"))

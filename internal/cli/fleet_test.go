@@ -84,9 +84,9 @@ func TestFleetFailOnAnyWhenClean(t *testing.T) {
 	}
 }
 
-// A fleet where every listed repo fails to scan learned nothing: that
-// is an operational error, not a clean rollup. Partial failures keep
-// the run green (covered above); an empty list stays clean too.
+// A fleet where every repo fails to scan learned nothing: exit 2, not a
+// clean rollup. Partial failures keep the run green; an empty list
+// stays clean.
 func TestFleetAllReposFail(t *testing.T) {
 	dir := t.TempDir()
 	list := filepath.Join(dir, "repos.txt")
