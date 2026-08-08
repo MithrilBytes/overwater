@@ -229,3 +229,37 @@ func TestDiffSkipsFloatingAliases(t *testing.T) {
 		t.Fatalf("missing = %v, want none; the dated alias still matches", missing)
 	}
 }
+
+// Cache rates are published as multiples of base input, so an applied
+// price change has to carry them along or they describe the old price.
+func TestApplyPricesScalesCacheRates(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte("2026-01-01\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := "id: test-model\nprovider: testco\ninput_per_mtok: 3.00\noutput_per_mtok: 15.00\n" +
+		"cache_read_per_mtok: 0.3\ncache_write_per_mtok: 3.75\ncontext_window: 1000\n" +
+		"tier: mid\nreleased: \"2025-01-01\"\nsource: https://example.com/pricing\n"
+	if err := os.WriteFile(filepath.Join(dir, "models", "test-model.yaml"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	drift := Drift{ID: "test-model", OursIn: 3, OursOut: 15, TheirsIn: 2, TheirsOut: 10, TheirsOutKnown: true}
+	if err := ApplyPrices(dir, []Drift{drift}, "2026-08-08"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "models", "test-model.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"input_per_mtok: 2\n", "output_per_mtok: 10\n",
+		"cache_read_per_mtok: 0.2\n", "cache_write_per_mtok: 2.5\n",
+	} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("entry missing %q:\n%s", want, got)
+		}
+	}
+}

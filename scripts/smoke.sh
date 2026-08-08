@@ -257,9 +257,13 @@ unset OVERWATER_BIN STUB_SMALL STUB_LARGE
 # Catalog.
 check catalog-show 0 "claude-haiku-4-5" "$bin" catalog show
 check catalog-refresh-offline 2 "network operation" "$bin" catalog refresh -offline
-"$bin" catalog build > /dev/null 2>&1
-if git diff --quiet -- catalog/catalog.json; then pass=$((pass + 1)); else
-  echo "FAIL catalog-build-idempotent"; fail=$((fail + 1)); git checkout -- catalog/catalog.json
+# Built into the work directory: writing over the tracked catalog.json
+# would make this check destroy uncommitted work when it fails.
+cp -R catalog "$work/catalog-src"
+"$bin" catalog build -dir "$work/catalog-src" > /dev/null 2>&1
+if cmp -s "$work/catalog-src/catalog.json" catalog/catalog.json; then pass=$((pass + 1)); else
+  echo "FAIL catalog-build-idempotent: catalog.json does not match its YAML entries"
+  fail=$((fail + 1))
 fi
 
 # Packaging manifests. sync-manifests ships with the source, not with

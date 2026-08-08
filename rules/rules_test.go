@@ -216,9 +216,9 @@ func TestFlagWithoutHost(t *testing.T) {
 		t.Fatalf("got %+v, want one uncached-system-prompt finding", got)
 	}
 	// claude-sonnet-5 publishes cache rates, so the candidate carries the
-	// steady state price: 500 input tokens at $3, 2,000 system tokens at
-	// the $0.30 read rate, 400 output tokens at $15, at 10,000 calls.
-	if got[0].CandidateText != "same model with cache_control on the system prompt, ~$81/mo" {
+	// steady state price: 500 input tokens at $2, 2,000 system tokens at
+	// the $0.20 read rate, 400 output tokens at $10, at 10,000 calls.
+	if got[0].CandidateText != "same model with cache_control on the system prompt, ~$54/mo" {
 		t.Errorf("candidate = %q", got[0].CandidateText)
 	}
 	if len(got[0].Flags) != 1 || got[0].Flags[0] != "No prompt caching on a 2,000-token repeated system prompt" {
@@ -559,11 +559,11 @@ func TestTotalMonthlyUSD(t *testing.T) {
 	ignored.Ignored = true
 	unknown := scan.Site{File: "x.ts", Line: 1, Ref: "mystery-9000"}
 	total := engine.TotalMonthlyUSD(&scan.Report{Sites: []scan.Site{a, b, ignored, unknown}}, cat)
-	// Each sonnet site: (500 input at $3 + 300 output at $15) per Mtok
-	// at 10,000 calls is $60/mo. Ignored sites still spend; unknown
+	// Each sonnet site: (500 input at $2 + 300 output at $10) per Mtok
+	// at 10,000 calls is $40/mo. Ignored sites still spend; unknown
 	// strings cannot be priced.
-	if total != 180 {
-		t.Errorf("total = %g, want 180", total)
+	if total != 120 {
+		t.Errorf("total = %g, want 120", total)
 	}
 }
 

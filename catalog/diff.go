@@ -3,6 +3,7 @@ package catalog
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -145,9 +146,35 @@ func differs(ours, theirs float64) bool {
 }
 
 var (
-	reInputLine  = regexp.MustCompile(`(?m)^input_per_mtok: .*$`)
-	reOutputLine = regexp.MustCompile(`(?m)^output_per_mtok: .*$`)
+	reInputLine      = regexp.MustCompile(`(?m)^input_per_mtok: .*$`)
+	reOutputLine     = regexp.MustCompile(`(?m)^output_per_mtok: .*$`)
+	reCacheReadLine  = regexp.MustCompile(`(?m)^cache_read_per_mtok: *([0-9.]+).*$`)
+	reCacheWriteLine = regexp.MustCompile(`(?m)^cache_write_per_mtok: *([0-9.]+).*$`)
 )
+
+// scaleCacheRates moves an entry's cache rates by the same factor as its
+// input price. Providers publish them as multiples of base input, so a
+// rate left at the old price is wrong the moment input moves.
+func scaleCacheRates(src string, oldIn, newIn float64) string {
+	if oldIn <= 0 || newIn <= 0 || oldIn == newIn {
+		return src
+	}
+	factor := newIn / oldIn
+	scale := func(s string, re *regexp.Regexp, key string) string {
+		return re.ReplaceAllStringFunc(s, func(line string) string {
+			m := re.FindStringSubmatch(line)
+			v, err := strconv.ParseFloat(m[1], 64)
+			if err != nil {
+				return line
+			}
+			// Rounded: 0.3 times two thirds is 0.19999999999999998,
+			// and a price file should not carry float dust.
+			return key + ": " + formatPrice(math.Round(v*factor*1e6)/1e6)
+		})
+	}
+	src = scale(src, reCacheReadLine, "cache_read_per_mtok")
+	return scale(src, reCacheWriteLine, "cache_write_per_mtok")
+}
 
 // ApplyPrices rewrites the drifted entries in place, bumps VERSION, and
 // regenerates catalog.json, leaving the rest of each file untouched. A
@@ -164,6 +191,7 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 		if n == 0 {
 			return fmt.Errorf("%s: no input_per_mtok line matched; price not applied", path)
 		}
+		out = []byte(scaleCacheRates(string(out), d.OursIn, d.TheirsIn))
 		if d.TheirsOutKnown {
 			out, n = replaceCounting(out, reOutputLine, "output_per_mtok: "+formatPrice(d.TheirsOut))
 			if n == 0 {
