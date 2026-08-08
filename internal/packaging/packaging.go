@@ -1,8 +1,7 @@
 // Package packaging renders the Homebrew, scoop, and winget manifests
 // for a release from that release's SHA256SUMS. The manifests pin one
-// version and the per platform sha256 the same way action.yml does; a
-// manifest whose checksum no longer matches the binary it names is
-// worse than no manifest, so they are generated, never hand edited.
+// version and the per platform sha256 the same way action.yml does, and
+// are generated, never hand edited.
 package packaging
 
 import (
@@ -99,7 +98,7 @@ type view struct {
 // Render returns every generated manifest keyed by its path relative to
 // the repository root. A version that is not vX.Y.Z, or a SHA256SUMS
 // missing any release asset, is an error: a manifest with an empty
-// checksum field would install whatever the URL happens to serve.
+// checksum installs whatever the URL happens to serve.
 func Render(version string, sums map[string]string) (map[string]string, error) {
 	m := versionRe.FindStringSubmatch(strings.TrimSpace(version))
 	if m == nil {
@@ -140,8 +139,8 @@ func Render(version string, sums map[string]string) (map[string]string, error) {
 
 // flakeVersionRe matches the one line of flake.nix that names a
 // release. The flake builds from source, so it carries no checksums,
-// and its vendorHash is a value only nix can compute; rewriting the
-// version in place is what keeps the rest of the file intact.
+// and its vendorHash is a value only nix can compute: the version is
+// rewritten in place to leave the rest of the file alone.
 var flakeVersionRe = regexp.MustCompile(`(?m)^(\s*version\s*=\s*)"[^"]*"(\s*;.*)$`)
 
 // BumpFlake returns flake.nix with its version set to the release's,

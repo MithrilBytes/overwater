@@ -24,7 +24,7 @@ var groups = []struct{ typ, heading string }{
 // not Conventional Commits at all. Their full subject line is kept.
 const otherHeading = "Other"
 
-// verifyLine survives from the fixed note the release used to carry.
+// verifyLine is the fixed footer every release carries.
 const verifyLine = "Static overwater binaries. Verify downloads against SHA256SUMS."
 
 // Notes renders the release notes for tag from the commit subjects since
@@ -76,9 +76,9 @@ func Notes(subjects []string, prevTag, tag, repo string) string {
 }
 
 // classify sorts one subject into a heading and renders its list item.
-// A known type is dropped from the item because the heading already says
-// it; the scope is kept as a prefix. Anything else keeps its whole
-// subject line so nothing in the log goes missing from the notes.
+// A known type is dropped from the item, since the heading already says
+// it, and the scope is kept as a prefix. Anything else keeps its whole
+// subject line, so nothing in the log goes missing from the notes.
 func classify(subject string) (heading, item string) {
 	prefix, rest, ok := strings.Cut(subject, ":")
 	if !ok {

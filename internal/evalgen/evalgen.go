@@ -1,6 +1,6 @@
 // Package evalgen writes the runnable A/B eval scripts. The scripts call
-// model APIs, but only when the user runs them, with the user's own
-// keys, outside the scanner. This package writes files and nothing else.
+// model APIs only when the user runs them, with the user's own keys.
+// This package writes files and nothing else.
 package evalgen
 
 import (

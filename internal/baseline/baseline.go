@@ -51,8 +51,7 @@ func Fingerprint(f rules.Finding) string {
 	return hex.EncodeToString(h[:])[:16]
 }
 
-// Entries converts findings into baseline entries stamped with today's
-// date.
+// Entries converts findings into entries stamped with today's date.
 func Entries(findings []rules.Finding) []Entry {
 	today := time.Now().Format(dateFormat)
 	entries := make([]Entry, 0, len(findings))
@@ -100,8 +99,8 @@ func Write(path string, entries []Entry, commit string) error {
 	return os.WriteFile(path, append(b, '\n'), 0o644)
 }
 
-// Load reads and validates a baseline. Errors here are operational,
-// exit 2, never findings.
+// Load reads and validates a baseline. Errors here are exit 2, never
+// findings.
 func Load(path string) (*File, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -118,8 +117,8 @@ func Load(path string) (*File, error) {
 }
 
 // Aged is a matched baseline entry recorded longer ago than the limit.
-// Days is -1 when the recorded date does not parse; an unreadable date
-// counts as always aged rather than ageing out quietly.
+// Days is -1 when the recorded date does not parse: an unreadable date
+// counts as always aged, never as fresh.
 type Aged struct {
 	Entry Entry
 	Days  int
@@ -127,8 +126,8 @@ type Aged struct {
 
 // AgedMatches returns the baseline entries that absorb a finding and
 // were recorded more than maxDays days before now. Undated version 1
-// entries never age. Matching mirrors NewFindings, multiset by
-// fingerprint, so an entry nags at most once per run.
+// entries never age. Matching is multiset by fingerprint, as in
+// NewFindings, so an entry nags at most once per run.
 func AgedMatches(findings []rules.Finding, bl *File, now time.Time, maxDays int) []Aged {
 	if maxDays <= 0 {
 		return nil

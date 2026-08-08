@@ -11,8 +11,7 @@ import (
 )
 
 // Prompt drafting: seed a prompts.jsonl from string literals near the
-// call site. Local reads only; the scripts say plainly that real
-// production prompts beat these.
+// call site. Local reads only.
 
 var reLiteral = regexp.MustCompile("`[^`]{20,600}`|\"[^\"\\n]{20,600}\"|'[^'\\n]{20,600}'")
 
@@ -46,9 +45,8 @@ func draftPrompts(content string, line int) []string {
 }
 
 // DraftPromptSets writes one <script>.prompts.jsonl per finding that got
-// an eval script, drafted from literals near its call site. Findings
-// whose file cannot be read or that yield no literals are skipped
-// silently: a draft is a convenience, not a requirement.
+// an eval script, drafted from literals near its call site. Unreadable
+// files and files with no literals are skipped silently.
 func DraftPromptSets(root string, findings []rules.Finding, dir string) ([]string, error) {
 	var written []string
 	for _, f := range findings {
