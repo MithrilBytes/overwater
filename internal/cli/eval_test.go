@@ -34,7 +34,7 @@ func pyCompile(t *testing.T, path string) {
 	}
 }
 
-func TestEvalGeneratesAnthropicScript(t *testing.T) {
+func TestEvalAnthropicScript(t *testing.T) {
 	dir, stdout, _ := runEvalTo(t, "py-extraction")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -64,7 +64,7 @@ func TestEvalGeneratesAnthropicScript(t *testing.T) {
 	pyCompile(t, path)
 }
 
-func TestEvalGeneratesEmbeddingScript(t *testing.T) {
+func TestEvalEmbeddingScript(t *testing.T) {
 	dir, _, _ := runEvalTo(t, "rag-frontier-embeddings")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestEvalGeneratesEmbeddingScript(t *testing.T) {
 
 // The batch finding nominates the same model on a cheaper endpoint, so
 // there is nothing to A/B; the deprecated model finding gets a script.
-func TestEvalSkipsSameModelCandidates(t *testing.T) {
+func TestEvalSkipsSameModel(t *testing.T) {
 	dir, _, stderr := runEvalTo(t, "node-cron-summarizer")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -113,7 +113,7 @@ func TestEvalSkipsSameModelCandidates(t *testing.T) {
 	}
 }
 
-func TestEvalCleanAppHasNothingToDo(t *testing.T) {
+func TestEvalNothingToDo(t *testing.T) {
 	_, stdout, _ := runEvalTo(t, "clean-app")
 	if !strings.Contains(stdout, "Nothing to eval.") {
 		t.Errorf("stdout = %q", stdout)

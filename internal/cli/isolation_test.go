@@ -45,7 +45,7 @@ func scanJSON(t *testing.T, args ...string) (int, jsonReport, string) {
 // A repo's disable list must not outlive its root. It used to: one
 // engine filtered in place per root gave the same repos opposite
 // verdicts from argument order alone.
-func TestConfigDisableStaysInItsRoot(t *testing.T) {
+func TestDisableStaysInItsRoot(t *testing.T) {
 	a, b := configuredRoots(t, "disable: [deprecated-model]\n", "")
 	for _, order := range [][]string{{a, b}, {b, a}} {
 		code, report, stderr := scanJSON(t, append([]string{"-fail-on", "any"}, order...)...)
@@ -95,7 +95,7 @@ func TestFleetConfigStaysPerRepo(t *testing.T) {
 // One report gets one volume, whatever the order. A per repo volume
 // used to leak into the shared estimates, heading a merged report at
 // one root's volume over a body priced at another's.
-func TestVolumeDisagreementUsesDefault(t *testing.T) {
+func TestVolumesDisagree(t *testing.T) {
 	a, b := configuredRoots(t, "volume: 1000000\n", "")
 	_, solo, _ := scanJSON(t, b)
 	if len(solo.Findings) != 1 || solo.CallsPerMonth != 10000 {
@@ -127,7 +127,7 @@ func TestVolumeDisagreementUsesDefault(t *testing.T) {
 
 // Roots that all want the same volume still get it: the header names it
 // and every number under it uses it.
-func TestVolumeHonoredWhenRootsAgree(t *testing.T) {
+func TestVolumesAgree(t *testing.T) {
 	cfg := "volume: 1000000\n"
 	a, b := configuredRoots(t, cfg, cfg)
 	_, solo, _ := scanJSON(t, a)
@@ -156,7 +156,7 @@ func TestVolumeHonoredWhenRootsAgree(t *testing.T) {
 
 // A threshold is a per repo knob like any other and must not survive
 // into the next root.
-func TestConfigThresholdStaysInItsRoot(t *testing.T) {
+func TestThresholdStaysInItsRoot(t *testing.T) {
 	a, b := configuredRoots(t, "thresholds:\n  deprecated-model:\n    min_duplicate_sites: 99\n", "")
 	code, report, stderr := scanJSON(t, "-fail-on", "any", a, b)
 	if code != ExitFindings {

@@ -51,7 +51,7 @@ func scanRepo(t *testing.T, dir string, extra ...string) (int, jsonReport, strin
 	return code, report, stderr.String()
 }
 
-func TestConfigDisableSilencesRule(t *testing.T) {
+func TestConfigDisable(t *testing.T) {
 	code, report, stderr := scanRepo(t, repoWith(t, ""))
 	if code != ExitClean || len(report.Findings) != 1 || report.Findings[0].Rule != "deprecated-model" {
 		t.Fatalf("control run: code %d, findings %+v, stderr %q", code, report.Findings, stderr)
@@ -87,7 +87,7 @@ func TestConfigVolumeLosesToFlag(t *testing.T) {
 	}
 }
 
-func TestConfigBudgetFailureExitsOne(t *testing.T) {
+func TestConfigBudget(t *testing.T) {
 	code, report, stderr := scanRepo(t, repoWith(t, "budget_monthly_usd: 1\n"))
 	if code != ExitFindings {
 		t.Fatalf("exit code = %d, want %d for a blown budget; stderr = %q", code, ExitFindings, stderr)
@@ -116,7 +116,7 @@ func TestFailOnNoneIgnoresBudget(t *testing.T) {
 	}
 }
 
-func TestConfigUnknownFieldExitsTwo(t *testing.T) {
+func TestConfigUnknownField(t *testing.T) {
 	code, _, stderr := scanRepo(t, repoWith(t, "budget: 1\n"))
 	if code != ExitError {
 		t.Fatalf("exit code = %d, want %d for an unknown config field", code, ExitError)
@@ -126,7 +126,7 @@ func TestConfigUnknownFieldExitsTwo(t *testing.T) {
 	}
 }
 
-func TestConfigUnknownThresholdExitsTwo(t *testing.T) {
+func TestConfigUnknownThreshold(t *testing.T) {
 	code, _, stderr := scanRepo(t, repoWith(t, "thresholds:\n  deprecated-model:\n    min_carrots: 3\n"))
 	if code != ExitError || !strings.Contains(stderr, "min_carrots") {
 		t.Errorf("code %d, stderr %q, want exit 2 naming the bad field", code, stderr)
@@ -137,7 +137,7 @@ func TestConfigUnknownThresholdExitsTwo(t *testing.T) {
 	}
 }
 
-func TestConfigThresholdOverridesRuleWhen(t *testing.T) {
+func TestConfigThreshold(t *testing.T) {
 	prompt := strings.Repeat("Route the ticket to the right team with care. ", 130)
 	src := "const SYSTEM = `" + prompt + "`;\n" + `
 export async function chatWithUsers(text: string) {

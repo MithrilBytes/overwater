@@ -191,7 +191,7 @@ Static overwater binaries. Verify downloads against SHA256SUMS.
 
 // A backtick in a subject would open a code span and swallow the text
 // after it, so it is escaped like the rest of the inline markdown.
-func TestBacktickInSubjectIsEscaped(t *testing.T) {
+func TestBacktickIsEscaped(t *testing.T) {
 	got := Notes([]string{"docs: quote `overwater scan` plainly"}, "v1", "v2", "r/r")
 	want := "- quote \\`overwater scan\\` plainly\n"
 	if !strings.Contains(got, want) {

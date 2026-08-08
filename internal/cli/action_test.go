@@ -50,7 +50,7 @@ func TestActionInputsNotInlined(t *testing.T) {
 	}
 }
 
-func TestActionReportFencesAreFourBackticks(t *testing.T) {
+func TestActionReportFences(t *testing.T) {
 	for _, s := range actionSteps(t) {
 		if s.Name != "scan" {
 			continue
@@ -67,7 +67,7 @@ func TestActionReportFencesAreFourBackticks(t *testing.T) {
 }
 
 // bash -n is the closest thing to running the action locally.
-func TestActionScriptsParseAsBash(t *testing.T) {
+func TestActionScriptsParse(t *testing.T) {
 	bash, err := exec.LookPath("bash")
 	if err != nil {
 		t.Skip("bash is not on PATH")

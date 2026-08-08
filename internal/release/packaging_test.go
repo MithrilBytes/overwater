@@ -55,7 +55,7 @@ var stampRE = regexp.MustCompile(`-X ([\w./-]+)\.(\w+)=`)
 
 // The Dockerfile and the release workflow have to write the version into
 // the same symbol, and that symbol has to be a variable that still exists.
-func TestVersionStampIsOneSymbolThatExists(t *testing.T) {
+func TestVersionStampSymbolExists(t *testing.T) {
 	docker := stampRE.FindStringSubmatch(repoFile(t, "Dockerfile"))
 	if docker == nil {
 		t.Fatal("Dockerfile does not stamp a version into any symbol")
@@ -114,7 +114,7 @@ func TestDockerfileBuilderMatchesGoMod(t *testing.T) {
 // The runtime stage has to be static (the binary is CGO_ENABLED=0) and
 // has to carry root CA certificates: catalog refresh is an HTTPS fetch,
 // and a certificate-less base fails it as unverifiable.
-func TestImageIsStaticAndCanReachHTTPS(t *testing.T) {
+func TestImageIsStaticWithCACerts(t *testing.T) {
 	dockerfile := repoFile(t, "Dockerfile")
 	if !strings.Contains(dockerfile, "CGO_ENABLED=0") {
 		t.Error("Dockerfile does not build with CGO_ENABLED=0, so the binary is not static")
@@ -131,7 +131,7 @@ func TestImageIsStaticAndCanReachHTTPS(t *testing.T) {
 
 // The documented usage is a repo mounted at /repo, so the bare image has
 // to scan it with no arguments.
-func TestImageScansTheMountedVolumeByDefault(t *testing.T) {
+func TestImageScansMountedVolume(t *testing.T) {
 	dockerfile := repoFile(t, "Dockerfile")
 	for _, want := range []string{
 		`WORKDIR /repo`,
@@ -162,7 +162,7 @@ func TestImageScansTheMountedVolumeByDefault(t *testing.T) {
 
 // Attestation needs id-token and attestations write. Anything beyond
 // those and contents: write is more than the release job has any use for.
-func TestReleaseWorkflowAttestsWithNothingBroader(t *testing.T) {
+func TestReleaseAttestScope(t *testing.T) {
 	w := readWorkflow(t, "release.yml")
 	want := map[string]string{"contents": "write", "id-token": "write", "attestations": "write"}
 	for k, v := range want {
@@ -194,7 +194,7 @@ func TestReleaseWorkflowAttestsWithNothingBroader(t *testing.T) {
 
 // The notes are generated now, so a hardcoded --notes would silently
 // bypass this package.
-func TestReleaseWorkflowUsesGeneratedNotes(t *testing.T) {
+func TestReleaseUsesGeneratedNotes(t *testing.T) {
 	w := readWorkflow(t, "release.yml")
 	var run string
 	for _, s := range w.Jobs["release"].Steps {
@@ -213,7 +213,7 @@ func TestReleaseWorkflowUsesGeneratedNotes(t *testing.T) {
 
 // The image job publishes with the workflow's own token, only on a tag,
 // and tags both the version and latest.
-func TestImageWorkflowPublishesOnTagsOnly(t *testing.T) {
+func TestImagePublishesOnTagsOnly(t *testing.T) {
 	raw := repoFile(t, ".github", "workflows", "image.yml")
 	w := readWorkflow(t, "image.yml")
 	job := w.Jobs["image"]

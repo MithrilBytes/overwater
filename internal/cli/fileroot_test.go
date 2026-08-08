@@ -21,7 +21,7 @@ func twoFileRepo(t *testing.T) string {
 // A file root reports that file and leaves its neighbours alone. The
 // config loader used to open the root as a directory and never name the
 // path the user typed.
-func TestScanFileRootScansOnlyThatFile(t *testing.T) {
+func TestFileRootScansOneFile(t *testing.T) {
 	repo := twoFileRepo(t)
 	code, stdout, stderr := runScanArgs(t, filepath.Join(repo, "legacy.js"))
 	if code != ExitClean {
@@ -39,7 +39,7 @@ func TestScanFileRootScansOnlyThatFile(t *testing.T) {
 }
 
 // The findings policy is the same for a file as for a directory.
-func TestScanFileRootFailsOnAny(t *testing.T) {
+func TestFileRootFailOnAny(t *testing.T) {
 	repo := twoFileRepo(t)
 	code, _, stderr := runScanArgs(t, "-fail-on", "any", filepath.Join(repo, "legacy.js"))
 	if code != ExitFindings {
@@ -56,7 +56,7 @@ func TestScanFileRootFailsOnAny(t *testing.T) {
 
 // The containing directory's .overwater.yaml applies, which is the only
 // repo config a single file has.
-func TestScanFileRootUsesDirectoryConfig(t *testing.T) {
+func TestFileRootUsesDirConfig(t *testing.T) {
 	repo := twoFileRepo(t)
 	writeRepoFile(t, repo, configName, "disable:\n  - deprecated-model\n")
 	code, stdout, stderr := runScanArgs(t, "-fail-on", "any", filepath.Join(repo, "legacy.js"))
@@ -74,7 +74,7 @@ func TestScanFileRootUsesDirectoryConfig(t *testing.T) {
 
 // A pre commit hook passes a list of files. Files from one directory
 // merge into one scan of it: no repeated walk, no multi root prefix.
-func TestScanFileRootsInOneDirectoryMerge(t *testing.T) {
+func TestFileRootsMergeByDir(t *testing.T) {
 	repo := twoFileRepo(t)
 	code, stdout, stderr := runScanArgs(t, filepath.Join(repo, "legacy.js"), filepath.Join(repo, "classify.js"))
 	if code != ExitClean {
@@ -89,7 +89,7 @@ func TestScanFileRootsInOneDirectoryMerge(t *testing.T) {
 }
 
 // Files from different directories keep the multi root prefixes.
-func TestScanFileRootsAcrossDirectories(t *testing.T) {
+func TestFileRootsAcrossDirs(t *testing.T) {
 	a, b := twoRoots(t)
 	code, stdout, stderr := runScanArgs(t, filepath.Join(a, "classify.js"), filepath.Join(b, "legacy.js"))
 	if code != ExitClean {
@@ -104,7 +104,7 @@ func TestScanFileRootsAcrossDirectories(t *testing.T) {
 
 // MODELS.md is the repository's verdict; a one file scan does not write
 // one.
-func TestScanFileRootRejectsModelsMD(t *testing.T) {
+func TestFileRootRejectsModelsMD(t *testing.T) {
 	repo := twoFileRepo(t)
 	code, _, stderr := runScanArgs(t, "-models-md", filepath.Join(repo, "legacy.js"))
 	if code != ExitError {

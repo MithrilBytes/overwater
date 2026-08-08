@@ -61,7 +61,7 @@ func readBaseline(t *testing.T, path string) (string, []string) {
 // --update-baseline records the repo's HEAD; --incremental then scans
 // only what git reports changed. The untracked file's finding counts,
 // the committed baselined files are never rescanned.
-func TestIncrementalScansChangedFiles(t *testing.T) {
+func TestIncrementalChangedFiles(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -99,7 +99,7 @@ func TestIncrementalScansChangedFiles(t *testing.T) {
 
 // Baselined findings in unscanned files are assumed unchanged: when
 // only an unrelated file changes, the ratchet stays green.
-func TestIncrementalRatchetStaysGreen(t *testing.T) {
+func TestIncrementalRatchetGreen(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -122,7 +122,7 @@ func TestIncrementalRatchetStaysGreen(t *testing.T) {
 
 // An incremental --update-baseline keeps the entries for files it never
 // scanned instead of pruning them.
-func TestIncrementalUpdateKeepsUnscanned(t *testing.T) {
+func TestIncrementalKeepsUnscanned(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -212,7 +212,7 @@ func TestIncrementalCoverageNote(t *testing.T) {
 // path holding a non ASCII byte, and that string matches no real file:
 // --incremental used to drop the file and report clean over a live
 // deprecated model call. NUL terminated listings carry the raw bytes.
-func TestIncrementalFindsNonASCIIPaths(t *testing.T) {
+func TestIncrementalNonASCIIPaths(t *testing.T) {
 	gitOrSkip(t)
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
@@ -255,7 +255,7 @@ func TestIncrementalFindsNonASCIIPaths(t *testing.T) {
 
 // Without a recorded commit the scan falls back to a full one with a
 // stderr note; no git repository needed.
-func TestIncrementalFallsBackWithoutCommit(t *testing.T) {
+func TestIncrementalNoCommit(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {

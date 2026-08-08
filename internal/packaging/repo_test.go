@@ -61,7 +61,7 @@ func TestManifestsMatchPinnedRelease(t *testing.T) {
 	}
 }
 
-func TestFlakePinsTheSameRelease(t *testing.T) {
+func TestFlakePinsSameRelease(t *testing.T) {
 	version, _ := pinnedRelease(t)
 	flake := repoFile(t, FlakePath)
 	want := `version = "` + strings.TrimPrefix(version, "v") + `";`

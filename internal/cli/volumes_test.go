@@ -50,7 +50,7 @@ func volumesScan(t *testing.T, args ...string) volumeReport {
 }
 
 // A volumes file moves the dollars and the wording together.
-func TestScanWithVolumesFile(t *testing.T) {
+func TestVolumesFile(t *testing.T) {
 	repo := repoWith(t, "")
 	base := volumesScan(t, repo)
 	if len(base.Findings) != 1 || base.Findings[0].VolumeSource != "estimate" {
@@ -78,7 +78,7 @@ func TestScanWithVolumesFile(t *testing.T) {
 }
 
 // A model key covers the sites the file does not name one by one.
-func TestScanVolumesModelKey(t *testing.T) {
+func TestVolumesModelKey(t *testing.T) {
 	repo := repoWith(t, "")
 	vols := writeFile(t, t.TempDir(), "volumes.json", `{"models": {"text-davinci-003": 40000}}`)
 	got := volumesScan(t, "-volumes", vols, repo)
@@ -87,7 +87,7 @@ func TestScanVolumesModelKey(t *testing.T) {
 	}
 }
 
-func TestScanVolumesReportsUnknownKeys(t *testing.T) {
+func TestVolumesUnknownKeys(t *testing.T) {
 	repo := repoWith(t, "")
 	vols := writeFile(t, t.TempDir(), "volumes.json",
 		`{"sites": {"gone.py:9": 1}, "models": {"text-davinci-003": 2, "gpt-4o": 3}}`)
@@ -105,7 +105,7 @@ func TestScanVolumesReportsUnknownKeys(t *testing.T) {
 	}
 }
 
-func TestScanVolumesMalformedExitsTwo(t *testing.T) {
+func TestVolumesMalformed(t *testing.T) {
 	repo := repoWith(t, "")
 	dir := t.TempDir()
 	cases := map[string]string{
@@ -133,7 +133,7 @@ func TestScanVolumesMalformedExitsTwo(t *testing.T) {
 
 // The budget check prices what the report prices: triple the volume,
 // triple the number the budget compares.
-func TestBudgetAgreesWithMeasuredVolumes(t *testing.T) {
+func TestBudgetUsesMeasuredVolumes(t *testing.T) {
 	base := volumesScan(t, repoWith(t, ""))
 	if len(base.Findings) != 1 {
 		t.Fatalf("control run: %+v", base.Findings)

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRunRendersStdinSubjects(t *testing.T) {
+func TestRunRendersStdin(t *testing.T) {
 	stdin := strings.NewReader("feat(cli): add explain\nchore: pin the action\n")
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"-prev", "v2.1.0", "-tag", "v2.1.1", "-repo", "MithrilBytes/overwater"}, stdin, &stdout, &stderr)
@@ -26,7 +26,7 @@ func TestRunRendersStdinSubjects(t *testing.T) {
 }
 
 // A tag that moves no commits still gets notes, not an error.
-func TestRunAcceptsAnEmptyLog(t *testing.T) {
+func TestRunEmptyLog(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := run([]string{"-prev", "v2.1.0", "-tag", "v2.1.1", "-repo", "r/r"}, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 {
@@ -57,7 +57,7 @@ type failingReader struct{}
 
 func (failingReader) Read([]byte) (int, error) { return 0, errors.New("pipe broke") }
 
-func TestRunReportsAnUnreadableStdin(t *testing.T) {
+func TestRunUnreadableStdin(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-tag", "v1", "-repo", "r/r"}, failingReader{}, &stdout, &stderr); code != 2 {
 		t.Errorf("exit %d, want 2", code)

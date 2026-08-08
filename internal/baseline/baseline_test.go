@@ -25,7 +25,8 @@ func TestNewFindingsMultiset(t *testing.T) {
 	}
 }
 
-func TestFingerprintIgnoresLineButNotContent(t *testing.T) {
+// Line drift keeps the fingerprint; different call site text does not.
+func TestFingerprintIgnoresLine(t *testing.T) {
 	a := finding("r", "f.ts", "aaaa")
 	b := a
 	b.Line = 99
@@ -56,7 +57,7 @@ func TestWriteLoadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestOutsideKeepsUnscannedEntries(t *testing.T) {
+func TestOutsideKeepsUnscanned(t *testing.T) {
 	bl := &File{Version: version, Findings: []Entry{
 		{Fingerprint: "aa", File: "scanned.js", Recorded: "2026-01-01"},
 		{Fingerprint: "bb", File: "kept.js", Recorded: "2026-01-01"},
@@ -129,7 +130,7 @@ func TestLoadVersionOneUndated(t *testing.T) {
 	}
 }
 
-func TestWriteStampsRecordedToday(t *testing.T) {
+func TestWriteStampsToday(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bl.json")
 	before := time.Now().Format("2006-01-02")
 	if err := Write(path, Entries([]rules.Finding{finding("r", "f.ts", "aaaa")}), ""); err != nil {

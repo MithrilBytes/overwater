@@ -40,7 +40,7 @@ func swapTransport(t *testing.T, tr http.RoundTripper) {
 }
 
 // --offline means zero requests.
-func TestScanOfflineMakesZeroRequests(t *testing.T) {
+func TestOfflineMakesNoRequests(t *testing.T) {
 	tr := &countingTransport{deny: true}
 	swapTransport(t, tr)
 	code, _, stderr := runScanArgs(t, "-refresh", "-offline", fixturePath("clean-app"))
@@ -55,7 +55,7 @@ func TestScanOfflineMakesZeroRequests(t *testing.T) {
 	}
 }
 
-func TestPlainScanMakesZeroRequests(t *testing.T) {
+func TestPlainScanMakesNoRequests(t *testing.T) {
 	tr := &countingTransport{deny: true}
 	swapTransport(t, tr)
 	if code, _, stderr := runScanArgs(t, fixturePath("clean-app")); code != ExitClean {
@@ -67,7 +67,7 @@ func TestPlainScanMakesZeroRequests(t *testing.T) {
 }
 
 // --refresh makes exactly the catalog request and nothing else.
-func TestScanRefreshHitsCatalogOnly(t *testing.T) {
+func TestRefreshHitsCatalogOnly(t *testing.T) {
 	tr := &countingTransport{}
 	swapTransport(t, tr)
 	code, _, stderr := runScanArgs(t, "-refresh", fixturePath("clean-app"))
@@ -80,7 +80,7 @@ func TestScanRefreshHitsCatalogOnly(t *testing.T) {
 }
 
 // A failed refresh degrades to local prices instead of failing the scan.
-func TestScanRefreshFailureFallsBack(t *testing.T) {
+func TestRefreshFailureFallsBack(t *testing.T) {
 	tr := &countingTransport{deny: true}
 	swapTransport(t, tr)
 	code, stdout, stderr := runScanArgs(t, "-refresh", fixturePath("clean-app"))
@@ -110,7 +110,7 @@ func TestCatalogRefreshCommand(t *testing.T) {
 	}
 }
 
-func TestCatalogRefreshRejectsOffline(t *testing.T) {
+func TestCatalogRefreshOffline(t *testing.T) {
 	tr := &countingTransport{deny: true}
 	swapTransport(t, tr)
 	var stdout, stderr bytes.Buffer

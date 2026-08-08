@@ -61,7 +61,7 @@ func fixturePath(name string) string {
 	return filepath.Join("..", "..", "fixtures", name)
 }
 
-func TestScanCleanAppPrintsNullVerdict(t *testing.T) {
+func TestScanNullVerdict(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"scan", fixturePath("clean-app")}, &stdout, &stderr)
 	if code != ExitClean {
@@ -72,7 +72,7 @@ func TestScanCleanAppPrintsNullVerdict(t *testing.T) {
 	}
 }
 
-func TestScanFirehosePrintsFindings(t *testing.T) {
+func TestScanFindings(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"scan", fixturePath("ts-chat-firehose")}, &stdout, &stderr)
 	if code != ExitClean {
@@ -89,7 +89,7 @@ func TestScanFirehosePrintsFindings(t *testing.T) {
 	}
 }
 
-func TestScanJSONWithVolumeOverride(t *testing.T) {
+func TestScanJSONVolumeOverride(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"scan", "-json", "-volume", "20000", fixturePath("py-extraction")}, &stdout, &stderr)
 	if code != ExitClean {
@@ -177,7 +177,7 @@ func TestScanWritesModelsMD(t *testing.T) {
 	}
 }
 
-func TestScanMissingRepoFails(t *testing.T) {
+func TestScanMissingRepo(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"scan", filepath.Join("does", "not", "exist")}, &stdout, &stderr)
 	if code != ExitError {
@@ -188,7 +188,7 @@ func TestScanMissingRepoFails(t *testing.T) {
 	}
 }
 
-func TestCatalogBuildWritesOutput(t *testing.T) {
+func TestCatalogBuild(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
 		t.Fatal(err)

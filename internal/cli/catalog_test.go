@@ -36,7 +36,7 @@ func writeCatalogDir(t *testing.T) string {
 // The nightly price watch drives catalog diff. The whole happy path:
 // report drift, then -write applies it, bumps VERSION, rebuilds
 // catalog.json, and snapshots history.
-func TestCatalogDiffReportsAndWritesDrift(t *testing.T) {
+func TestCatalogDiffDrift(t *testing.T) {
 	dir := writeCatalogDir(t)
 	litellm := filepath.Join(t.TempDir(), "litellm.json")
 	prices := `{
@@ -109,7 +109,7 @@ func TestCatalogDiffReportsAndWritesDrift(t *testing.T) {
 }
 
 // A drift free catalog with -write must not bump anything.
-func TestCatalogDiffWriteNoDrift(t *testing.T) {
+func TestCatalogDiffNoDrift(t *testing.T) {
 	dir := writeCatalogDir(t)
 	litellm := filepath.Join(t.TempDir(), "litellm.json")
 	prices := `{"test-model": {"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06}}`

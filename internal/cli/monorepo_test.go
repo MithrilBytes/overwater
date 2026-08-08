@@ -24,7 +24,7 @@ func twoRoots(t *testing.T) (string, string) {
 
 // Multiple roots merge into one report with each finding's file
 // prefixed by its root's base name, and stderr counts per root.
-func TestScanMultipleRootsPrefixesFindings(t *testing.T) {
+func TestMultiRootPrefixes(t *testing.T) {
 	a, b := twoRoots(t)
 	code, stdout, stderr := runScanArgs(t, a, b)
 	if code != ExitClean {
@@ -42,7 +42,7 @@ func TestScanMultipleRootsPrefixesFindings(t *testing.T) {
 }
 
 // The ratchet works unchanged over the merged, prefixed finding set.
-func TestScanMultiRootBaselineRatchet(t *testing.T) {
+func TestMultiRootRatchet(t *testing.T) {
 	a, b := twoRoots(t)
 	bl := filepath.Join(t.TempDir(), ".overwater.json")
 	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", a, b); code != ExitClean {
@@ -66,7 +66,7 @@ func TestScanMultiRootBaselineRatchet(t *testing.T) {
 }
 
 // --models-md has no home when several roots merge into one report.
-func TestScanMultiRootRejectsModelsMD(t *testing.T) {
+func TestMultiRootRejectsModelsMD(t *testing.T) {
 	a, b := twoRoots(t)
 	code, _, stderr := runScanArgs(t, "-models-md", a, b)
 	if code != ExitError {

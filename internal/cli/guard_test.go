@@ -49,7 +49,7 @@ func writeRepoFile(t *testing.T, repo, name, content string) {
 
 // The full ratchet lifecycle: record, pass while baselined, survive
 // line drift, fail on a new finding, prune on update after a fix.
-func TestBaselineRatchetLifecycle(t *testing.T) {
+func TestRatchetLifecycle(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
@@ -151,7 +151,7 @@ func rewriteRecorded(t *testing.T, path, recorded string) {
 
 // Aging: entries past --max-baseline-age-days nag on stderr and never
 // change the exit code; fresh entries stay quiet.
-func TestBaselineAgingNags(t *testing.T) {
+func TestAgingNags(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
@@ -185,7 +185,7 @@ func TestBaselineAgingNags(t *testing.T) {
 
 // A date that does not parse nags instead of silently never aging, and
 // still never moves the exit code.
-func TestUnreadableRecordedDateNags(t *testing.T) {
+func TestUnreadableDateNags(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
@@ -208,7 +208,7 @@ func TestUnreadableRecordedDateNags(t *testing.T) {
 
 // The age limit belongs to the baseline, not the failure policy: any
 // and none nag like new, and the nag never moves the exit code.
-func TestAgingNagsRegardlessOfFailOn(t *testing.T) {
+func TestAgingNagsAnyPolicy(t *testing.T) {
 	dir := t.TempDir()
 	repo := filepath.Join(dir, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
@@ -240,26 +240,26 @@ func TestAgingNagsRegardlessOfFailOn(t *testing.T) {
 	}
 }
 
-func TestFailOnAnyFailsWithFindings(t *testing.T) {
+func TestFailOnAnyFails(t *testing.T) {
 	code, _, stderr := runScanArgs(t, "-fail-on", "any", fixturePath("ts-chat-firehose"))
 	if code != ExitFindings {
 		t.Fatalf("exit = %d, want %d; stderr = %q", code, ExitFindings, stderr)
 	}
 }
 
-func TestFailOnAnyPassesWhenClean(t *testing.T) {
+func TestFailOnAnyClean(t *testing.T) {
 	if code, _, stderr := runScanArgs(t, "-fail-on", "any", fixturePath("clean-app")); code != ExitClean {
 		t.Fatalf("exit = %d, stderr = %q", code, stderr)
 	}
 }
 
-func TestFailOnNonePassesDespiteFindings(t *testing.T) {
+func TestFailOnNonePasses(t *testing.T) {
 	if code, _, _ := runScanArgs(t, "-fail-on", "none", fixturePath("ts-chat-firehose")); code != ExitClean {
 		t.Fatalf("exit = %d, want clean under fail-on none", code)
 	}
 }
 
-func TestExplicitFailOnNewNeedsBaseline(t *testing.T) {
+func TestFailOnNewNeedsBaseline(t *testing.T) {
 	code, _, stderr := runScanArgs(t, "-fail-on", "new", fixturePath("clean-app"))
 	if code != ExitError {
 		t.Fatalf("exit = %d, want %d", code, ExitError)
@@ -269,13 +269,13 @@ func TestExplicitFailOnNewNeedsBaseline(t *testing.T) {
 	}
 }
 
-func TestUnknownFailOnExitsTwo(t *testing.T) {
+func TestUnknownFailOn(t *testing.T) {
 	if code, _, _ := runScanArgs(t, "-fail-on", "sometimes", fixturePath("clean-app")); code != ExitError {
 		t.Fatalf("exit = %d, want %d", code, ExitError)
 	}
 }
 
-func TestInvalidBaselineExitsTwo(t *testing.T) {
+func TestInvalidBaseline(t *testing.T) {
 	dir := t.TempDir()
 	bl := filepath.Join(dir, ".overwater.json")
 	if err := os.WriteFile(bl, []byte("not json"), 0o644); err != nil {
@@ -313,7 +313,7 @@ func TestUpdateBaselineIgnoresBudget(t *testing.T) {
 	}
 }
 
-func TestMissingBaselineExitsTwo(t *testing.T) {
+func TestMissingBaseline(t *testing.T) {
 	dir := t.TempDir()
 	code, _, stderr := runScanArgs(t, "-baseline", filepath.Join(dir, "absent.json"), fixturePath("clean-app"))
 	if code != ExitError {

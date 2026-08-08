@@ -39,7 +39,7 @@ func TestExplainRule(t *testing.T) {
 }
 
 // A finding rule has no flag line to print.
-func TestExplainFindingHasNoFlagLine(t *testing.T) {
+func TestExplainNoFlagLine(t *testing.T) {
 	code, stdout, stderr := runExplainArgs(t, "frontier-extraction")
 	if code != ExitClean {
 		t.Fatalf("exit = %d, stderr = %q", code, stderr)
@@ -52,7 +52,7 @@ func TestExplainFindingHasNoFlagLine(t *testing.T) {
 	}
 }
 
-func TestExplainWithoutIDListsRules(t *testing.T) {
+func TestExplainListsRules(t *testing.T) {
 	code, stdout, stderr := runExplainArgs(t)
 	if code != ExitClean {
 		t.Fatalf("exit = %d, stderr = %q", code, stderr)

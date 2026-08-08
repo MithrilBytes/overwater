@@ -37,7 +37,7 @@ const newDoc = `{
   ]
 }`
 
-func TestDiffReportsChanges(t *testing.T) {
+func TestDiffChanges(t *testing.T) {
 	dir := t.TempDir()
 	oldPath := writeDoc(t, dir, "old.json", oldDoc)
 	newPath := writeDoc(t, dir, "new.json", newDoc)
@@ -55,7 +55,7 @@ func TestDiffReportsChanges(t *testing.T) {
 	}
 }
 
-func TestDiffIdenticalReportsOnlyTotal(t *testing.T) {
+func TestDiffIdentical(t *testing.T) {
 	dir := t.TempDir()
 	oldPath := writeDoc(t, dir, "old.json", oldDoc)
 	newPath := writeDoc(t, dir, "new.json", oldDoc)
@@ -69,7 +69,7 @@ func TestDiffIdenticalReportsOnlyTotal(t *testing.T) {
 	}
 }
 
-func TestDiffCostDropShowsNegativeDelta(t *testing.T) {
+func TestDiffNegativeDelta(t *testing.T) {
 	dir := t.TempDir()
 	oldPath := writeDoc(t, dir, "old.json", oldDoc)
 	empty := writeDoc(t, dir, "empty.json", `{"catalog_version": "2026-08-06", "findings": []}`)

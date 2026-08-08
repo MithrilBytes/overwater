@@ -35,7 +35,7 @@ func fixtureSums(t *testing.T) map[string]string {
 	return sums
 }
 
-func TestParseSumsReadsReleaseFormat(t *testing.T) {
+func TestParseSums(t *testing.T) {
 	sums := fixtureSums(t)
 	want := map[string]string{
 		assetDarwinAMD64:  fixDarwinAMD64,
@@ -55,7 +55,7 @@ func TestParseSumsReadsReleaseFormat(t *testing.T) {
 	}
 }
 
-func TestParseSumsRejectsUnusableInput(t *testing.T) {
+func TestParseSumsRejects(t *testing.T) {
 	cases := map[string]struct{ in, want string }{
 		"short hash":  {"abc  overwater_linux_amd64\n", "not a 64 character hex"},
 		"no filename": {strings.Repeat("a", 64) + "\n", "<sha256>  <file>"},
@@ -80,7 +80,7 @@ func TestParseSumsRejectsUnusableInput(t *testing.T) {
 
 // Every manifest must carry the version it was rendered for and, per
 // platform, the checksum of that platform's binary and no other.
-func TestRenderPinsVersionAndPerPlatformHashes(t *testing.T) {
+func TestRenderPinsVersionAndHashes(t *testing.T) {
 	files, err := Render("v9.9.9", fixtureSums(t))
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +253,7 @@ func newRepo(t *testing.T) string {
 	return dir
 }
 
-func TestSyncWritesEveryManifestAndIsIdempotent(t *testing.T) {
+func TestSyncWritesAndIsIdempotent(t *testing.T) {
 	dir := newRepo(t)
 	sums := fixtureSums(t)
 
@@ -290,7 +290,7 @@ func TestSyncWritesEveryManifestAndIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestSyncNeedsAFlake(t *testing.T) {
+func TestSyncNeedsFlake(t *testing.T) {
 	if _, err := Sync(t.TempDir(), "v9.9.9", fixtureSums(t)); err == nil {
 		t.Fatal("syncing a directory with no flake.nix succeeded")
 	}

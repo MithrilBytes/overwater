@@ -37,7 +37,7 @@ func runFleetArgs(t *testing.T, args ...string) (int, string, string) {
 	return code, stdout.String(), stderr.String()
 }
 
-func TestFleetScansAndRollsUp(t *testing.T) {
+func TestFleetRollup(t *testing.T) {
 	clean, hot, list := fleetFixture(t)
 	code, stdout, stderr := runFleetArgs(t, list)
 	if code != ExitClean {
@@ -68,7 +68,7 @@ func TestFleetFailOnAny(t *testing.T) {
 	}
 }
 
-func TestFleetFailOnAnyWhenClean(t *testing.T) {
+func TestFleetFailOnAnyClean(t *testing.T) {
 	dir := t.TempDir()
 	clean := filepath.Join(dir, "clean")
 	if err := os.MkdirAll(clean, 0o755); err != nil {
