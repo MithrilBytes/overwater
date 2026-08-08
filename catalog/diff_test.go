@@ -58,16 +58,16 @@ func TestDiffLitellmTolerance(t *testing.T) {
 	if len(notes) != 1 || !strings.Contains(notes[0], "context window") {
 		t.Errorf("notes = %v, want the context window disagreement reported", notes)
 	}
-	// aliased-model matched via the provider prefixed key and its
-	// prices agree, so it is neither drifted nor missing; the retired
-	// entry is skipped entirely.
+	// aliased-model matched on the provider prefixed key and its prices
+	// agree, so it is neither drifted nor missing; the retired entry is
+	// skipped.
 	if len(missing) != 1 || missing[0] != "not-tracked" {
 		t.Errorf("missing = %v, want only not-tracked", missing)
 	}
 }
 
-// A drifted entry whose price line the regex cannot find must fail the
-// apply, not no-op while VERSION is bumped and history written.
+// A drifted entry whose price line the regex cannot find fails the
+// apply; VERSION stays put and no history snapshot is written.
 func TestApplyPricesUnmatchedLine(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
@@ -111,7 +111,7 @@ func TestApplyPricesUnmatchedLine(t *testing.T) {
 
 // An upstream record with input but no output cost must not read as
 // "output is now free": ours is not compared, drifted, or applied over.
-func TestDiffLitellmIgnoresMissingOutput(t *testing.T) {
+func TestDiffLitellmMissingOutput(t *testing.T) {
 	c := &Catalog{Version: "2026-01-01", Models: []Model{func() Model {
 		m := validModel()
 		m.ID = "test-model" // ours: input 1, output 2
@@ -206,8 +206,8 @@ func TestApplyPrices(t *testing.T) {
 	}
 }
 
-// Upstream repoints a -latest key to each new generation, so matching a
-// pinned entry against one reads the successor's price as our drift.
+// Upstream repoints a -latest key to each new generation, so a pinned
+// entry matched against one reads the successor's price as our drift.
 func TestDiffSkipsFloatingAliases(t *testing.T) {
 	m := validModel()
 	m.ID = "mistral-medium-3"

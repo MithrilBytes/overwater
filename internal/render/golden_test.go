@@ -11,9 +11,9 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// The golden harness: the full pipeline run against each fixture must
-// reproduce its golden byte for byte. The goldens are the spec; when
-// this test fails, the renderer or a detector is wrong, not the golden.
+// The full pipeline run against each fixture must reproduce its golden
+// byte for byte. The goldens are the spec: when this fails, the
+// renderer or a detector is wrong, not the golden.
 func TestScanReproducesGoldens(t *testing.T) {
 	fixtures := []string{
 		"ts-chat-firehose",

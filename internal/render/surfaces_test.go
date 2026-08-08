@@ -95,8 +95,8 @@ func TestCSVNeutralizesFormulas(t *testing.T) {
 			t.Errorf("no cell carries the neutralized %q:\n%s", lead, out)
 		}
 	}
-	// Benign cells stay byte identical: the sample's own fields carry no
-	// leading formula characters and must gain no quote.
+	// The sample's own fields lead with no formula character, so they
+	// gain no quote.
 	plain := string(CSV([]rules.Finding{sampleFinding()}))
 	if strings.Contains(plain, "'") {
 		t.Errorf("benign CSV gained a quote prefix: %q", plain)

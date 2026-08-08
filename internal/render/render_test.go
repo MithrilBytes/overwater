@@ -85,9 +85,9 @@ func TestJSONCarriesCandidateModel(t *testing.T) {
 	}
 }
 
-// Provenance reaches the reader: a measured number never reads as an
-// estimate, and a number from anywhere else always does.
-func TestBlockSaysWhereTheVolumeCameFrom(t *testing.T) {
+// Only a volumes file reads as measured; every other source reads as
+// an estimate.
+func TestBlockVolumeProvenance(t *testing.T) {
 	cases := map[string]string{
 		"measured": "at ~$340/mo at measured volume",
 		"pragma":   "at ~$340/mo at estimated volume",
@@ -106,9 +106,8 @@ func TestBlockSaysWhereTheVolumeCameFrom(t *testing.T) {
 	}
 }
 
-// A wrapper's dollar figure is large because many places call it, and
-// the verdict has to say so where the number is.
-func TestBlockNamesTheFanInCallers(t *testing.T) {
+// The caller count belongs next to the dollar figure it multiplied.
+func TestBlockFanInCallers(t *testing.T) {
 	f := sampleFinding()
 	f.Volume, f.VolumeSource, f.Callers = 80000, rules.VolumeFanIn, 8
 	want := "Current:   claude-fable-5 at ~$340/mo at estimated volume across 8 callers\n"

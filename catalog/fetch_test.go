@@ -51,8 +51,7 @@ func TestEffectiveRejectsEmptyCache(t *testing.T) {
 	}
 }
 
-// Effective's selection across every cache state: the embedded
-// snapshot loses only to a valid, strictly newer cache.
+// The embedded snapshot loses only to a valid, strictly newer cache.
 func TestEffectiveSelection(t *testing.T) {
 	emb, err := Embedded()
 	if err != nil {
@@ -199,8 +198,8 @@ func TestWriteCacheRoundTrip(t *testing.T) {
 	}
 }
 
-// A valid cache that outranks the embedded snapshot must announce the
-// swap, naming both versions, so the cli can surface it.
+// A cache that outranks the embedded snapshot announces the swap and
+// names both versions, so the cli can surface it.
 func TestEffectiveNotesCacheWin(t *testing.T) {
 	dir := cacheDir(t)
 	shadow := &Catalog{Version: "9999-01-01", Models: []Model{validModel()}}
