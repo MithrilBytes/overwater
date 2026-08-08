@@ -30,18 +30,23 @@ jobs:
         # the push.
         run: |
           set -euo pipefail
-          latest="$(git tag --sort=-v:refname | head -1)"
-          if [ -z "$latest" ]; then
-            echo "no tags to bump from" >&2
+          # Assigned first: a failure inside process substitution would
+          # not reach set -e, and empty tags would push nothing quietly.
+          next="$(git tag | go run ./internal/release/cmd -next-tags)"
+          read -r update twin <<< "$next"
+          if [ -z "$update" ] || [ -z "$twin" ]; then
+            echo "could not compute the next tags from: $next" >&2
             exit 1
           fi
-          tag="$(go run ./internal/release/cmd -next-update "$latest")"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$tag"
-          git push origin "$tag"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "tagged $tag from $latest" >> "$GITHUB_STEP_SUMMARY"
+          # The update tag carries the release; the twin exists so
+          # go install can resolve a three component version.
+          git tag "$update"
+          git tag "$twin"
+          git push origin "$update" "$twin"
+          echo "tag=$update" >> "$GITHUB_OUTPUT"
+          echo "tagged $update with semver twin $twin" >> "$GITHUB_STEP_SUMMARY"
 
   release:
     needs: tag

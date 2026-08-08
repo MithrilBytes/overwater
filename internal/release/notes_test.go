@@ -210,28 +210,62 @@ func TestEveryHeadingIsEmitted(t *testing.T) {
 	}
 }
 
-func TestNextUpdate(t *testing.T) {
-	ok := map[string]string{
-		"v2.2.1":     "v2.2.1.1",
-		"v2.2.1.1":   "v2.2.1.2",
-		"v2.2.1.9":   "v2.2.1.10",
-		"v2.3.0":     "v2.3.0.1",
-		"2.2.1":      "v2.2.1.1",
-		"v10.0.99.7": "v10.0.99.8",
+// The two lanes advance independently: updates count from the last
+// human release, twins own the patch lane so go install can resolve
+// something.
+func TestNextTags(t *testing.T) {
+	cases := []struct {
+		name         string
+		tags         []string
+		update, twin string
+	}{
+		{"first update", []string{"v2.1.0", "v2.2.0", "v2.2.1"}, "v2.2.1.1", "v2.2.2"},
+		{"second update", []string{"v2.2.1", "v2.2.1.1", "v2.2.2"}, "v2.2.1.2", "v2.2.3"},
+		{"third update", []string{"v2.2.1", "v2.2.1.2", "v2.2.3"}, "v2.2.1.3", "v2.2.4"},
+		{"ninth to tenth", []string{"v2.2.1", "v2.2.1.9", "v2.2.10"}, "v2.2.1.10", "v2.2.11"},
+		{"minor bump restarts", []string{"v2.2.1", "v2.2.1.3", "v2.2.4", "v2.3.0"}, "v2.3.0.1", "v2.3.1"},
+		{"major bump restarts", []string{"v2.2.1.3", "v2.2.4", "v3.0.0"}, "v3.0.0.1", "v3.0.1"},
+		{"unsorted input", []string{"v2.2.2", "v2.2.1.1", "v2.2.1"}, "v2.2.1.2", "v2.2.3"},
+		{"junk ignored", []string{"latest", "v2.2.1", "not-a-tag", "v2"}, "v2.2.1.1", "v2.2.2"},
 	}
-	for in, want := range ok {
-		got, err := NextUpdate(in)
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			update, twin, err := NextTags(tt.tags)
+			if err != nil {
+				t.Fatalf("NextTags(%v) errored: %v", tt.tags, err)
+			}
+			if update != tt.update || twin != tt.twin {
+				t.Errorf("NextTags(%v) = %q, %q; want %q, %q", tt.tags, update, twin, tt.update, tt.twin)
+			}
+		})
+	}
+}
+
+func TestNextTagsNeedsAFixTag(t *testing.T) {
+	for _, tags := range [][]string{nil, {}, {"latest"}, {"v2.2.1.1"}} {
+		if u, tw, err := NextTags(tags); err == nil {
+			t.Errorf("NextTags(%v) = %q, %q; want an error", tags, u, tw)
+		}
+	}
+}
+
+// Ten consecutive updates stay ordered by git's own version sort, which
+// is what picks the base on the next run.
+func TestNextTagsStayOrdered(t *testing.T) {
+	tags := []string{"v2.2.1"}
+	prevUpdate := ""
+	for i := 0; i < 10; i++ {
+		update, twin, err := NextTags(tags)
 		if err != nil {
-			t.Errorf("NextUpdate(%q) errored: %v", in, err)
-			continue
+			t.Fatal(err)
 		}
-		if got != want {
-			t.Errorf("NextUpdate(%q) = %q, want %q", in, got, want)
+		if update == prevUpdate {
+			t.Fatalf("update %q repeated on round %d", update, i)
 		}
+		prevUpdate = update
+		tags = append(tags, update, twin)
 	}
-	for _, bad := range []string{"", "v2.2", "v2.2.1.1.1", "v2.2.x", "latest", "v-1.0.0"} {
-		if got, err := NextUpdate(bad); err == nil {
-			t.Errorf("NextUpdate(%q) = %q, want an error", bad, got)
-		}
+	if prevUpdate != "v2.2.1.10" {
+		t.Errorf("after ten updates the last is %q, want v2.2.1.10", prevUpdate)
 	}
 }

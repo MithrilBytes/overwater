@@ -225,9 +225,13 @@ catalog against LiteLLM and opens a PR when a provider moves a price.
 Tags read `MAJOR.MINOR.FIX`, plus a fourth `UPDATE` component when a
 merged price change reships the binaries with a new catalog and no code
 change. Merging a price-watch PR tags and releases that update on its
-own. Four component tags are not semver, so `go install ...@latest`
-resolves to the newest three component tag; `overwater catalog refresh`
-picks up new prices without a new binary.
+own.
+
+Four component tags are not semver, so each update also pushes a semver
+twin at the same commit for `go install` to resolve: `v2.2.1.1` ships
+alongside `v2.2.2`. The two lanes advance independently, updates
+counting from the last human release and twins owning the patch lane,
+so cut features and fixes at a minor or major bump.
 
 
 **v1** shipped the tool: catalog, four detection layers, rules engine,
