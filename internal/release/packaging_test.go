@@ -258,3 +258,35 @@ func TestImagePublishesOnTagsOnly(t *testing.T) {
 		t.Error("image.yml does not log in to ghcr with the workflow's GITHUB_TOKEN")
 	}
 }
+
+// price-release exists because a tag pushed with GITHUB_TOKEN starts no
+// workflow run: it has to call release rather than rely on the push.
+func TestPriceReleaseCallsRelease(t *testing.T) {
+	src := repoFile(t, ".github", "workflows", "price-release.yml")
+
+	for _, want := range []string{
+		"pull_request",
+		"merged == true",
+		"price-watch/",
+		"-next-patch",
+		"uses: ./.github/workflows/release.yml",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("price-release.yml is missing %q", want)
+		}
+	}
+
+	rel := repoFile(t, ".github", "workflows", "release.yml")
+	if !strings.Contains(rel, "workflow_call:") {
+		t.Error("release.yml has no workflow_call trigger, so price-release cannot call it")
+	}
+	// The tag drives the stamped version, the notes range, and the
+	// release itself; a leftover GITHUB_REF_NAME would be empty when
+	// release runs as a called workflow.
+	if strings.Contains(rel, "GITHUB_REF_NAME") {
+		t.Error("release.yml still reads GITHUB_REF_NAME, which is wrong when called with an input tag")
+	}
+	if !strings.Contains(rel, "TAG: ${{ inputs.tag || github.ref_name }}") {
+		t.Error("release.yml does not fall back to github.ref_name for a plain tag push")
+	}
+}

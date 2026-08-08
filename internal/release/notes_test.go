@@ -209,3 +209,28 @@ func TestEveryHeadingIsEmitted(t *testing.T) {
 		}
 	}
 }
+
+func TestNextPatch(t *testing.T) {
+	ok := map[string]string{
+		"v2.2.1":   "v2.2.2",
+		"v2.2.9":   "v2.2.10",
+		"v0.0.0":   "v0.0.1",
+		"2.2.1":    "v2.2.2",
+		"v10.0.99": "v10.0.100",
+	}
+	for in, want := range ok {
+		got, err := NextPatch(in)
+		if err != nil {
+			t.Errorf("NextPatch(%q) errored: %v", in, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("NextPatch(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for _, bad := range []string{"", "v2.2", "v2.2.1.1", "v2.2.x", "latest", "v-1.0.0"} {
+		if got, err := NextPatch(bad); err == nil {
+			t.Errorf("NextPatch(%q) = %q, want an error", bad, got)
+		}
+	}
+}
