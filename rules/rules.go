@@ -76,8 +76,8 @@ var candidateStrategies = map[string]bool{
 	"successor": true, "cheapest_embedding": true, "cached_system_prompt": true,
 }
 
-// knownArchetypes is the closed set the scanner can assign. A rule
-// naming anything else would be a dead predicate, so validate rejects it.
+// knownArchetypes is the closed set the scanner can assign. validate
+// rejects anything else; it would be a dead predicate.
 var knownArchetypes = map[string]bool{
 	scan.ArchetypeEmbedding:      true,
 	scan.ArchetypeClassification: true,
@@ -97,7 +97,7 @@ var knownArchetypes = map[string]bool{
 // knownFanInStatuses is the closed set the scanner reports for how a
 // call site's caller count was established. A typo in
 // fan_in.multiply_when would otherwise load fine and price every
-// wrapper as a leaf forever.
+// wrapper as a leaf.
 var knownFanInStatuses = map[string]bool{
 	scan.FanInDirect:     true,
 	scan.FanInExact:      true,
@@ -225,9 +225,9 @@ func (r Rule) validate() error {
 		return fmt.Errorf("%s: candidate note and tripwire are required", r.ID)
 	}
 	// Enumerated when values are checked against their closed sets; a
-	// typo would otherwise load fine and disable the rule forever.
-	// Providers are the exception: the catalog owns that namespace, so a
-	// name today's catalog lacks may be valid against tomorrow's.
+	// typo would otherwise load fine and disable the rule. Providers are
+	// the exception: the catalog owns that namespace, so a name today's
+	// catalog lacks may be valid against tomorrow's.
 	for _, tier := range r.When.Tier {
 		if !slices.Contains(catalog.Tiers, tier) {
 			return fmt.Errorf("%s: unknown tier %q in when.tier", r.ID, tier)
@@ -258,9 +258,9 @@ func (r Rule) validate() error {
 }
 
 // Clone returns an engine one repository's config can retune without
-// reaching any other's. A slice copy is enough separation: the mutators
-// replace whole fields rather than writing through a Rule's pointers.
-// Volumes is shared, not copied; nothing writes to it after parsing.
+// reaching any other's. A slice copy is enough: the mutators replace
+// whole fields, never write through a Rule's pointers. Volumes is
+// shared, not copied; nothing writes to it after parsing.
 func (e *Engine) Clone() *Engine {
 	c := &Engine{
 		Est:                 e.Est,
@@ -273,8 +273,8 @@ func (e *Engine) Clone() *Engine {
 }
 
 // Disable removes the named rules; unknown ids are a no-op so configs
-// survive rule renames. Kept rules go into a fresh slice because
-// filtering in place would rewrite a clone's backing array too.
+// survive rule renames. Kept rules go into a fresh slice; filtering in
+// place would rewrite a clone's backing array too.
 func (e *Engine) Disable(ids []string) {
 	drop := map[string]bool{}
 	for _, id := range ids {
@@ -290,7 +290,7 @@ func (e *Engine) Disable(ids []string) {
 }
 
 // SetThreshold overrides one numeric When field on the named rule. An
-// unknown rule or field is an error, not a silently wrong threshold.
+// unknown rule or field is an error.
 func (e *Engine) SetThreshold(ruleID, field string, value float64) error {
 	for i := range e.Rules {
 		if e.Rules[i].ID != ruleID {

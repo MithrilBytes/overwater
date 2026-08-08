@@ -1,7 +1,6 @@
 # Two or more call sites with identical parameters and the same model.
-# The scanner cannot see runtime inputs, so this is a nomination to
-# share one result, not proof of waste. Every site after the first in
-# scan order gets the finding.
+# The scanner cannot see runtime inputs, so this is a nomination, not
+# proof of waste. Every site after the first in scan order gets it.
 id: duplicate-call-sites
 kind: finding
 confidence: low

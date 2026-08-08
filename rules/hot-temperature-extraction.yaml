@@ -1,6 +1,5 @@
-# Temperature above zero on an extraction call. A correctness flag, not
-# a cost one: sampled variety is noise when the output should be the
-# document's own facts.
+# Temperature above zero on an extraction call. Strictly above: a
+# temperature of exactly 0 does not trip it, and an unset one cannot.
 id: hot-temperature-extraction
 kind: flag
 confidence: medium

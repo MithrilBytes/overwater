@@ -8,11 +8,10 @@ import (
 )
 
 // nominate picks the provider's newest active model in the target tier
-// and renders the candidate clause. Newest, not cheapest: once the
-// catalog carries history, cheapest would name stale bargains. Every
-// caller is a savings strategy, so a candidate costing more than the
-// current model at this site is rejected. When none survives, the
-// clause says so rather than guessing.
+// and renders the candidate clause. Newest, not cheapest: cheapest
+// names stale bargains once the catalog carries history. A candidate
+// costing more than the current model at this site is rejected; with
+// none left the clause says so.
 func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, note string, site scan.Site, calls int) (string, string) {
 	budget := e.monthlyUSD(current, site, calls)
 	var best *catalog.Model

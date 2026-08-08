@@ -79,8 +79,7 @@ func (e *Engine) siteFindings(site scan.Site, m *catalog.Model, cat *catalog.Cat
 			continue
 		}
 		f := e.finding(r, site, m, cat, vol)
-		// With no cheaper sibling to name, a cheapest_embedding finding
-		// would only restate the price. Drop it.
+		// cheapest_embedding needs a cheaper sibling to name.
 		if r.Candidate.Strategy == "cheapest_embedding" && f.CandidateModel == "" {
 			continue
 		}

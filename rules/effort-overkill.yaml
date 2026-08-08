@@ -1,6 +1,5 @@
 # Reasoning effort turned up on a task that names fields or picks a
-# label. Default effort answers these; the extra deliberation is spend,
-# not accuracy.
+# label.
 id: effort-overkill
 kind: finding
 confidence: medium

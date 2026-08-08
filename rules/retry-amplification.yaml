@@ -1,6 +1,5 @@
 # An aggressive retry policy wrapped around a frontier model. Retries
-# multiply the most expensive call in the codebase, and transient
-# failures rarely need three attempts at the top price.
+# multiply the most expensive call in the codebase.
 id: retry-amplification
 kind: flag
 confidence: medium

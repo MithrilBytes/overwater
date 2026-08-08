@@ -1,6 +1,6 @@
 # A readable call site with no max_tokens: worst case spend has no
-# ceiling. Only fires when the shape was readable, because absence and
-# unreadable are different claims.
+# ceiling. Fires only when the shape was readable; absent and unread
+# are different claims.
 id: unbounded-max-tokens
 kind: finding
 confidence: medium

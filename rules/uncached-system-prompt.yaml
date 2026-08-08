@@ -1,7 +1,7 @@
 # A large system prompt resent on every call with no cache_control.
 # Attaches as a flag to the finding at the same call site. Scoped to
-# providers where caching is explicit; automatic caching providers are
-# excluded on purpose.
+# providers where caching is explicit; providers that cache
+# automatically are excluded.
 id: uncached-system-prompt
 kind: flag
 confidence: high

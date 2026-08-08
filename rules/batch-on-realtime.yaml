@@ -1,6 +1,6 @@
 # A cron shaped job paying realtime prices. The major providers sell the
-# same models at half price on their batch endpoints for exactly this
-# kind of work.
+# same models at half price on their batch endpoints. A model entry's
+# own batch_multiplier wins over the multiplier below.
 id: batch-on-realtime
 kind: finding
 confidence: medium

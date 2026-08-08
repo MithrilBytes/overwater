@@ -1,6 +1,6 @@
 # An embedding model that supports the dimensions parameter, called
 # without one. Full width vectors cost more to store and search at
-# every hop downstream, and most indexes never need the full width.
+# every hop downstream.
 id: uncapped-embedding-dimensions
 kind: flag
 confidence: medium

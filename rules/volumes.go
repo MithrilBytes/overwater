@@ -32,10 +32,9 @@ type Volumes struct {
 	Models map[string]int `json:"models,omitempty"`
 }
 
-// ParseVolumes decodes a volumes file. Decoding is strict: an unknown
-// field, an unparsable site key, or a negative count is an error,
-// because a volumes file that half applies prices the report wrong
-// without saying so.
+// ParseVolumes decodes a volumes file. An unknown field, an unparsable
+// site key, or a negative count is an error: a file that half applies
+// prices the report wrong and says nothing.
 func ParseVolumes(raw []byte) (*Volumes, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
@@ -113,9 +112,9 @@ type volume struct {
 }
 
 // siteVolumes binds a volumes file to one report. A model key spreads
-// its count evenly over every priced site on that model, so the
-// denominator is settled before any site is priced and does not depend
-// on the order sites are visited.
+// its count evenly over every priced site on that model; the
+// denominator is settled before any site is priced, so visit order
+// does not change it.
 type siteVolumes struct {
 	e         *Engine
 	v         *Volumes
@@ -180,10 +179,10 @@ func (sv *siteVolumes) modelKey(site scan.Site, m *catalog.Model) string {
 }
 
 // forSite resolves one call site's volume. Measured traffic beats a
-// hand written pragma, and inside the file a site key beats a model
-// key. Both of those are counts of this call site's own traffic, so
-// fan in leaves them alone; it multiplies only the per site assumption
-// the estimate, the config, and --volume all supply.
+// hand written pragma, and a site key beats a model key. Both are
+// counts of this call site's own traffic, so fan in leaves them alone;
+// it multiplies only the per site assumption the estimate, the config,
+// and --volume supply.
 func (sv *siteVolumes) forSite(site scan.Site, m *catalog.Model) volume {
 	if sv.v != nil {
 		if n, ok := sv.v.Sites[siteKey(site)]; ok {
@@ -205,11 +204,11 @@ func (sv *siteVolumes) forSite(site scan.Site, m *catalog.Model) volume {
 
 // callers is how many of a helper's callers this call site is priced
 // for. A helper with a fixed model answers for all of them. A helper
-// whose model is a parameter answers only for the callers that take
-// its default: the rest pass a model of their own, which is a call
-// site already priced where it sits, and counting it here too would
-// bill it twice. A resolution fan_in.multiply_when does not name
-// counts as one, and so does a default no caller takes.
+// whose model is a parameter answers only for the callers taking its
+// default; the rest pass a model of their own and are already priced
+// where they sit, so counting them here would bill them twice. A
+// resolution fan_in.multiply_when does not name counts as one, and so
+// does a default no caller takes.
 func (e *Engine) callers(site scan.Site) int {
 	if !slices.Contains(e.Est.FanIn.MultiplyWhen, site.FanInStatus) {
 		return 1
@@ -226,8 +225,8 @@ func (e *Engine) callers(site scan.Site) int {
 }
 
 // UnmatchedVolumeKeys names the volumes file keys no call site in this
-// report used, so a stale path or a misspelled model is visible rather
-// than silently priced as an estimate.
+// report used, so a stale path or a misspelled model is visible
+// instead of silently priced as an estimate.
 func (e *Engine) UnmatchedVolumeKeys(report *scan.Report, cat *catalog.Catalog) []string {
 	return e.bindVolumes(report, cat).unmatched
 }

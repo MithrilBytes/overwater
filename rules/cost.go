@@ -9,8 +9,8 @@ import (
 
 // TotalMonthlyUSD sums the monthly spend of every known call site at
 // its own model, for the repo budget check. Ignored sites still count:
-// ignore pragmas silence findings, not spend. Volumes resolve exactly
-// as they do in Evaluate, or the budget would disagree with the report.
+// ignore pragmas silence findings, not spend. Volumes resolve as they
+// do in Evaluate, so the budget and the report agree.
 func (e *Engine) TotalMonthlyUSD(report *scan.Report, cat *catalog.Catalog) float64 {
 	names := cat.Names()
 	vols := e.bindVolumes(report, cat)

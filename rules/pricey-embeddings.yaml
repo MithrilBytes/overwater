@@ -1,7 +1,6 @@
 # Embeddings priced at the top of the tier when the same provider sells
-# a standard tier that usually retrieves just as well. The engine drops
-# the finding entirely when no cheaper same provider embedding exists:
-# a provider's only embedding is not "pricey", it is the price.
+# a standard tier. The engine drops the finding when the provider has
+# no cheaper embedding to nominate.
 id: pricey-embeddings
 kind: finding
 confidence: high

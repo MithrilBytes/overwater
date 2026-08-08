@@ -1,5 +1,5 @@
 # A frontier model pointed at a structured extraction or classification
-# shape. These task classes are where cheaper tiers hold up best.
+# shape.
 id: frontier-extraction
 kind: finding
 confidence: high

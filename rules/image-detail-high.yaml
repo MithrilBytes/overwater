@@ -1,5 +1,4 @@
-# detail high on an image reading call. High detail pays per tile, and
-# thumbnails or receipts read fine at the default resolution.
+# detail high on an image reading call. High detail pays per tile.
 id: image-detail-high
 kind: flag
 confidence: low
