@@ -4,33 +4,32 @@
 # larger one costs disproportionately more time. Run from anywhere;
 # OVERWATER_BIN names a prebuilt binary, otherwise one is built.
 #
-# A ratio, not a wall clock floor, because CI runners differ in speed by
-# several times and the same absolute number cannot mean the same thing
-# on all of them. Dividing two measurements taken back to back on one
-# runner cancels the machine out, so the bound below means the same
-# thing everywhere and can be set close enough to catch something.
+# A ratio, not a wall clock floor: CI runners differ in speed by several
+# times, so no absolute number means the same thing on all of them.
+# Dividing two measurements taken back to back on one runner cancels the
+# machine out, so the bound below can be set close enough to catch
+# something.
 #
-# Wall clock over the shipped binary, not go test -bench: the benchmark
-# harness reports ns/op that only mean something next to a stored
-# absolute number, which is the runner variance problem again, and it
-# times Analyze alone. The binary covers the walk, the rules and the
-# renderer too, so a quadratic anywhere on that path trips this.
+# Wall clock over the shipped binary, not go test -bench: ns/op only
+# means something next to a stored absolute, which is the runner
+# variance problem again, and the benchmark times Analyze alone. The
+# binary covers the walk, the rules, and the renderer too, so a
+# quadratic anywhere on that path trips this.
 #
-# What this does not catch: a slowdown that hits both sizes equally.
-# The ratio divides a constant factor out along with the machine. The
-# analyze benchmark step prints files/s for that.
+# Does not catch a slowdown that hits both sizes equally: the ratio
+# divides a constant factor out along with the machine. The analyze
+# benchmark step prints files/s for that.
 set -u
 export LC_ALL=C
 
 cd "$(dirname "$0")/.."
 
-# Eight times the input should cost about eight times the time; the
-# measured ratio is 6.5 to 7.7, under 8 because a fixed startup cost
-# sits inside both measurements. 20 is over twice that, well out of
-# reach of runner noise, and comfortably under both the 64 a fully
-# quadratic pass gives at this step and the 26 measured from a build
-# that recomputes file scoped facts per call site, which is one of the
-# two bugs this defends against. The other cost 57x on one 95KB file.
+# Eight times the input should cost about eight times the time; measured
+# is 6.5 to 7.7, under 8 because a fixed startup cost sits inside both.
+# 20 is over twice that, out of reach of runner noise, and under both
+# the 64 a fully quadratic pass gives at this step and the 26 measured
+# from a build that recomputed file scoped facts per call site. The
+# other bug this defends against cost 57x on one 95KB file.
 max_ratio=20
 
 # 8 files of 40 call site blocks is about 64KB and 75ms of work, long
@@ -40,9 +39,9 @@ files=8
 small_blocks=40
 size_step=8
 
-# The small scan is the denominator: a hiccup there inflates it, which
-# deflates the ratio and hides a regression rather than inventing one.
-# It is also the cheap one, so it gets the extra samples.
+# The small scan is the denominator: a hiccup there deflates the ratio
+# and hides a regression rather than inventing one. It is also the cheap
+# one, so it gets the extra samples.
 small_reps=7
 large_reps=3
 
@@ -56,7 +55,7 @@ if [ -z "$bin" ]; then
   go build -o "$bin" ./cmd/overwater || exit 1
 fi
 
-# gen <dir> <blocks> writes files identical sources of blocks call
+# gen <dir> <blocks> writes $files identical sources of <blocks> call
 # sites each, so bytes and call sites scale together.
 gen() {
   local dir="$1" blocks="$2" body="" i
@@ -78,10 +77,9 @@ async function handler$i(text) {
   done
 }
 
-# scan_ms <dir> <reps> prints the fastest scan in milliseconds. The
-# fastest, not the mean: noise on a shared runner only ever adds time,
-# so the floor is the stable statistic and the one that keeps a slow
-# neighbouring job from failing the build.
+# scan_ms <dir> <reps> prints the fastest scan in milliseconds. Fastest,
+# not mean: noise on a shared runner only ever adds time, so the floor
+# is the stable statistic and a slow neighbour cannot fail the build.
 scan_ms() {
   local dir="$1" reps="$2" best=0 i secs ms
   for ((i = 0; i < reps; i++)); do

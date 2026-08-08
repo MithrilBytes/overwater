@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Black box smoke and regression suite: builds the binary and exercises
 # every command against expected exit codes and output, including byte
-# for byte golden comparisons through the real binary. Run from the
-# repo root; exits nonzero on the first failure count above zero.
+# for byte golden comparisons through the real binary. Run from the repo
+# root; exits nonzero if anything failed.
 set -u
 
 cd "$(dirname "$0")/.."
@@ -166,8 +166,8 @@ check volumes-unknown-subcommand 2 "unknown subcommand" "$bin" volumes export
 check multi-root 0 "Call site:" "$bin" scan fixtures/py-extraction fixtures/clean-app
 
 # Config isolation. Two identical repos, one carrying a config: whatever
-# it disables or prices must stay inside it, in either argument order and
-# in either list order, or the same fleet reports two different verdicts.
+# it disables or prices stays inside it, in either argument order and in
+# either list order.
 iso="$work/iso"
 mkdir -p "$iso/svc-a" "$iso/svc-b"
 for svc in svc-a svc-b; do
@@ -240,9 +240,8 @@ check eval-draft 0 "drafted" "$bin" eval -o "$work/evals2" -draft-prompts fixtur
 check eval-clean 0 "Nothing to eval." "$bin" eval -o "$work/evals3" fixtures/clean-app
 
 # The perf gate, against a stub that sleeps a fixed time per repo size
-# instead of scanning. The gate passes when time tracks input size and
-# fails when the larger repo costs disproportionately more; simulating
-# the slow scan beats reintroducing a quadratic to prove it.
+# instead of scanning: passes when time tracks input size, fails when
+# the larger repo costs disproportionately more.
 cat > "$work/stub-scan" <<'STUB'
 #!/usr/bin/env bash
 for root; do :; done
@@ -263,10 +262,10 @@ if git diff --quiet -- catalog/catalog.json; then pass=$((pass + 1)); else
   echo "FAIL catalog-build-idempotent"; fail=$((fail + 1)); git checkout -- catalog/catalog.json
 fi
 
-# Packaging manifests. sync-manifests is maintainer tooling and ships
-# with the source, not with the release binaries, so it is exercised
-# through its own binary. That the manifests in the tree describe the
-# pinned release is internal/packaging's job, not this suite's.
+# Packaging manifests. sync-manifests ships with the source, not with
+# the release binaries, so it is exercised through its own binary.
+# Whether the manifests in the tree describe the pinned release is
+# internal/packaging's job.
 sync="$work/sync-manifests"
 go build -o "$sync" ./tools/sync-manifests || { echo "FAIL build sync-manifests"; exit 1; }
 pkgdir="$work/packaging"
@@ -276,8 +275,8 @@ fixture="internal/packaging/testdata/SHA256SUMS"
 check sync-usage 2 "Usage:" "$sync"
 check sync-bad-version 2 "not vX.Y.Z" "$sync" -version latest -sums "$fixture" -dir "$pkgdir"
 
-# A release missing a platform must stop the run: a manifest with an
-# empty checksum installs whatever the URL happens to serve.
+# A release missing a platform stops the run: a manifest with an empty
+# checksum installs whatever the URL happens to serve.
 grep -v overwater_linux_arm64 "$fixture" > "$work/partial-sums"
 check sync-missing-platform 2 "overwater_linux_arm64" \
   "$sync" -version v9.9.9 -sums "$work/partial-sums" -dir "$pkgdir"
