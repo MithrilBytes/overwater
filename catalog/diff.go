@@ -123,9 +123,9 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missi
 
 // floatingAlias reports whether a name points at whatever generation is
 // current rather than at one model. Upstream repoints these on release,
-// so matching a pinned entry against one reads the next generation's
-// price as our drift: mistral-medium-latest moved to medium-3.5 at
-// 1.50, which would have proposed a 3.75x rise for medium-3.
+// so a pinned entry matched against one reads the successor's price as
+// our drift: mistral-medium-latest moved to medium-3.5 at 1.50, a
+// proposed 3.75x rise for medium-3.
 func floatingAlias(name string) bool {
 	return strings.HasSuffix(name, "-latest")
 }
@@ -195,8 +195,6 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 	return os.WriteFile(filepath.Join(dir, "history", version+".json"), b, 0o644)
 }
 
-// replaceCounting swaps every match of re for repl and reports how many
-// it touched.
 func replaceCounting(raw []byte, re *regexp.Regexp, repl string) ([]byte, int) {
 	n := 0
 	out := re.ReplaceAllFunc(raw, func([]byte) []byte {

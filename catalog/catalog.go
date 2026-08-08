@@ -112,8 +112,8 @@ func (m Model) validate() error {
 
 // Validate checks every entry and the catalog level invariants: a dated
 // version, at least one model, and globally unique names across ids and
-// aliases. A model list must not be empty: that is an empty detection
-// dictionary, and a cache carrying one would blind every scan.
+// aliases. An empty model list is an empty detection dictionary; a
+// cache carrying one would blind every scan.
 func (c *Catalog) Validate() error {
 	if _, err := time.Parse(dateLayout, c.Version); err != nil {
 		return fmt.Errorf("catalog version %q is not a YYYY-MM-DD date", c.Version)

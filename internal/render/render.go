@@ -133,7 +133,7 @@ func block(f rules.Finding) string {
 
 // current is the "Current:" sentence every surface shares. A fan-in
 // volume names the callers it covers, so a figure many times the per
-// call site estimate says why it is that large.
+// site estimate says where the multiplier came from.
 func current(f rules.Finding) string {
 	s := fmt.Sprintf("%s at ~$%d/mo at %s volume", f.Model, f.MonthlyUSD, volumeWord(f))
 	if volumeSource(f) == rules.VolumeFanIn && f.Callers > 1 {

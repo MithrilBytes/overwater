@@ -108,8 +108,8 @@ func SARIF(findings []rules.Finding, meta Meta) ([]byte, error) {
 	return append(out, '\n'), nil
 }
 
-// sarifLevel maps finding confidence onto the SARIF level vocabulary:
-// high becomes warning, medium and low become note.
+// sarifLevel maps confidence onto SARIF levels: high is a warning, the
+// rest are notes.
 func sarifLevel(confidence string) string {
 	if confidence == "high" {
 		return "warning"

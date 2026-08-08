@@ -94,8 +94,8 @@ func loadCache() (*Catalog, error) {
 
 // Effective picks the freshest valid catalog with no network: the cache
 // when it is newer than the embedded snapshot, otherwise the snapshot.
-// A bad cache is reported in note and ignored, never fatal. A cache that
-// wins names both versions in note, so pricing data never swaps silently.
+// A bad cache lands in note and is ignored, never fatal. A cache that
+// wins names both versions in note; pricing data never swaps silently.
 func Effective() (*Catalog, string, error) {
 	emb, err := Embedded()
 	if err != nil {
