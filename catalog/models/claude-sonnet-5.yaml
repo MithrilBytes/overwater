@@ -13,7 +13,7 @@ context_window: 1000000
 tier: mid
 released: "2026-05-01"
 source: https://platform.claude.com/docs/en/pricing
-cache_read_per_mtok: 0.3
-cache_write_per_mtok: 3.75
+cache_read_per_mtok: 0.2
+cache_write_per_mtok: 2.5
 batch_multiplier: 0.5
 capabilities: [vision, tools, caching, structured_output]
