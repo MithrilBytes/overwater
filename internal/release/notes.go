@@ -5,6 +5,7 @@ package release
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -123,4 +124,23 @@ func escape(s string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// NextPatch returns the tag one patch above the given one, so a merged
+// price change can ship without a human picking a number.
+func NextPatch(tag string) (string, error) {
+	trimmed := strings.TrimPrefix(tag, "v")
+	parts := strings.Split(trimmed, ".")
+	if len(parts) != 3 {
+		return "", fmt.Errorf("tag %q is not vMAJOR.MINOR.PATCH", tag)
+	}
+	nums := make([]int, 3)
+	for i, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 {
+			return "", fmt.Errorf("tag %q is not vMAJOR.MINOR.PATCH", tag)
+		}
+		nums[i] = n
+	}
+	return fmt.Sprintf("v%d.%d.%d", nums[0], nums[1], nums[2]+1), nil
 }

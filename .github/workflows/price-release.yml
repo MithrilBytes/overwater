@@ -1,0 +1,54 @@
+name: price-release
+
+# A merged price change is only in the catalog; the released binaries
+# still embed the old snapshot. This tags the next patch so they ship.
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  tag:
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'price-watch/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.next.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - id: next
+        # A tag pushed with GITHUB_TOKEN does not start another workflow
+        # run, so release runs as a called workflow below rather than on
+        # the push.
+        run: |
+          set -euo pipefail
+          latest="$(git tag --sort=-v:refname | head -1)"
+          if [ -z "$latest" ]; then
+            echo "no tags to bump from" >&2
+            exit 1
+          fi
+          tag="$(go run ./internal/release/cmd -next-patch "$latest")"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$tag"
+          git push origin "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "tagged $tag from $latest" >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: tag
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}

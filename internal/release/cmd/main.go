@@ -25,8 +25,18 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	prev := fs.String("prev", "", "previous tag, empty for the first release")
 	tag := fs.String("tag", "", "tag being released")
 	repo := fs.String("repo", "", "owner/name slug for the commit link")
+	nextPatch := fs.String("next-patch", "", "print the tag one patch above this one and exit")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	if *nextPatch != "" {
+		next, err := release.NextPatch(*nextPatch)
+		if err != nil {
+			fmt.Fprintf(stderr, "relnotes: %v\n", err)
+			return 2
+		}
+		fmt.Fprintln(stdout, next)
+		return 0
 	}
 	if *tag == "" || *repo == "" {
 		fmt.Fprintln(stderr, "relnotes: -tag and -repo are required")
