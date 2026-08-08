@@ -21,7 +21,7 @@ file. The installer verifies it for you:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.2.0
+sh install.sh v2.3.0
 ```
 
 ## Usage
@@ -125,7 +125,7 @@ Record a baseline once, commit it, and only new findings fail:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: MithrilBytes/overwater@v2.2.0
+- uses: MithrilBytes/overwater@v2.3.0
   with:
     baseline: .overwater.json
 ```
@@ -254,12 +254,18 @@ dollar figure. The archetype scorer was rebuilt around the SDK method,
 the token cap read as intent, schema shape, and negation. Call sites
 gained fan in and the models their callers pass.
 
-**v2.2** is the current line. A helper that wraps the SDK is priced for
-its callers, so a wrapper called two hundred times costs two hundred
-leaf calls. Packaging: Homebrew, scoop, and winget manifests, a nix
-flake, a distroless image on GHCR, release notes from the commit log,
-and build provenance on every binary. A scan root may be a single file.
+**v2.2** priced a helper that wraps the SDK for its callers, so a
+wrapper called two hundred times costs two hundred leaf calls. It added
+packaging: Homebrew, scoop, and winget manifests, a nix flake, a
+distroless image on GHCR, release notes from the commit log, and build
+provenance on every binary. A scan root may be a single file, and
 `explain <rule-id>` prints a rule from its own YAML.
+
+**v2.3** is the current line. Merging a price-watch PR now tags and
+releases on its own, so a price the catalog accepts reaches the
+binaries without a human picking a version. Applying a price carries
+the cache rates with it, which providers publish as multiples of base
+input and the previous version left describing the old price.
 
 Verified by 274 labeled corpus cases at 0.99 accuracy on an 88 case
 holdout split assigned before tuning, 88 black box smoke checks through
