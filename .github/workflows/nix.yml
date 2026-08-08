@@ -36,33 +36,9 @@ jobs:
       - name: evaluate the flake
         run: nix flake check --no-build --all-systems
       - name: build and run
-        # vendorHash can only come from nix, which reports the right one
-        # when the wrong one fails the build. While the placeholder is in
-        # place this step reads that hash out of the build log, publishes
-        # it in the job summary, and stops without failing.
+        # A go.mod change makes vendorHash stale and this step fails.
+        # Nix names the hash it wanted in the error; paste that into
+        # flake.nix.
         run: |
-          set -uo pipefail
-          if grep -q 'vendorHash = "sha256-AAAA' flake.nix; then
-            log="$(nix build .#overwater 2>&1 || true)"
-            got="$(printf '%s' "$log" | grep -oE 'got:[[:space:]]*sha256-[A-Za-z0-9+/=]+' | head -1 | sed 's/got:[[:space:]]*//')"
-            {
-              echo "## nix vendorHash"
-              echo
-              if [ -n "$got" ]; then
-                echo "Paste this line into flake.nix:"
-                echo
-                echo '```nix'
-                echo "vendorHash = \"$got\";"
-                echo '```'
-              else
-                echo "nix reported no hash. The build log:"
-                echo
-                echo '```'
-                printf '%s\n' "$log" | tail -40
-                echo '```'
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           nix build .#overwater
           ./result/bin/overwater version
