@@ -126,21 +126,26 @@ func escape(s string) string {
 	return b.String()
 }
 
-// NextPatch returns the tag one patch above the given one, so a merged
-// price change can ship without a human picking a number.
-func NextPatch(tag string) (string, error) {
-	trimmed := strings.TrimPrefix(tag, "v")
-	parts := strings.Split(trimmed, ".")
-	if len(parts) != 3 {
-		return "", fmt.Errorf("tag %q is not vMAJOR.MINOR.PATCH", tag)
+// NextUpdate returns the tag one update above the given one. The update
+// is a fourth component: v2.2.1 becomes v2.2.1.1 and v2.2.1.1 becomes
+// v2.2.1.2, so a price change reships the binaries without claiming a
+// code change. Four component tags are not semver, so go install
+// resolves @latest to the newest three component tag and skips these.
+func NextUpdate(tag string) (string, error) {
+	parts := strings.Split(strings.TrimPrefix(tag, "v"), ".")
+	if len(parts) != 3 && len(parts) != 4 {
+		return "", fmt.Errorf("tag %q is not vMAJOR.MINOR.FIX or vMAJOR.MINOR.FIX.UPDATE", tag)
 	}
-	nums := make([]int, 3)
+	nums := make([]int, len(parts))
 	for i, p := range parts {
 		n, err := strconv.Atoi(p)
 		if err != nil || n < 0 {
-			return "", fmt.Errorf("tag %q is not vMAJOR.MINOR.PATCH", tag)
+			return "", fmt.Errorf("tag %q is not vMAJOR.MINOR.FIX or vMAJOR.MINOR.FIX.UPDATE", tag)
 		}
 		nums[i] = n
 	}
-	return fmt.Sprintf("v%d.%d.%d", nums[0], nums[1], nums[2]+1), nil
+	if len(nums) == 3 {
+		return fmt.Sprintf("v%d.%d.%d.1", nums[0], nums[1], nums[2]), nil
+	}
+	return fmt.Sprintf("v%d.%d.%d.%d", nums[0], nums[1], nums[2], nums[3]+1), nil
 }

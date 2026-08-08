@@ -35,7 +35,7 @@ jobs:
             echo "no tags to bump from" >&2
             exit 1
           fi
-          tag="$(go run ./internal/release/cmd -next-patch "$latest")"
+          tag="$(go run ./internal/release/cmd -next-update "$latest")"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$tag"
