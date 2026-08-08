@@ -67,10 +67,9 @@ func explainRule(r rules.Rule) string {
 	return b.String()
 }
 
-// whenLines renders the constraining fields of a predicate as
-// "yaml_key: value". Reflection rather than a field by field switch,
-// because those keys are also the ones .overwater.yaml thresholds name,
-// and a switch would silently omit a predicate field added later.
+// whenLines renders the constraining fields of a predicate under the
+// yaml keys .overwater.yaml thresholds name. Reflection rather than a
+// switch, which would silently omit a predicate field added later.
 func whenLines(when rules.When) []string {
 	v := reflect.ValueOf(when)
 	t := v.Type()

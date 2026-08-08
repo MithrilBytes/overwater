@@ -12,7 +12,6 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// scanFlags is one parsed invocation of the scan command.
 type scanFlags struct {
 	roots          []string
 	volume         int
@@ -35,8 +34,7 @@ type scanFlags struct {
 
 func (f scanFlags) multi() bool { return len(f.roots) > 1 }
 
-// parseScanFlags reports its own usage errors on stderr; false means
-// exit 2.
+// parseScanFlags reports usage errors on stderr; false means exit 2.
 func parseScanFlags(args []string, stderr io.Writer) (scanFlags, bool) {
 	var f scanFlags
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
@@ -86,8 +84,8 @@ func parseScanFlags(args []string, stderr io.Writer) (scanFlags, bool) {
 	return f, true
 }
 
-// runScan reports on the given roots. It prints the findings; scanExit
-// decides what they do to the exit code.
+// runScan prints the findings; scanExit decides what they do to the
+// exit code.
 func runScan(args []string, stdout, stderr io.Writer) int {
 	f, ok := parseScanFlags(args, stderr)
 	if !ok {
@@ -151,8 +149,8 @@ func runScan(args []string, stdout, stderr io.Writer) int {
 	return scanExit(f, plans[0].root, findings, only, overBudgets, stderr)
 }
 
-// refreshCatalog fetches the published catalog into the cache. Every
-// failure is advisory: the scan carries on with local prices.
+// refreshCatalog fetches the published catalog into the cache. Failure
+// is advisory: the scan carries on with local prices.
 func refreshCatalog(offline bool, stderr io.Writer) {
 	if offline {
 		fmt.Fprintln(stderr, "offline: skipping catalog refresh")
@@ -168,9 +166,9 @@ func refreshCatalog(offline bool, stderr io.Writer) {
 	}
 }
 
-// noteCoverage says how much a restricted scan covered, so a null
-// verdict over zero files cannot read as a clean bill of health.
-// Changed files that no longer exist were not scanned.
+// noteCoverage reports how much a restricted scan covered, so a null
+// verdict over zero files cannot read as clean. Changed files that no
+// longer exist were never scanned.
 func noteCoverage(root string, only map[string]bool, stderr io.Writer) {
 	scanned := 0
 	for f := range only {
@@ -181,7 +179,7 @@ func noteCoverage(root string, only map[string]bool, stderr io.Writer) {
 	fmt.Fprintf(stderr, "incremental: scanned %d of %d candidate files\n", scanned, len(only))
 }
 
-// writeVerdict prints the report to stdout in the shape the flags asked for.
+// writeVerdict prints the report in the shape the flags asked for.
 func writeVerdict(f scanFlags, findings []rules.Finding, meta render.Meta, stdout io.Writer) error {
 	switch {
 	case f.jsonOut:
@@ -236,9 +234,8 @@ func writeReport(path string, data []byte, stderr io.Writer) error {
 }
 
 // scanExit is the guard's verdict plus the budget lines. A blown budget
-// is a findings failure, never an operational error and never masking
-// one. Recording a baseline and --fail-on none stay exempt; the line
-// prints either way.
+// exits 1, never 2, and never masks a 2. Recording a baseline and
+// --fail-on none are exempt; the line prints either way.
 func scanExit(f scanFlags, root string, findings []rules.Finding, only map[string]bool, overBudgets []string, stderr io.Writer) int {
 	shaRoot := ""
 	if !f.multi() {

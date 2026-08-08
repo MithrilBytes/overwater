@@ -28,8 +28,7 @@ func gitHead(root string) string {
 // can fall back to a full scan.
 //
 // -z is required: under the default core.quotePath git octal escapes
-// any path with a non-ASCII byte, which matches no real file and would
-// drop it from the scan without a word.
+// any path with a non-ASCII byte, and that string matches no real file.
 func gitChangedFiles(root, sha string) (map[string]bool, error) {
 	diff, err := exec.Command("git", "-C", root, "diff", "--relative", "--name-only", "-z", sha).Output()
 	if err != nil {

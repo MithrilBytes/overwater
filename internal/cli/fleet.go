@@ -28,8 +28,7 @@ func readRepoList(path string) ([]string, error) {
 
 // runFleet scans every repository named in a list file with the default
 // advisor settings: one stdout line per repo, then a rollup. A repo
-// that fails is a stderr line and the run continues; only an unreadable
-// list file is operational.
+// that fails is a stderr line and the run continues.
 func runFleet(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("fleet", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -89,7 +88,7 @@ func runFleet(args []string, stdout, stderr io.Writer) int {
 		rollup += fmt.Sprintf(", %d failed", failed)
 	}
 	fmt.Fprintln(stdout, rollup)
-	// A fleet that scanned nothing learned nothing: that is operational.
+	// A fleet that scanned nothing learned nothing: exit 2.
 	if len(repos) > 0 && scanned == 0 {
 		fmt.Fprintf(stderr, "overwater: all %d repos failed to scan\n", failed)
 		return ExitError

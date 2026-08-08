@@ -15,7 +15,7 @@ import (
 )
 
 // pipeline is the catalog and rule set of one invocation. base is never
-// mutated after load: every root scans with its own clone.
+// mutated after load: every root scans its own clone.
 type pipeline struct {
 	cat  *catalog.Catalog
 	base *rules.Engine
@@ -25,10 +25,10 @@ type pipeline struct {
 	volumesPath string
 }
 
-// rootPlan pairs a root with its own .overwater.yaml, nil when it has
-// none. Configs load before any scanning, so a malformed one fails the
-// run before half a report is printed. only names the root relative
-// files that may produce findings, nil for all of them.
+// rootPlan pairs a root with its .overwater.yaml, nil when it has none.
+// Configs load before any scanning, so a malformed one fails the run
+// before half a report is printed. only restricts findings to those
+// root relative files, nil for all of them.
 type rootPlan struct {
 	root string
 	cfg  *repoConfig
@@ -36,9 +36,9 @@ type rootPlan struct {
 }
 
 // planRoot resolves one argument. A named file becomes its containing
-// directory restricted to that file: the directory loads as context so
-// imports and wrapper defaults resolve the way they do in a whole repo
-// scan, and the directory's .overwater.yaml applies.
+// directory restricted to that file, so imports and wrapper defaults
+// resolve as they would in a whole repo scan and the directory's
+// .overwater.yaml applies.
 func planRoot(root string) (rootPlan, error) {
 	info, err := os.Stat(root)
 	if err != nil {
@@ -58,9 +58,9 @@ func planRoot(root string) (rootPlan, error) {
 }
 
 // planRoots resolves every argument, merging files that share a
-// directory into one plan: a pre commit hook passes a list of files,
-// and scanning their directory once per file would walk it once per
-// file and prefix every finding with the directory's name.
+// directory into one plan. A pre commit hook passes a list of files;
+// one plan per file would walk the directory once per file and prefix
+// every finding with the directory's name.
 func planRoots(roots []string) ([]rootPlan, error) {
 	plans := make([]rootPlan, 0, len(roots))
 	filePlan := map[string]int{}
@@ -90,9 +90,9 @@ type volumeChoice struct {
 	source string
 }
 
-// volumeFor is one root's fallback calls per month and its provenance:
-// an explicit --volume, already folded into the base estimates, beats
-// the root's config, which beats the estimate default. A volumes file
+// volumeFor is one root's fallback calls per month and its provenance.
+// An explicit --volume, already folded into the base estimates, beats
+// the root's config, which beats the estimate default; a volumes file
 // overrides all three per call site.
 func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) volumeChoice {
 	if flagVolume > 0 {
@@ -106,8 +106,8 @@ func (p *pipeline) volumeFor(pl rootPlan, flagVolume int) volumeChoice {
 
 // volumeAcross picks the one volume a merged report is priced and
 // headed at. A report carries a single header, so per root volumes hold
-// only when every root resolves to the same number; disagreeing roots
-// fall back to the estimate default and are named on stderr.
+// only when every root agrees; disagreeing roots fall back to the
+// estimate default and are named on stderr.
 func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writer) volumeChoice {
 	def := volumeChoice{p.base.Est.Volume.CallsPerMonth, rules.VolumeEstimate}
 	agreed := def
@@ -127,8 +127,8 @@ func (p *pipeline) volumeAcross(plans []rootPlan, flagVolume int, stderr io.Writ
 }
 
 // newPipeline loads the effective catalog (embedded or a newer cache,
-// no network) and the rules. Notes such as a bad cache or stale prices
-// go to stderr; stdout belongs to the renderers.
+// no network) and the rules. Notes go to stderr; stdout belongs to the
+// renderers.
 func newPipeline(volume int, vols *volumesFile, stderr io.Writer) (*pipeline, error) {
 	cat, note, err := catalog.Effective()
 	if err != nil {
@@ -160,8 +160,7 @@ func newPipeline(volume int, vols *volumesFile, stderr io.Writer) (*pipeline, er
 }
 
 // engineFor clones the base engine and folds in one root's config, so a
-// disabled rule or a moved threshold stays inside the repo that asked
-// for it.
+// disabled rule or a moved threshold stays inside the repo that set it.
 func (p *pipeline) engineFor(pl rootPlan, vol volumeChoice) (*rules.Engine, error) {
 	eng := p.base.Clone()
 	eng.Est.Volume.CallsPerMonth = vol.calls
@@ -182,18 +181,17 @@ func (p *pipeline) engineFor(pl rootPlan, vol volumeChoice) (*rules.Engine, erro
 
 // rootResult is one root's contribution to the merged report.
 // overBudget is one line naming total and budget when the config's
-// budget_monthly_usd is exceeded, empty otherwise; unmatched names the
-// volumes file keys no call site in this root used.
+// budget_monthly_usd is exceeded; unmatched names the volumes file keys
+// no call site in this root used.
 type rootResult struct {
 	findings   []rules.Finding
 	overBudget string
 	unmatched  []string
 }
 
-// scanRoot scans one root under its own config and nothing else. A non
-// nil only set restricts the scan to those root relative files; a plan
-// that names files of its own keeps them, since the user asked for
-// those files by name.
+// scanRoot scans one root under its own config. A non nil only set
+// restricts the scan to those root relative files, except where the
+// plan names files of its own: those the user asked for by name win.
 func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice) (rootResult, error) {
 	eng, err := p.engineFor(pl, vol)
 	if err != nil {
@@ -221,8 +219,8 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice)
 
 // scanPlans scans every planned root at one volume and merges the
 // results. Several roots prefix their findings with the root's base
-// name to stay attributable and report their counts on stderr; a single
-// root is left alone. Each over budget root contributes one line.
+// name to stay attributable and report counts on stderr; a single root
+// is left alone. Each over budget root contributes one line.
 func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeChoice, stderr io.Writer) ([]rules.Finding, []string, error) {
 	multi := len(plans) > 1
 	var findings []rules.Finding
@@ -254,7 +252,7 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 }
 
 // reportUnmatched names the volumes file keys that matched nothing
-// anywhere. A key is only unknown when every root missed it: under
+// anywhere. A key is unknown only when every root missed it: under
 // several roots each key belongs to one of them.
 func (p *pipeline) reportUnmatched(misses map[string]int, roots int, stderr io.Writer) {
 	var lines []string

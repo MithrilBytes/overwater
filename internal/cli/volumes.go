@@ -25,9 +25,8 @@ type volumesFile struct {
 	volumes *rules.Volumes
 }
 
-// loadVolumes reads a measured traffic file. Every failure is an
-// operational error: a run that meant to price on real numbers must not
-// quietly fall back to the estimate.
+// loadVolumes reads a measured traffic file. Failure is exit 2: a run
+// priced on real numbers must not quietly fall back to the estimate.
 func loadVolumes(path string) (*volumesFile, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -65,8 +64,8 @@ func printVolumesUsage(w io.Writer) {
 }
 
 // runVolumesImport turns a provider usage export into a volumes file
-// keyed by model. It reads the named local file and nothing else; there
-// is no provider API call anywhere in this path.
+// keyed by model. It reads the named local file and nothing else; no
+// provider API is called.
 func runVolumesImport(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("volumes import", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -108,8 +107,8 @@ func runVolumesImport(args []string, stdout, stderr io.Writer) int {
 }
 
 // reportUnknownModels names imported models the catalog does not carry.
-// They stay in the file: an export row is real traffic whatever the
-// catalog knows, and dropping it silently would understate the total.
+// They stay in the file: an export row is real traffic, and dropping it
+// would understate the total.
 func reportUnknownModels(counts map[string]int, stderr io.Writer) {
 	cat, _, err := catalog.Effective()
 	if err != nil {
