@@ -268,7 +268,7 @@ func TestPriceReleaseCallsRelease(t *testing.T) {
 		"pull_request",
 		"merged == true",
 		"price-watch/",
-		"-next-patch",
+		"-next-update",
 		"uses: ./.github/workflows/release.yml",
 	} {
 		if !strings.Contains(src, want) {

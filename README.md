@@ -222,6 +222,14 @@ catalog against LiteLLM and opens a PR when a provider moves a price.
 
 ## Releases
 
+Tags read `MAJOR.MINOR.FIX`, plus a fourth `UPDATE` component when a
+merged price change reships the binaries with a new catalog and no code
+change. Merging a price-watch PR tags and releases that update on its
+own. Four component tags are not semver, so `go install ...@latest`
+resolves to the newest three component tag; `overwater catalog refresh`
+picks up new prices without a new binary.
+
+
 **v1** shipped the tool: catalog, four detection layers, rules engine,
 four renderers, the baseline ratchet, the GitHub Action, catalog fetch
 with `--offline`, and generated eval scripts.

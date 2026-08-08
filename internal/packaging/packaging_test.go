@@ -195,10 +195,14 @@ func TestRenderRejectsMissingAsset(t *testing.T) {
 }
 
 func TestRenderRejectsBadVersion(t *testing.T) {
-	for _, v := range []string{"", "2.1", "latest", "v2.1.0-rc1", "2.1.0.0"} {
+	for _, v := range []string{"", "2.1", "latest", "v2.1.0-rc1", "2.1.0.0.1"} {
 		if _, err := Render(v, fixtureSums(t)); err == nil {
 			t.Errorf("version %q was accepted", v)
 		}
+	}
+	// A price update carries a fourth component.
+	if _, err := Render("2.1.0.3", fixtureSums(t)); err != nil {
+		t.Errorf("Render(2.1.0.3) = %v, want an update version to render", err)
 	}
 	// A leading v is optional; the URLs get one either way.
 	files, err := Render("9.9.9", fixtureSums(t))
