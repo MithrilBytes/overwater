@@ -7,8 +7,8 @@ aliases:
   - anthropic.claude-sonnet-5-20260501-v1:0
   - us.anthropic.claude-sonnet-5-20260501-v1:0
   - eu.anthropic.claude-sonnet-5-20260501-v1:0
-input_per_mtok: 3.00
-output_per_mtok: 15.00
+input_per_mtok: 2
+output_per_mtok: 10
 context_window: 1000000
 tier: mid
 released: "2026-05-01"
