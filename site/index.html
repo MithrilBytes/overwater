@@ -11,11 +11,14 @@
   --bg: #fbfaf8;
   --panel: #ffffff;
   --ink: #1a1c1e;
-  --muted: #5d646c;
-  --faint: #8b939b;
+  /* Text tokens are held at 4.5:1 against the worst surface they land
+     on, which is --code-bg, not --bg. --faint carries most of the
+     explanatory prose, so it does not get to be decorative. */
+  --muted: #4d545b;
+  --faint: #656c73;
   --line: #e2e0da;
-  --water: #0284c7;
-  --leaf: #16a34a;
+  --water: #0369a1;
+  --leaf: #177a3c;
   --metal: #8a8f96;
   --code-bg: #f4f2ee;
   --term-bg: #16181c;
@@ -27,7 +30,7 @@
     --panel: #14171b;
     --ink: #e6e9ec;
     --muted: #9aa2ab;
-    --faint: #6b737c;
+    --faint: #8b949e;
     --line: #262b31;
     --water: #38bdf8;
     --leaf: #4ade80;
@@ -215,24 +218,9 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
           <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.3.1</span></code>
           <button class="copy" data-copy="#c-sh">copy</button></div></dd></div>
 
-      <div class="chan"><dt>Homebrew</dt><dd>
-        <div class="cmd"><span class="prompt">$</span>
-          <code id="c-brew">brew install --formula Formula/overwater.rb</code>
-          <button class="copy" data-copy="#c-brew">copy</button></div></dd></div>
-
-      <div class="chan"><dt>Scoop</dt><dd>
-        <div class="cmd"><span class="prompt">$</span>
-          <code id="c-scoop">scoop install scoop/overwater.json</code>
-          <button class="copy" data-copy="#c-scoop">copy</button></div></dd></div>
-
-      <div class="chan"><dt>winget</dt><dd>
-        <div class="cmd"><span class="prompt">$</span>
-          <code id="c-winget">winget install MithrilBytes.Overwater</code>
-          <button class="copy" data-copy="#c-winget">copy</button></div></dd></div>
-
       <div class="chan"><dt>Container</dt><dd>
         <div class="cmd"><span class="prompt">$</span>
-          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-version>v2.3.1</span> scan /src</code>
+          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-image-tag>v2.3.1</span> scan /src</code>
           <button class="copy" data-copy="#c-img">copy</button></div></dd></div>
 
       <div class="chan"><dt>Nix</dt><dd>
@@ -243,6 +231,9 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
     <p class="sub" style="margin-top:14px">Release binaries for macOS, Linux, and Windows ship with
     a <code>SHA256SUMS</code> file and build provenance attestation. The install script verifies the
     checksum for you.</p>
+    <p class="sub">Homebrew, scoop, and winget manifests are generated into the repository on every
+    release, but none of the three is published yet: there is no tap, no bucket, and nothing
+    submitted to winget-pkgs. Until they are, install by one of the routes above.</p>
   </section>
 
   <section>
@@ -281,7 +272,8 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
       <div class="layer">
         <div class="n">03</div><h3>Call shape</h3>
         <p>Temperature, token caps, schemas, tools, streaming, reasoning effort, retries, cache
-        control, system prompt size. Nine language families parse as key value pairs or builder
+        control, system prompt size. JavaScript, TypeScript, Python, Go, Ruby, C#, PHP, shell, and
+        notebooks parse as key value pairs; Java, Kotlin, Rust, Scala, and Swift parse as builder
         chains. Signals are read from the call's own bracket balanced extent, over source with
         comments and prose masked out.</p>
       </div>
@@ -396,6 +388,14 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
   // built, so the install commands are right with scripting off and
   // right again if the API is rate limited. A price change ships a new
   // release without anyone editing this file, so ask for the real one.
+  //
+  // Only [data-version] is rewritten, and only install.sh uses it: it
+  // takes any release tag. The container tag and the action ref are
+  // deliberately left alone. A price release pushes its tag with
+  // GITHUB_TOKEN, which starts no workflow, so image.yml never builds
+  // an image for it and the action is pinned a release behind by
+  // construction. Pointing either at the newest release would print a
+  // command that does not resolve.
   fetch("https://api.github.com/repos/MithrilBytes/overwater/releases/latest")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function (d) {
@@ -534,10 +534,21 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
 
   function still() {
     // Reduced motion still gets the picture, just not the movement.
+    // Everything in flight is cleared first: switching mid visit would
+    // otherwise strand a drop in the air and leave half faded splash
+    // rings on the soil, with no loop left running to retire them.
     stop();
-    for (var i = 0; i < 3; i++) {
-      var d = drops[i];
-      d.live = false;
+    var i, d;
+    for (i = 0; i < drops.length; i++) {
+      drops[i].live = false;
+      drops[i].el.setAttribute("visibility", "hidden");
+    }
+    for (i = 0; i < splashes.length; i++) {
+      splashes[i].live = false;
+      splashes[i].el.setAttribute("visibility", "hidden");
+    }
+    for (i = 0; i < 3; i++) {
+      d = drops[i];
       d.el.setAttribute("cx", SPOUT_X);
       d.el.setAttribute("cy", SPOUT_Y + 40 + i * 46);
       d.el.setAttribute("rx", 3.2);

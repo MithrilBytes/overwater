@@ -10,6 +10,8 @@ The scanner transmits no code and calls no model API. Its only network
 request is fetching the catalog, and a snapshot ships inside the
 binary, so it runs with the network off.
 
+Project page: https://mithrilbytes.github.io/overwater/
+
 ## Install
 
 ```bash
@@ -294,9 +296,18 @@ quadratic fixes in v2. Profile before optimizing.
 
 Manifests for Homebrew, scoop, and winget, a nix flake, a distroless
 image on GHCR, release notes built from the commit log, and build
-provenance on every released binary all ship as of v2.2. What is left:
+provenance on every released binary all ship as of v2.2. The three
+manifests are generated into this repository and nothing publishes
+them, so `brew install overwater`, `scoop install overwater`, and
+`winget install MithrilBytes.Overwater` all fail today. What is left:
 
 - [ ] publish the Homebrew formula to a tap repository
+- [ ] publish the scoop manifest to a bucket repository
+- [ ] submit the winget manifests to microsoft/winget-pkgs
+- [ ] build the container image for tags that price-release pushes;
+      `image.yml` runs on tag push, and a tag pushed with
+      `GITHUB_TOKEN` starts no workflow, so an update ships binaries
+      with no matching image
 
 ### Detection
 
