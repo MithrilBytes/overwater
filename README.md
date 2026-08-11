@@ -125,10 +125,15 @@ Record a baseline once, commit it, and only new findings fail:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: MithrilBytes/overwater@v2.3.0
+- uses: MithrilBytes/overwater@v2.3.1
   with:
     baseline: .overwater.json
 ```
+
+The Action downloads a release binary pinned by checksum, and those
+checksums only exist once the release is built. So a `MAJOR.MINOR.0`
+tag always carries the previous release's pin, and the tag to use is
+the `FIX` that follows it.
 
 Add `pr-comment: true` for a sticky verdict comment, which needs
 `pull-requests: write`. Add `incremental: true` on PR builds.
@@ -212,7 +217,8 @@ The engine holds no numbers.
 One YAML file per model, validated and emitted as a single versioned
 `catalog.json` that is embedded in the binary and served at
 [catalog.json](https://raw.githubusercontent.com/MithrilBytes/overwater/main/catalog/catalog.json),
-mirrored on GitHub Pages. Entries carry prices, context window,
+mirrored on GitHub Pages beside the project page in `site/`. Entries
+carry prices, context window,
 capability flags, cache and batch rates, release and deprecation dates,
 and a source URL. Retired models stay in the catalog; legacy code still
 references them, and the deprecated-model rule needs their dates.
@@ -268,7 +274,7 @@ the cache rates with it, which providers publish as multiples of base
 input and the previous version left describing the old price.
 
 Verified by 274 labeled corpus cases at 0.99 accuracy on an 88 case
-holdout split assigned before tuning, 88 black box smoke checks through
+holdout split assigned before tuning, 89 black box smoke checks through
 the real binary, byte for byte golden output for five fixtures, fuzz
 targets over the parsers, and a gate that fails CI when analysis time
 grows faster than its input.

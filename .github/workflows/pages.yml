@@ -1,9 +1,15 @@
-name: publish-catalog
+name: pages
 
+# Publishes the project page and the catalog mirror together. The page
+# reads catalog.json from its own origin, so the two have to deploy as
+# one artifact or the site would show a version the mirror does not have.
 on:
   push:
     branches: [main]
-    paths: ["catalog/**"]
+    paths:
+      - "site/**"
+      - "catalog/catalog.json"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +31,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: is pages enabled
         id: pages
+        # Pages is a repository setting a human turns on once. Until then
+        # this deploys nothing rather than failing every push to main.
         run: |
           code=$(curl -s -o /dev/null -w '%{http_code}' \
             -H "Authorization: Bearer ${{ github.token }}" \
@@ -33,14 +41,15 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "GitHub Pages is not enabled; skipping the mirror deploy." >> "$GITHUB_STEP_SUMMARY"
+            echo "GitHub Pages is not enabled; skipping the deploy." >> "$GITHUB_STEP_SUMMARY"
             echo "Enable it under Settings, Pages, Source: GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
           fi
       - if: steps.pages.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
       - if: steps.pages.outputs.enabled == 'true'
+        name: assemble
         run: |
-          mkdir -p site
+          set -euo pipefail
           cp catalog/catalog.json site/
       - if: steps.pages.outputs.enabled == 'true'
         uses: actions/upload-pages-artifact@v3

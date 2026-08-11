@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>overwater</title>
+<meta name="description" content="Finds LLM call sites using more model than the task needs. Reads code, transmits nothing, calls no model API.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3C16 3 6 15 6 21a10 10 0 0 0 20 0C26 15 16 3 16 3Z' fill='%2338bdf8'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #fbfaf8;
+  --panel: #ffffff;
+  --ink: #1a1c1e;
+  --muted: #5d646c;
+  --faint: #8b939b;
+  --line: #e2e0da;
+  --water: #0284c7;
+  --leaf: #16a34a;
+  --metal: #8a8f96;
+  --code-bg: #f4f2ee;
+  --term-bg: #16181c;
+  --term-ink: #d8dde3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1013;
+    --panel: #14171b;
+    --ink: #e6e9ec;
+    --muted: #9aa2ab;
+    --faint: #6b737c;
+    --line: #262b31;
+    --water: #38bdf8;
+    --leaf: #4ade80;
+    --metal: #79818a;
+    --code-bg: #191d22;
+    --term-bg: #0a0c0f;
+    --term-ink: #d8dde3;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.65 ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+a { color: var(--water); }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+h1, h2, h3 { line-height: 1.25; margin: 0; font-weight: 620; letter-spacing: -0.01em; }
+h2 { font-size: 1.35rem; margin-bottom: 14px; }
+h3 { font-size: 1rem; margin-bottom: 6px; }
+p { margin: 0 0 14px; }
+section { padding: 46px 0; border-top: 1px solid var(--line); }
+
+/* hero */
+.hero { display: grid; grid-template-columns: 1fr 320px; gap: 40px; align-items: center; padding: 64px 0 54px; }
+.hero h1 { font-size: 2.7rem; letter-spacing: -0.03em; }
+.tagline { font-size: 1.12rem; color: var(--muted); margin: 14px 0 8px; max-width: 46ch; }
+.sub { color: var(--faint); font-size: 0.94rem; max-width: 50ch; }
+.scene { width: 100%; height: auto; }
+
+/* command blocks */
+.cmd {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; margin: 8px 0; font-size: 0.88rem; overflow: hidden;
+}
+.cmd .prompt { color: var(--faint); user-select: none; }
+/* min-width:0 or the flex item refuses to shrink below its own text
+   and a long install line widens the whole page on a phone. */
+.cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+.copy {
+  flex: none; border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  border-radius: 6px; padding: 3px 9px; font-size: 0.74rem; cursor: pointer; font-family: inherit;
+}
+.copy:hover { color: var(--ink); border-color: var(--faint); }
+.copy[data-done] { color: var(--leaf); border-color: var(--leaf); }
+
+/* terminal */
+.term {
+  background: var(--term-bg); color: var(--term-ink); border-radius: 10px;
+  border: 1px solid var(--line); overflow: hidden;
+}
+.term .bar { display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid #ffffff14; }
+.term .bar i { width: 10px; height: 10px; border-radius: 50%; background: #ffffff1f; }
+.term pre { margin: 0; padding: 16px 18px; overflow-x: auto; font-size: 0.83rem; line-height: 1.75; }
+.k { color: #7dd3fc; } .w { color: #fbbf24; } .g { color: #86efac; } .d { color: #8b949e; }
+
+/* tables */
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--faint); font-weight: 560; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+td code { font-size: 0.85em; }
+
+/* layers */
+.layers { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.layer { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.layer .n { color: var(--water); font-size: 0.75rem; letter-spacing: 0.08em; font-weight: 700; }
+.layer p { font-size: 0.88rem; color: var(--muted); margin: 4px 0 0; }
+
+/* install grid. min-width:0 on every box between the page and the
+   command text: grid and flex items default to min-width:auto, which
+   makes a long, unwrapped install line push the column wider than the
+   page instead of scrolling inside its own block. */
+.channels { margin: 0; }
+.chan { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 0 18px; align-items: baseline; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.chan:last-child { border-bottom: 0; }
+.chan dt { font-weight: 560; font-size: 0.9rem; }
+.chan dd { margin: 0; min-width: 0; }
+.chan .cmd { margin: 0; }
+.hero > div { min-width: 0; }
+
+/* releases */
+.rel { display: grid; grid-template-columns: 76px 1fr; gap: 0 20px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.rel:last-child { border-bottom: 0; }
+.rel dt { font-weight: 640; font-size: 0.92rem; }
+.rel dd { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.now { color: var(--water); }
+
+.facts { display: flex; flex-wrap: wrap; gap: 8px 26px; padding: 0; margin: 0; list-style: none; font-size: 0.88rem; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 620; font-variant-numeric: tabular-nums; }
+
+footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.never { color: var(--faint); font-size: 0.88rem; margin-top: 20px; }
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; gap: 8px; padding: 40px 0 32px; }
+  .hero h1 { font-size: 2.1rem; }
+  .scene { max-width: 240px; justify-self: center; margin-top: 8px; }
+  .layers { grid-template-columns: 1fr; }
+  .chan, .rel { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div>
+      <h1>overwater</h1>
+      <p class="tagline">Finds LLM call sites where the model is bigger, pricier, or
+      more wastefully configured than the task in front of it.</p>
+      <p class="sub">Reads your code, prices every call against a public model catalog,
+      and nominates cheaper candidates in dollars per month. In CI it fails builds on
+      new findings and passes the ones already recorded in a baseline.</p>
+      <div class="cmd">
+        <span class="prompt">$</span>
+        <code id="install-cmd">go install github.com/MithrilBytes/overwater/cmd/overwater@latest</code>
+        <button class="copy" data-copy="#install-cmd">copy</button>
+      </div>
+    </div>
+
+    <svg class="scene" id="scene" viewBox="0 0 400 420" role="img"
+         aria-label="A watering can pouring far more water than the seedling below it needs.">
+      <g id="can" transform="translate(60,-2) rotate(-15 205 135)" fill="none"
+         stroke="var(--metal)" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M170 66 C176 24 234 24 240 66"/>
+        <path d="M155 118 C120 112 96 124 78 146 L96 178 C112 158 132 152 158 156 Z"
+              fill="var(--panel)"/>
+        <path d="M153 78 L257 78 L246 196 Q205 212 164 196 Z" fill="var(--panel)"/>
+        <ellipse cx="205" cy="78" rx="52" ry="13" fill="var(--panel)"/>
+        <path d="M78 146 L96 178" stroke-width="6" stroke="var(--water)" opacity="0.55"/>
+      </g>
+
+      <g id="drops" fill="var(--water)"></g>
+      <g id="splashes" fill="none" stroke="var(--water)" stroke-width="2"></g>
+
+      <g id="plant" fill="none" stroke="var(--leaf)" stroke-width="4.5" stroke-linecap="round">
+        <path d="M158 332 L158 300"/>
+        <path d="M158 312 C144 310 138 300 139 291 C150 291 157 300 158 312Z" fill="var(--leaf)" stroke="none"/>
+        <path d="M158 318 C172 316 178 306 177 297 C166 297 159 306 158 318Z" fill="var(--leaf)" stroke="none"/>
+      </g>
+
+      <path d="M118 332 L198 332 L188 392 L128 392 Z" fill="var(--panel)"
+            stroke="var(--metal)" stroke-width="4.5" stroke-linejoin="round"/>
+      <path d="M114 332 L202 332" stroke="var(--metal)" stroke-width="6" stroke-linecap="round"/>
+      <ellipse id="puddle" cx="158" cy="394" rx="62" ry="7" fill="var(--water)" opacity="0.3"/>
+    </svg>
+  </header>
+
+  <section>
+    <h2>What a finding looks like</h2>
+    <p class="sub" style="margin-bottom:18px">Every finding renders five fields, in this order.
+    Findings are nominations: a scanner cannot know a cheaper model is safe for your task, so each
+    one states the condition under which you should not switch.</p>
+    <div class="term">
+      <div class="bar"><i></i><i></i><i></i></div>
+<pre><span class="d">$</span> overwater scan .
+
+<span class="k">Call site:</span> src/classify.ts:57 (classification: temp 0, JSON schema; high confidence)
+<span class="k">Current:</span>   claude-opus-5 at ~<span class="w">$135/mo</span> at estimated volume
+<span class="k">Candidate:</span> claude-haiku-4-5, same capability tier for this task class, ~<span class="g">$27/mo</span>
+<span class="k">Tripwire:</span>  If eval agreement drops below 97%, stay put
+<span class="k">Flag:</span>      No prompt caching on a 1,191-token repeated system prompt</pre>
+    </div>
+    <p class="sub" style="margin-top:16px">When nothing clears the confidence bar the whole verdict
+    is <code>Keep the models you have.</code> &nbsp;<code>overwater eval</code> generates the A/B
+    script that tests a tripwire.</p>
+  </section>
+
+  <section>
+    <h2>Install</h2>
+    <dl class="channels">
+      <div class="chan"><dt>Go</dt><dd>
+        <div class="cmd"><span class="prompt">$</span>
+          <code id="c-go">go install github.com/MithrilBytes/overwater/cmd/overwater@latest</code>
+          <button class="copy" data-copy="#c-go">copy</button></div></dd></div>
+
+      <div class="chan"><dt>Script</dt><dd>
+        <div class="cmd"><span class="prompt">$</span>
+          <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.3.1</span></code>
+          <button class="copy" data-copy="#c-sh">copy</button></div></dd></div>
+
+      <div class="chan"><dt>Homebrew</dt><dd>
+        <div class="cmd"><span class="prompt">$</span>
+          <code id="c-brew">brew install --formula Formula/overwater.rb</code>
+          <button class="copy" data-copy="#c-brew">copy</button></div></dd></div>
+
+      <div class="chan"><dt>Scoop</dt><dd>
+        <div class="cmd"><span class="prompt">$</span>
+          <code id="c-scoop">scoop install scoop/overwater.json</code>
+          <button class="copy" data-copy="#c-scoop">copy</button></div></dd></div>
+
+      <div class="chan"><dt>winget</dt><dd>
+        <div class="cmd"><span class="prompt">$</span>
+          <code id="c-winget">winget install MithrilBytes.Overwater</code>
+          <button class="copy" data-copy="#c-winget">copy</button></div></dd></div>
+
+      <div class="chan"><dt>Container</dt><dd>
+        <div class="cmd"><span class="prompt">$</span>
+          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-version>v2.3.1</span> scan /src</code>
+          <button class="copy" data-copy="#c-img">copy</button></div></dd></div>
+
+      <div class="chan"><dt>Nix</dt><dd>
+        <div class="cmd"><span class="prompt">$</span>
+          <code id="c-nix">nix run github:MithrilBytes/overwater</code>
+          <button class="copy" data-copy="#c-nix">copy</button></div></dd></div>
+    </dl>
+    <p class="sub" style="margin-top:14px">Release binaries for macOS, Linux, and Windows ship with
+    a <code>SHA256SUMS</code> file and build provenance attestation. The install script verifies the
+    checksum for you.</p>
+  </section>
+
+  <section>
+    <h2>CI</h2>
+    <p class="sub" style="margin-bottom:16px">Record a baseline once, commit it, and only new
+    findings fail the build.</p>
+    <div class="term">
+<pre>- uses: actions/checkout@v4
+- uses: MithrilBytes/overwater@<span data-action-ref>v2.3.1</span>
+  with:
+    baseline: .overwater.json</pre>
+    </div>
+    <p class="sub" style="margin-top:16px">Add <code>pr-comment: true</code> for a sticky verdict
+    comment, which needs <code>pull-requests: write</code>. Add <code>incremental: true</code> on PR
+    builds. Exit codes are <code>0</code> clean, <code>1</code> findings under the failure policy,
+    <code>2</code> operational error. They are never conflated.</p>
+  </section>
+
+  <section>
+    <h2>How it reads a call site</h2>
+    <p class="sub" style="margin-bottom:20px">Four layers feed a rules engine. Every rule,
+    threshold, and price lives in YAML; the engine holds no numbers.</p>
+    <div class="layers">
+      <div class="layer">
+        <div class="n">01</div><h3>Manifests</h3>
+        <p><code>package.json</code>, <code>requirements.txt</code>, <code>pyproject.toml</code>,
+        <code>go.mod</code>, <code>Gemfile</code>, <code>pom.xml</code>, <code>build.gradle</code>,
+        <code>*.csproj</code>, <code>composer.json</code>, <code>Cargo.toml</code>,
+        <code>Package.swift</code>.</p>
+      </div>
+      <div class="layer">
+        <div class="n">02</div><h3>Model strings</h3>
+        <p>The catalog is the dictionary: 88 entries across 15 providers, matched by id and alias.
+        Strings that look like models but are not in the catalog are reported at low confidence.</p>
+      </div>
+      <div class="layer">
+        <div class="n">03</div><h3>Call shape</h3>
+        <p>Temperature, token caps, schemas, tools, streaming, reasoning effort, retries, cache
+        control, system prompt size. Nine language families parse as key value pairs or builder
+        chains. Signals are read from the call's own bracket balanced extent, over source with
+        comments and prose masked out.</p>
+      </div>
+      <div class="layer">
+        <div class="n">04</div><h3>Archetype</h3>
+        <p>Extraction, classification, summarization, chat, agentic, embedding, translation,
+        reranking, moderation, transcription, vision, codegen. Scored from the enclosing function
+        name, the resolved prompt, the SDK method, schema semantics, and the token cap read as
+        intent. A negated phrase does not score.</p>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:22px">Call sites carry fan in. A helper that wraps the SDK is
+    priced for its callers, so a wrapper called two hundred times costs two hundred leaf calls.
+    Without measured traffic every dollar figure says <code>at estimated volume</code>; feed in a
+    volumes file or a provider usage export and it reads <code>at measured volume</code> instead.</p>
+  </section>
+
+  <section>
+    <h2>Commands</h2>
+    <table>
+      <thead><tr><th>Command</th><th>Does</th></tr></thead>
+      <tbody>
+        <tr><td><code>scan</code></td><td>report call sites in one or more repositories</td></tr>
+        <tr><td><code>diff</code></td><td>compare two <code>scan --json</code> reports, with delta dollars</td></tr>
+        <tr><td><code>fleet</code></td><td>scan a list of repositories into one rollup</td></tr>
+        <tr><td><code>eval</code></td><td>generate a runnable A/B script per finding</td></tr>
+        <tr><td><code>volumes</code></td><td>import a provider usage export into a volumes file</td></tr>
+        <tr><td><code>catalog</code></td><td>show, build, refresh, or diff the model catalog</td></tr>
+        <tr><td><code>explain</code></td><td>print what a rule looks for and what it means</td></tr>
+        <tr><td><code>version</code></td><td>print the build</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Catalog</h2>
+    <p class="sub">One YAML file per model, validated and emitted as a single versioned
+    <a href="catalog.json">catalog.json</a> embedded in the binary. Entries carry prices, context
+    window, capability flags, cache and batch rates, release and deprecation dates, and a source
+    URL. Retired models stay in the catalog; legacy code still references them, and the
+    deprecated-model rule needs their dates.</p>
+    <p class="sub">Contributors update a price by editing one file. A nightly job diffs the catalog
+    against LiteLLM and opens a PR when a provider moves a price. Merging that PR tags and releases
+    on its own, so a price the catalog accepts reaches the binaries without a human picking a
+    version.</p>
+    <ul class="facts" style="margin-top:18px">
+      <li><b>88</b> models</li>
+      <li><b>15</b> providers</li>
+      <li><b>12</b> rules</li>
+      <li>catalog <b id="cat-version">2026-08-08</b></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Releases</h2>
+    <dl>
+      <div class="rel"><dt>v2.3 <span class="now">current</span></dt><dd>Merging a price-watch PR
+        tags and releases on its own. Applying a price carries the cache rates with it.</dd></div>
+      <div class="rel"><dt>v2.2</dt><dd>A helper that wraps the SDK is priced for its callers.
+        Homebrew, scoop, and winget manifests, a nix flake, a distroless image on GHCR, release
+        notes from the commit log, and build provenance on every binary.</dd></div>
+      <div class="rel"><dt>v2.1</dt><dd>Measured volumes, an importer for provider usage exports,
+        and provenance on every dollar figure. The archetype scorer rebuilt around the SDK method,
+        the token cap read as intent, schema shape, and negation. Fan in.</dd></div>
+      <div class="rel"><dt>v2.0</dt><dd>Nine parsed language families plus notebooks and shell, six
+        more manifests, config tracing, six more archetypes, twelve rules, exact cache pricing, per
+        repo config, incremental scans, <code>diff</code>, <code>fleet</code>, HTML, CSV, SARIF,
+        and summary output.</dd></div>
+      <div class="rel"><dt>v1.5</dt><dd>Structural parsing for TypeScript, a labeled corpus with an
+        accuracy floor, the nightly price watch, and PR comments.</dd></div>
+      <div class="rel"><dt>v1</dt><dd>Catalog, four detection layers, rules engine, four renderers,
+        the baseline ratchet, the GitHub Action, catalog fetch with <code>--offline</code>, and
+        generated eval scripts.</dd></div>
+    </dl>
+    <p class="sub" style="margin-top:20px">Verified by 274 labeled corpus cases at 0.99 accuracy on
+    an 88 case holdout split assigned before tuning, 89 black box smoke checks through the real
+    binary, byte for byte golden output for five fixtures, fuzz targets over the parsers, and a
+    gate that fails CI when analysis time grows faster than its input.</p>
+    <p class="never">Never: hosted service, telemetry, model calls from the scanner.</p>
+  </section>
+
+  <footer>
+    <a href="https://github.com/MithrilBytes/overwater">GitHub</a>
+    <a href="https://github.com/MithrilBytes/overwater/releases">Releases</a>
+    <a href="catalog.json">catalog.json</a>
+    <a href="https://github.com/MithrilBytes/overwater/blob/main/LICENSE">MIT</a>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- copy buttons -------------------------------------------------
+  document.querySelectorAll(".copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var el = document.querySelector(btn.dataset.copy);
+      navigator.clipboard.writeText(el.textContent.trim()).then(function () {
+        btn.textContent = "copied";
+        btn.dataset.done = "1";
+        setTimeout(function () {
+          btn.textContent = "copy";
+          delete btn.dataset.done;
+        }, 1400);
+      });
+    });
+  });
+
+  // ---- live version -------------------------------------------------
+  // The markup carries the version that was current when the page was
+  // built, so the install commands are right with scripting off and
+  // right again if the API is rate limited. A price change ships a new
+  // release without anyone editing this file, so ask for the real one.
+  fetch("https://api.github.com/repos/MithrilBytes/overwater/releases/latest")
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d) {
+      if (!d.tag_name) return;
+      document.querySelectorAll("[data-version]").forEach(function (el) {
+        el.textContent = d.tag_name;
+      });
+    })
+    .catch(function () { /* the baked in version stands */ });
+
+  fetch("catalog.json")
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (d) {
+      if (d.version) document.getElementById("cat-version").textContent = d.version;
+    })
+    .catch(function () { /* the baked in catalog date stands */ });
+
+  // ---- the watering can ---------------------------------------------
+  var svg = document.getElementById("scene");
+  var dropLayer = document.getElementById("drops");
+  var splashLayer = document.getElementById("splashes");
+  var puddle = document.getElementById("puddle");
+
+  var SPOUT_X = 158, SPOUT_Y = 190;  // midpoint of the nozzle face, after the can's transform
+  var SOIL_Y = 330;                  // the pot rim, where a drop lands
+  var GRAVITY = 900;                 // svg units per second squared
+  var INTERVAL = 0.16;               // seconds between drops
+  var DROPS = 14, SPLASHES = 8;      // pools, never grown at runtime
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var drops = [], splashes = [];
+
+  function pool(layer, tag, n, into) {
+    for (var i = 0; i < n; i++) {
+      var el = document.createElementNS(SVGNS, tag);
+      el.setAttribute("visibility", "hidden");
+      layer.appendChild(el);
+      into.push({ el: el, live: false });
+    }
+  }
+  pool(dropLayer, "ellipse", DROPS, drops);
+  pool(splashLayer, "ellipse", SPLASHES, splashes);
+
+  function free(list) {
+    for (var i = 0; i < list.length; i++) if (!list[i].live) return list[i];
+    return null;                       // pool exhausted: skip this drop
+  }
+
+  function spawnDrop() {
+    var d = free(drops);
+    if (!d) return;
+    d.live = true;
+    d.x = SPOUT_X + (Math.random() * 9 - 4.5);
+    d.y = SPOUT_Y;
+    d.vy = 20 + Math.random() * 40;
+    d.el.setAttribute("visibility", "visible");
+  }
+
+  function spawnSplash(x) {
+    var s = free(splashes);
+    if (!s) return;
+    s.live = true;
+    s.x = x;
+    s.t = 0;
+    s.el.setAttribute("visibility", "visible");
+  }
+
+  function step(dt) {
+    var i, d, s;
+    for (i = 0; i < drops.length; i++) {
+      d = drops[i];
+      if (!d.live) continue;
+      d.vy += GRAVITY * dt;
+      d.y += d.vy * dt;
+      if (d.y >= SOIL_Y) {
+        d.live = false;
+        d.el.setAttribute("visibility", "hidden");
+        spawnSplash(d.x);
+        continue;
+      }
+      // A falling drop stretches along its velocity and thins as it goes.
+      var ry = Math.min(3 + d.vy * 0.012, 9);
+      d.el.setAttribute("cx", d.x.toFixed(1));
+      d.el.setAttribute("cy", d.y.toFixed(1));
+      d.el.setAttribute("rx", (3.4 - (ry - 3) * 0.13).toFixed(2));
+      d.el.setAttribute("ry", ry.toFixed(2));
+    }
+    for (i = 0; i < splashes.length; i++) {
+      s = splashes[i];
+      if (!s.live) continue;
+      s.t += dt * 2.6;
+      if (s.t >= 1) {
+        s.live = false;
+        s.el.setAttribute("visibility", "hidden");
+        continue;
+      }
+      s.el.setAttribute("cx", s.x.toFixed(1));
+      s.el.setAttribute("cy", SOIL_Y);
+      s.el.setAttribute("rx", (3 + s.t * 15).toFixed(1));
+      s.el.setAttribute("ry", (1 + s.t * 3.5).toFixed(1));
+      s.el.setAttribute("opacity", (0.65 * (1 - s.t)).toFixed(2));
+    }
+  }
+
+  var last = 0, sinceDrop = 0, raf = 0;
+
+  function frame(now) {
+    // Clamped: a backgrounded tab hands back a huge first delta, which
+    // would teleport every drop past the soil in one step.
+    var dt = last ? Math.min((now - last) / 1000, 0.05) : 0;
+    last = now;
+    sinceDrop += dt;
+    if (sinceDrop >= INTERVAL) {
+      sinceDrop = 0;
+      spawnDrop();
+    }
+    step(dt);
+    puddle.setAttribute("rx", (62 + Math.sin(now / 900) * 4).toFixed(1));
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start() {
+    if (raf) return;
+    last = 0;
+    raf = requestAnimationFrame(frame);
+  }
+
+  function stop() {
+    if (!raf) return;
+    cancelAnimationFrame(raf);
+    raf = 0;
+  }
+
+  var calm = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var onScreen = true;
+
+  function still() {
+    // Reduced motion still gets the picture, just not the movement.
+    stop();
+    for (var i = 0; i < 3; i++) {
+      var d = drops[i];
+      d.live = false;
+      d.el.setAttribute("cx", SPOUT_X);
+      d.el.setAttribute("cy", SPOUT_Y + 40 + i * 46);
+      d.el.setAttribute("rx", 3.2);
+      d.el.setAttribute("ry", 5.5 + i);
+      d.el.setAttribute("visibility", "visible");
+    }
+  }
+
+  function decide() {
+    if (calm.matches) { still(); return; }
+    // The frozen drops still() left behind are not owned by the loop,
+    // so clear them or they hang in the air for the rest of the visit.
+    for (var i = 0; i < drops.length; i++) {
+      if (!drops[i].live) drops[i].el.setAttribute("visibility", "hidden");
+    }
+    // Off screen or in a hidden tab, the animation is only heat.
+    if (document.hidden || !onScreen) { stop(); return; }
+    start();
+  }
+
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      onScreen = entries[0].isIntersecting;
+      decide();
+    }).observe(svg);
+  }
+  document.addEventListener("visibilitychange", decide);
+  calm.addEventListener("change", decide);
+  decide();
+})();
+</script>
+
+</body>
+</html>
