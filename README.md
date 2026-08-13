@@ -175,7 +175,15 @@ Four layers feed a rules engine.
    `composer.json`, `Cargo.toml`, `Package.swift`.
 2. **Model strings.** The catalog is the dictionary: 88 entries across
    15 providers, matched by id and alias. Strings that look like models
-   but are not in the catalog are reported at low confidence.
+   but are not in the catalog are named on stderr as unpriced, so a
+   model we do not carry cannot read as a clean bill of health.
+
+   Only code calls a model. Documentation, test files and fixtures are
+   read as context but report no call sites of their own: a README
+   listing models, or a test asserting on one, spends nothing. In
+   configuration the distinction is binding against roster, so
+   `model: gpt-5-mini` is a call site and a list of models a user may
+   pick from is not.
 3. **Call shape.** Temperature, token caps, schemas, tools, streaming,
    reasoning effort, retries, image detail, embedding dimensions,
    cache control, system prompt size. JavaScript, TypeScript, Python,
@@ -274,6 +282,17 @@ releases on its own, so a price the catalog accepts reaches the
 binaries without a human picking a version. Applying a price carries
 the cache rates with it, which providers publish as multiples of base
 input and the previous version left describing the old price.
+
+Layer 2 was then measured against 128 real public repositories rather
+than fixtures, and it was wrong far more often than the corpus showed:
+19 of the 25 that call no LLM at all still reported call sites. It had
+been treating any catalog id in any file as a call. Comments,
+docstrings, documentation, test fixtures and configuration rosters no
+longer are, a hyphenated identifier no longer matches a model inside
+itself, and agent tooling that borrows a model's family name is not a
+model. One configuration repository dropped from 1,364 findings to 33,
+and a CLI that never opens a socket from 220 to none. No repository
+that genuinely calls an LLM lost a finding.
 
 Verified by 274 labeled corpus cases at 0.99 accuracy on an 88 case
 holdout split assigned before tuning, 89 black box smoke checks through
