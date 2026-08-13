@@ -88,6 +88,12 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 // analyzeFile runs layers 2 through 4 over one file.
 func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 	var sites []Site
+	// Documentation, configuration and tests name models without calling
+	// them (emit.go). They stay loaded as context for prompts, constants
+	// and fan in; they just do not report sites of their own.
+	if !emitsSites(f.path) {
+		return nil
+	}
 	// The code view, not the raw bytes: a model named in a comment is
 	// somebody writing about a call, not making one, and it used to
 	// become a call site of its own, with a price and its own findings.
