@@ -297,3 +297,55 @@ func TestAgentToolingIsNotAModel(t *testing.T) {
 		}
 	}
 }
+
+// Providers ship mixed case ids and people write GPT-4o. appium-mcp
+// defaults to 'Qwen3-VL-235B-A22B-Instruct' and the whole repository
+// read as having no model at all.
+//
+// Both halves matter and each one broke separately while this was
+// written. Matching has to be case insensitive, and Ref has to arrive as
+// the catalog key regardless of how the source spelled it, because the
+// rules engine resolves a site by looking Ref up in the same map: a Ref
+// of "GPT-4o" is not a key, so the model silently became unknown, and an
+// earlier spelling of the same mistake dereferenced nil.
+func TestModelMatchingIsCaseInsensitive(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"a.ts": "const a = \"GPT-4o\";\nconst b = \"Claude-Opus-5\";\nconst c = \"claude-opus-5\";\n",
+	})
+	report, err := Analyze(dir, mustCatalog(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Sites) != 3 {
+		t.Fatalf("sites = %d, want 3: %+v", len(report.Sites), report.Sites)
+	}
+	want := []string{"gpt-4o", "claude-opus-5", "claude-opus-5"}
+	for i, s := range report.Sites {
+		if !s.Known {
+			t.Errorf("site %d (%s) is not known", i, s.Ref)
+		}
+		if s.ModelID != want[i] {
+			t.Errorf("site %d id = %q, want %q", i, s.ModelID, want[i])
+		}
+		// The rules engine looks the site up by Ref, so it must be a key.
+		if s.Ref != want[i] {
+			t.Errorf("site %d ref = %q, want the catalog key %q", i, s.Ref, want[i])
+		}
+	}
+
+	// An uncatalogued id in a provider's own capitalisation still reads
+	// as model looking rather than vanishing.
+	dir = writeTree(t, map[string]string{
+		"b.ts": "const m = process.env.M || 'Qwen3-VL-235B-A22B-Instruct';\n",
+	})
+	report, err = Analyze(dir, mustCatalog(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Sites) != 1 || report.Sites[0].Known {
+		t.Fatalf("sites = %+v, want one unknown site", report.Sites)
+	}
+	if report.Sites[0].Ref != "Qwen3-VL-235B-A22B-Instruct" {
+		t.Errorf("ref = %q, want the source spelling for an unknown id", report.Sites[0].Ref)
+	}
+}

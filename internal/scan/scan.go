@@ -78,6 +78,10 @@ type Report struct {
 	Root  string
 	SDKs  []SDK
 	Sites []Site
+	// Unpriced are calls that spend tokens without naming a model this
+	// scanner can resolve (unpriced.go). They carry no price and no
+	// findings; they mark where knowledge stops.
+	Unpriced []UnpricedCall
 }
 
 // Analyze runs layers 1 through 3 over the repository at root.
@@ -101,8 +105,11 @@ func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 	// and blanking preserves offsets so line and column still hold.
 	for _, site := range findModelRefs(f.path, []byte(a.masked(f.path).code), names) {
 		tier := ""
-		if site.Known {
-			tier = names[site.Ref].Tier
+		// By id, not by Ref: Ref keeps the spelling the source used, and
+		// matching is case insensitive, so GPT-4o is a valid reference
+		// and not a catalog key.
+		if m := names[site.ModelID]; site.Known && m != nil {
+			tier = m.Tier
 		}
 		a.describe(&site, tier)
 		sites = append(sites, site)
@@ -134,8 +141,9 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 	// Files are independent until the merge. Results land in walk order
 	// slots, so output does not depend on which worker finishes first.
 	type fileResult struct {
-		sdks  []SDK
-		sites []Site
+		sdks     []SDK
+		sites    []Site
+		unpriced []UnpricedCall
 	}
 	results := make([]fileResult, len(files))
 	workers := min(runtime.GOMAXPROCS(0), len(files))
@@ -156,6 +164,13 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 				r := &results[i]
 				r.sdks = scanManifest(f.path, f.data)
 				r.sites = a.analyzeFile(f, names)
+				if emitsSites(f.path) {
+					priced := map[int]bool{}
+					for _, s := range r.sites {
+						priced[s.Line] = true
+					}
+					r.unpriced = findUnpricedCalls(f.path, a.masked(f.path).code, priced)
+				}
 			}
 		}()
 	}
@@ -167,6 +182,7 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 	for _, r := range results {
 		report.SDKs = append(report.SDKs, r.sdks...)
 		report.Sites = append(report.Sites, r.sites...)
+		report.Unpriced = append(report.Unpriced, r.unpriced...)
 	}
 	a.traceConfigModels(report, names, only)
 	a.applyFanIn(report, names)

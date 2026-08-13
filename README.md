@@ -184,6 +184,14 @@ Four layers feed a rules engine.
    configuration the distinction is binding against roster, so
    `model: gpt-5-mini` is a call site and a list of models a user may
    pick from is not.
+
+   Some calls spend tokens without naming a model: an HTTP call to
+   `/chat/completions` whose model is a runtime variable, or a shell
+   script running `claude --print`. Neither can be priced, because a
+   price needs a catalog entry and neither a variable nor an agent CLI
+   alias is one. They are named on stderr as unpriced rather than
+   guessed at, so a repository that spends through one does not read as
+   clean.
 3. **Call shape.** Temperature, token caps, schemas, tools, streaming,
    reasoning effort, retries, image detail, embedding dimensions,
    cache control, system prompt size. JavaScript, TypeScript, Python,

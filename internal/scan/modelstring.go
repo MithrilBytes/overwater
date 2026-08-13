@@ -8,6 +8,20 @@ import (
 	"github.com/MithrilBytes/overwater/catalog"
 )
 
+// lowerASCII lowercases a and z only, so every byte offset in the result
+// still points at the same byte of the input. strings.ToLower cannot be
+// used for this: some Unicode letters change width when folded, and a
+// prompt full of them would shift every column the matcher reports.
+func lowerASCII(s string) string {
+	b := []byte(s)
+	for i := range b {
+		if b[i] >= 'A' && b[i] <= 'Z' {
+			b[i] += 'a' - 'A'
+		}
+	}
+	return string(b)
+}
+
 // nameChar reports whether b can appear inside a model name; anything
 // else marks a word boundary.
 func nameChar(b byte) bool {
@@ -31,7 +45,7 @@ func nameChar(b byte) bool {
 // short ids o3 and o4 are handled by shortIDInContext instead, which can
 // require the quoting these cannot.
 var unknownModelRE = regexp.MustCompile(
-	`\b(?:gpt-[0-9o][\w.-]*` +
+	`(?i)\b(?:gpt-[0-9o][\w.-]*` +
 		`|claude-[\w.-]+` +
 		`|gemini-[\w.-]+` +
 		`|mistral-[\w.-]+` +
@@ -54,7 +68,7 @@ var unknownModelRE = regexp.MustCompile(
 // dozens of sites: demarkus, an MCP broker with no LLM dependency at
 // all, produced 37.
 var toolNameRE = regexp.MustCompile(
-	`^(?:claude|gemini|gpt|grok|llama|mistral)-` +
+	`(?i)^(?:claude|gemini|gpt|grok|llama|mistral)-` +
 		`(?:code|cli|desktop|app|plugin|template|templates|hook|hooks|` +
 		`pre|post|bot|agent|sdk|api|key|token|proxy|ui|web|server|mcp)` +
 		`(?:[-.].*)?$`)
@@ -77,6 +91,10 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 
 	var sites []Site
 	for lineNo, line := range strings.Split(string(data), "\n") {
+		// Providers ship mixed case ids (Qwen3-VL-235B-A22B-Instruct) and
+		// people write GPT-4o. Catalog keys are lowercase, so matching
+		// happens against a lowercase view whose offsets are the line's.
+		lower := lowerASCII(line)
 		type claim struct{ start, end int }
 		var claimed []claim
 		overlaps := func(s, e int) bool {
@@ -89,17 +107,17 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 		}
 		for _, key := range keys {
 			for idx := 0; ; {
-				i := strings.Index(line[idx:], key)
+				i := strings.Index(lower[idx:], key)
 				if i < 0 {
 					break
 				}
 				start := idx + i
 				end := start + len(key)
 				idx = end
-				if start > 0 && nameChar(line[start-1]) {
+				if start > 0 && nameChar(lower[start-1]) {
 					continue
 				}
-				if end < len(line) && nameChar(line[end]) {
+				if end < len(lower) && nameChar(lower[end]) {
 					continue
 				}
 				if overlaps(start, end) {
@@ -110,9 +128,13 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 				}
 				claimed = append(claimed, claim{start, end})
 				sites = append(sites, Site{
-					File:    relPath,
-					Line:    lineNo + 1,
-					Col:     start,
+					File: relPath,
+					Line: lineNo + 1,
+					Col:  start,
+					// The catalog key, not the source spelling: the rules
+					// engine resolves a site by looking Ref up in the same
+					// map, so GPT-4o has to arrive as gpt-4o or it reads
+					// as a model nobody has heard of.
 					Ref:     key,
 					ModelID: names[key].ID,
 					Known:   true,

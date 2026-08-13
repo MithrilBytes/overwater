@@ -192,6 +192,10 @@ type rootResult struct {
 	// carry. They are priced at nothing and so produce no findings,
 	// which without a word here reads as a clean bill of health.
 	unrecognized []string
+	// unpriced are calls that spend tokens without naming a model at
+	// all: an HTTP endpoint whose model is a runtime variable, or an
+	// agent CLI invocation. Same contract, same reason.
+	unpriced []scan.UnpricedCall
 }
 
 // scanRoot scans one root under its own config. A non nil only set
@@ -213,6 +217,7 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice)
 		findings:     eng.Evaluate(report, p.cat),
 		unmatched:    eng.UnmatchedVolumeKeys(report, p.cat),
 		unrecognized: unrecognizedModels(report),
+		unpriced:     report.Unpriced,
 	}
 	if pl.cfg != nil && pl.cfg.BudgetMonthlyUSD > 0 {
 		if total := eng.TotalMonthlyUSD(report, p.cat); total > pl.cfg.BudgetMonthlyUSD {
@@ -233,6 +238,7 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 	var overBudgets []string
 	misses := map[string]int{}
 	unknown := map[string]bool{}
+	var unpriced []scan.UnpricedCall
 	for _, pl := range plans {
 		res, err := p.scanRoot(pl, only, vol)
 		if err != nil {
@@ -247,6 +253,7 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 		for _, name := range res.unrecognized {
 			unknown[name] = true
 		}
+		unpriced = append(unpriced, res.unpriced...)
 		rf := res.findings
 		if multi {
 			prefix := filepath.Base(filepath.Clean(pl.root)) + "/"
@@ -259,8 +266,48 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 	}
 	p.reportUnmatched(misses, len(plans), stderr)
 	reportUnrecognized(unknown, p.cat.Version, stderr)
+	reportUnpriced(unpriced, stderr)
 	return findings, overBudgets, nil
 }
+
+// reportUnpriced names calls that spend tokens with no model to price.
+// An HTTP call whose model is a runtime variable, and an agent CLI
+// invocation, are both real spend that this scanner cannot cost: a price
+// needs a catalog entry, and neither a variable nor "opus" is one.
+// Saying where knowledge stops is the honest alternative to a verdict
+// that reads as though the repository were clean.
+func reportUnpriced(calls []scan.UnpricedCall, stderr io.Writer) {
+	if len(calls) == 0 {
+		return
+	}
+	sort.Slice(calls, func(i, j int) bool {
+		if calls[i].File != calls[j].File {
+			return calls[i].File < calls[j].File
+		}
+		return calls[i].Line < calls[j].Line
+	})
+	shown := calls
+	if len(shown) > maxUnpricedNamed {
+		shown = shown[:maxUnpricedNamed]
+	}
+	fmt.Fprintf(stderr, "overwater: %d call %s no model to price:\n",
+		len(calls), plural(len(calls), "site names", "sites name"))
+	for _, c := range shown {
+		fmt.Fprintf(stderr, "  %s:%d (%s) %s\n", c.File, c.Line, c.Kind, c.Evidence)
+	}
+	if len(calls) > len(shown) {
+		fmt.Fprintf(stderr, "  and %d more\n", len(calls)-len(shown))
+	}
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+const maxUnpricedNamed = 5
 
 // unrecognizedModels lists the distinct model looking strings in a
 // report that the catalog does not carry.
