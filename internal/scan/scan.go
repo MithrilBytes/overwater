@@ -88,7 +88,12 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 // analyzeFile runs layers 2 through 4 over one file.
 func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 	var sites []Site
-	for _, site := range findModelRefs(f.path, f.data, names) {
+	// The code view, not the raw bytes: a model named in a comment is
+	// somebody writing about a call, not making one, and it used to
+	// become a call site of its own, with a price and its own findings.
+	// Strings stay whole because a model id can sit inside a long one,
+	// and blanking preserves offsets so line and column still hold.
+	for _, site := range findModelRefs(f.path, []byte(a.masked(f.path).code), names) {
 		tier := ""
 		if site.Known {
 			tier = names[site.Ref].Tier

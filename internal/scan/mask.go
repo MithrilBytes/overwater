@@ -14,6 +14,12 @@ import "path"
 type maskedFile struct {
 	all   string
 	prose string
+	// code has comments blanked and every string left whole. Model ids
+	// live inside strings, including long ones like a REST endpoint that
+	// names the model in its path, so neither of the other two views can
+	// be used to find them: all blanks every string interior, and prose
+	// blanks the long ones.
+	code string
 }
 
 // Strings longer than this are prose, not syntax.
@@ -71,11 +77,13 @@ func maskFile(p, content string) maskedFile {
 	spans := scanSpans(content, familyFor(p))
 	all := []byte(content)
 	prose := []byte(content)
+	code := []byte(content)
 	for _, s := range spans {
 		switch s.kind {
 		case spanComment:
 			blank(all, s.start, s.end)
 			blank(prose, s.start, s.end)
+			blank(code, s.start, s.end)
 		case spanString:
 			blank(all, s.interiorStart, s.interiorEnd)
 			if s.interiorEnd-s.interiorStart > proseStringLimit {
@@ -83,7 +91,7 @@ func maskFile(p, content string) maskedFile {
 			}
 		}
 	}
-	return maskedFile{all: string(all), prose: string(prose)}
+	return maskedFile{all: string(all), prose: string(prose), code: string(code)}
 }
 
 func blank(b []byte, from, to int) {

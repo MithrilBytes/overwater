@@ -26,13 +26,22 @@ func repoWith(t *testing.T, config string) string {
 	return dir
 }
 
+// jsonFinding is the shared decode target for scan -json across these
+// tests. Named rather than inline so tests can pass one around.
+type jsonFinding struct {
+	Rule       string `json:"rule"`
+	File       string `json:"file"`
+	Line       int    `json:"line"`
+	Model      string `json:"model"`
+	Archetype  string `json:"archetype"`
+	Confidence string `json:"confidence"`
+	MonthlyUSD int    `json:"monthly_usd"`
+	Volume     int    `json:"volume"`
+}
+
 type jsonReport struct {
-	CallsPerMonth int `json:"calls_per_month"`
-	Findings      []struct {
-		Rule       string `json:"rule"`
-		File       string `json:"file"`
-		MonthlyUSD int    `json:"monthly_usd"`
-	} `json:"findings"`
+	CallsPerMonth int           `json:"calls_per_month"`
+	Findings      []jsonFinding `json:"findings"`
 }
 
 // scanRepo runs scan -json and parses stdout when the run succeeded.

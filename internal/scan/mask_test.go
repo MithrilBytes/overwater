@@ -41,3 +41,48 @@ func TestMaskPythonTriples(t *testing.T) {
 		t.Errorf("prose = %q, want prompt and comment text blanked", m.prose)
 	}
 }
+
+// Layer 2 reads the code view, so a model named in a comment is not a
+// call site. It used to be: the reference matcher saw raw bytes, and a
+// line like `// switched from gpt-4o to gpt-4o-mini` produced two priced
+// sites that carried findings into the baseline.
+//
+// The second half is why the prose view cannot be used here. Prose blanks
+// string interiors over sixty characters, and a REST endpoint that names
+// the model in its path is longer than that while being a genuine call.
+func TestModelRefsSkipCommentsAndKeepLongStrings(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"commented.ts": `import Anthropic from "@anthropic-ai/sdk";
+// We should probably use "claude-haiku-4-5" here one day.
+/* Or even claude-opus-5, who knows. */
+export const client = new Anthropic();
+`,
+		"endpoint.cs": `class Transcriber {
+    void Run() {
+        var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+    }
+}
+`,
+	})
+
+	report, err := Analyze(dir, mustCatalog(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, s := range report.Sites {
+		if s.File == "commented.ts" {
+			t.Errorf("comment produced a site: %s at line %d", s.Ref, s.Line)
+		}
+	}
+
+	var endpoint []Site
+	for _, s := range report.Sites {
+		if s.File == "endpoint.cs" {
+			endpoint = append(endpoint, s)
+		}
+	}
+	if len(endpoint) != 1 || endpoint[0].ModelID != "gemini-2.5-flash" {
+		t.Errorf("endpoint sites = %+v, want one gemini-2.5-flash from the URL", endpoint)
+	}
+}
