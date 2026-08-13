@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/MithrilBytes/overwater/catalog"
@@ -187,6 +188,10 @@ type rootResult struct {
 	findings   []rules.Finding
 	overBudget string
 	unmatched  []string
+	// unrecognized names model looking strings the catalog does not
+	// carry. They are priced at nothing and so produce no findings,
+	// which without a word here reads as a clean bill of health.
+	unrecognized []string
 }
 
 // scanRoot scans one root under its own config. A non nil only set
@@ -205,8 +210,9 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice)
 		return rootResult{}, err
 	}
 	res := rootResult{
-		findings:  eng.Evaluate(report, p.cat),
-		unmatched: eng.UnmatchedVolumeKeys(report, p.cat),
+		findings:     eng.Evaluate(report, p.cat),
+		unmatched:    eng.UnmatchedVolumeKeys(report, p.cat),
+		unrecognized: unrecognizedModels(report),
 	}
 	if pl.cfg != nil && pl.cfg.BudgetMonthlyUSD > 0 {
 		if total := eng.TotalMonthlyUSD(report, p.cat); total > pl.cfg.BudgetMonthlyUSD {
@@ -226,6 +232,7 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 	var findings []rules.Finding
 	var overBudgets []string
 	misses := map[string]int{}
+	unknown := map[string]bool{}
 	for _, pl := range plans {
 		res, err := p.scanRoot(pl, only, vol)
 		if err != nil {
@@ -236,6 +243,9 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 		}
 		for _, key := range res.unmatched {
 			misses[key]++
+		}
+		for _, name := range res.unrecognized {
+			unknown[name] = true
 		}
 		rf := res.findings
 		if multi {
@@ -248,8 +258,50 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 		findings = append(findings, rf...)
 	}
 	p.reportUnmatched(misses, len(plans), stderr)
+	reportUnrecognized(unknown, p.cat.Version, stderr)
 	return findings, overBudgets, nil
 }
+
+// unrecognizedModels lists the distinct model looking strings in a
+// report that the catalog does not carry.
+func unrecognizedModels(report *scan.Report) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range report.Sites {
+		if s.Known || s.Ref == "" || seen[s.Ref] {
+			continue
+		}
+		seen[s.Ref] = true
+		out = append(out, s.Ref)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// reportUnrecognized says which model strings were found but could not
+// be priced. Silence here is the worst answer available: a repository
+// pinning a model the catalog has never heard of otherwise gets the same
+// "keep the models you have" as a repository that is genuinely fine.
+func reportUnrecognized(names map[string]bool, catalogVersion string, stderr io.Writer) {
+	if len(names) == 0 {
+		return
+	}
+	var list []string
+	for name := range names {
+		list = append(list, name)
+	}
+	sort.Strings(list)
+	if len(list) > maxUnrecognizedNamed {
+		list = append(list[:maxUnrecognizedNamed:maxUnrecognizedNamed],
+			fmt.Sprintf("and %d more", len(names)-maxUnrecognizedNamed))
+	}
+	fmt.Fprintf(stderr, "overwater: not in catalog %s, so not priced: %s\n",
+		catalogVersion, strings.Join(list, ", "))
+}
+
+// A repository can name a lot of models it does not call; the point is
+// to be told, not to be given a wall of text.
+const maxUnrecognizedNamed = 8
 
 // reportUnmatched names the volumes file keys that matched nothing
 // anywhere. A key is unknown only when every root missed it: under

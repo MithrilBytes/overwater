@@ -17,6 +17,19 @@ func nameChar(b byte) bool {
 
 // Model looking strings that are not in the catalog get reported at low
 // confidence instead of being ignored.
+//
+// The families here are the ones the catalog already ships, because the
+// case that matters is a provider shipping a version we have not added
+// yet: a repository pinning deepseek-v4-flash used to produce nothing at
+// all, since the catalog carries only deepseek-chat and
+// deepseek-reasoner and the pattern had no deepseek branch. Low
+// confidence and no price beats silence.
+//
+// Two catalog families are deliberately absent. "nova" and "embed" are
+// ordinary English words that begin ordinary identifiers, and a pattern
+// is only worth having if it costs less noise than it catches. The
+// short ids o3 and o4 are handled by shortIDInContext instead, which can
+// require the quoting these cannot.
 var unknownModelRE = regexp.MustCompile(
 	`\b(?:gpt-[0-9o][\w.-]*` +
 		`|claude-[\w.-]+` +
@@ -25,7 +38,26 @@ var unknownModelRE = regexp.MustCompile(
 		`|command-[\w.-]+` +
 		`|text-embedding-[\w.-]+` +
 		`|voyage-[\w.-]+` +
-		`|llama-[\w.-]+)`)
+		`|llama-[\w.-]+` +
+		`|deepseek-[\w.-]+` +
+		`|qwen-?[0-9][\w.-]*` +
+		`|grok-[\w.-]+` +
+		`|kimi-[\w.-]+` +
+		`|glm-[\w.-]+` +
+		`|codestral-[\w.-]+` +
+		`|magistral-[\w.-]+` +
+		`|ministral-[\w.-]+)`)
+
+// Agent tooling borrows the family name of the model it drives. A
+// Claude Code plugin manifest, a gemini-cli hook and a claude-templates
+// directory are not models, and a repository full of them used to report
+// dozens of sites: demarkus, an MCP broker with no LLM dependency at
+// all, produced 37.
+var toolNameRE = regexp.MustCompile(
+	`^(?:claude|gemini|gpt|grok|llama|mistral)-` +
+		`(?:code|cli|desktop|app|plugin|template|templates|hook|hooks|` +
+		`pre|post|bot|agent|sdk|api|key|token|proxy|ui|web|server|mcp)` +
+		`(?:[-.].*)?$`)
 
 // findModelRefs scans one file for catalog ids and aliases (layer 2).
 // The catalog doubles as the detection dictionary.
@@ -102,6 +134,9 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 				continue
 			}
 			ref := strings.TrimRight(line[loc[0]:loc[1]], ".-")
+			if toolNameRE.MatchString(ref) {
+				continue
+			}
 			sites = append(sites, Site{
 				File:  relPath,
 				Line:  lineNo + 1,

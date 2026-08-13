@@ -224,3 +224,76 @@ def go():
 		t.Errorf("the REST endpoint model was lost: %+v", report.Sites)
 	}
 }
+
+// A provider shipping a version the catalog has not caught up to must
+// not vanish. humanasllm pins deepseek-v4-flash; the catalog carries
+// only deepseek-chat and deepseek-reasoner, and the pattern had no
+// deepseek branch at all, so the repository's only real call site
+// produced nothing.
+func TestUnknownFamiliesAreStillModelLooking(t *testing.T) {
+	future := []string{
+		"deepseek-v4-flash", "qwen-3.5-max", "grok-5-fast",
+		"glm-6", "kimi-k3", "gpt-5.4-mini", "codestral-26",
+	}
+	for _, id := range future {
+		dir := writeTree(t, map[string]string{"a.js": "const M = \"" + id + "\";\n"})
+		report, err := Analyze(dir, mustCatalog(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Sites) != 1 || report.Sites[0].Known {
+			t.Errorf("%q gave %+v, want exactly one unknown site", id, report.Sites)
+		}
+	}
+
+	// The families left out on purpose, and the shapes the boundary
+	// guard covers. Widening the pattern must not cost precision.
+	notModels := []string{
+		"nova-scotia-parser", "embed-the-widget", "novalidate",
+		"my-command-runner", "deepseeking-truth", "grokking-tests",
+	}
+	for _, s := range notModels {
+		dir := writeTree(t, map[string]string{"a.js": "const M = \"" + s + "\";\n"})
+		report, err := Analyze(dir, mustCatalog(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Sites) != 0 {
+			t.Errorf("%q produced %d sites, want none: %+v", s, len(report.Sites), report.Sites)
+		}
+	}
+}
+
+// Agent tooling borrows the family name of the model it drives. demarkus
+// is an MCP broker with no LLM dependency and produced 37 sites, all of
+// them plugin manifests and hook scripts naming claude-code.
+func TestAgentToolingIsNotAModel(t *testing.T) {
+	tools := []string{
+		"claude-code", "claude-code-knowledge", "claude-templates",
+		"claude-plugin", "claude-pre", "claude-post",
+		"gemini-cli", "gemini-hook", "gpt-cli", "claude-mcp",
+	}
+	for _, name := range tools {
+		dir := writeTree(t, map[string]string{"a.js": "const t = \"" + name + "\";\n"})
+		report, err := Analyze(dir, mustCatalog(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Sites) != 0 {
+			t.Errorf("%q produced %d sites, want none: %+v", name, len(report.Sites), report.Sites)
+		}
+	}
+
+	// The filter keys on the word after the family, so a real model
+	// whose name merely starts the same way must survive.
+	for _, id := range []string{"claude-opus-5", "gemini-3-flash-preview", "gpt-5.4-mini"} {
+		dir := writeTree(t, map[string]string{"a.js": "const m = \"" + id + "\";\n"})
+		report, err := Analyze(dir, mustCatalog(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Sites) != 1 {
+			t.Errorf("%q gave %d sites, want 1", id, len(report.Sites))
+		}
+	}
+}
