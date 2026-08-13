@@ -73,6 +73,9 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 				if overlaps(start, end) {
 					continue
 				}
+				if !shortIDInContext(line, key, start, end) {
+					continue
+				}
 				claimed = append(claimed, claim{start, end})
 				sites = append(sites, Site{
 					File:    relPath,
@@ -109,4 +112,30 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 		}
 	}
 	return sites
+}
+
+// shortIDMaxLen is the length below which a catalog id is too generic to
+// stand on its own. Only "o3" qualifies today, and it collides with the
+// variable names a JavaScript minifier produces, which is how a
+// committed Storybook bundle came to report five o3 call sites.
+const shortIDMaxLen = 3
+
+// shortIDInContext reports whether a very short id appears somewhere a
+// model id plausibly appears: inside quotes, or as the value of a key
+// that names a model. Longer ids carry their own evidence and are always
+// accepted.
+func shortIDInContext(line, key string, start, end int) bool {
+	if len(key) > shortIDMaxLen {
+		return true
+	}
+	quote := func(b byte) bool { return b == '"' || b == '\'' || b == '`' }
+	if start > 0 && end < len(line) && quote(line[start-1]) && quote(line[end]) {
+		return true
+	}
+	// model: o3, model = o3, "model":o3 - the unquoted config spelling.
+	before := strings.TrimRight(line[:start], " \t\"'`:=>,([")
+	if i := strings.LastIndexAny(before, " \t\"'`{,([<"); i >= 0 {
+		before = before[i+1:]
+	}
+	return modelKeyish(before)
 }

@@ -1,9 +1,12 @@
 package scan
 
-import "path"
+import (
+	"path"
+	"strings"
+)
 
 // Masked source lets the other layers reason about code without being
-// fooled by prose. Two views, both offset preserving (every masked byte
+// fooled by prose. Three views, all offset preserving (every masked byte
 // becomes a space, newlines stay):
 //
 //	all    blanks comments and every string interior; safe for bracket
@@ -11,6 +14,9 @@ import "path"
 //	prose  blanks comments and only long string interiors, so short
 //	       syntax level strings like "tool" or "input_schema" survive
 //	       for the shape regexes while prompt prose does not.
+//	code   blanks comments and multi line string interiors, keeping
+//	       single line strings whole; this is where layer 2 looks for
+//	       model ids, which live in strings but never in a docstring.
 type maskedFile struct {
 	all   string
 	prose string
@@ -88,6 +94,18 @@ func maskFile(p, content string) maskedFile {
 			blank(all, s.interiorStart, s.interiorEnd)
 			if s.interiorEnd-s.interiorStart > proseStringLimit {
 				blank(prose, s.interiorStart, s.interiorEnd)
+			}
+			// A string that spans lines is a docstring, a heredoc or a
+			// block of prose, and a model named inside one is being
+			// written about rather than called. A Python docstring is a
+			// comment in every way except syntactically, and used to be
+			// the one spelling of a comment layer 2 still read.
+			//
+			// The test is the newline, not the length: the value that
+			// must survive is a REST endpoint naming the model in its
+			// path, which is long but never wraps.
+			if strings.Contains(content[s.interiorStart:s.interiorEnd], "\n") {
+				blank(code, s.interiorStart, s.interiorEnd)
 			}
 		}
 	}

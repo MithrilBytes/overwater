@@ -88,9 +88,9 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 // analyzeFile runs layers 2 through 4 over one file.
 func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 	var sites []Site
-	// Documentation, configuration and tests name models without calling
-	// them (emit.go). They stay loaded as context for prompts, constants
-	// and fan in; they just do not report sites of their own.
+	// Documentation and tests name models without calling them
+	// (emit.go). They stay loaded as context for prompts, constants and
+	// fan in; they just do not report sites of their own.
 	if !emitsSites(f.path) {
 		return nil
 	}
@@ -106,6 +106,12 @@ func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 		}
 		a.describe(&site, tier)
 		sites = append(sites, site)
+	}
+	// In a config file a model bound to a key is a call site the program
+	// reads; a model in a list is one option among many and nothing
+	// calls it.
+	if isConfigPath(f.path) {
+		sites = keepConfigBindings(a.byPath[f.path], sites)
 	}
 	return sites
 }

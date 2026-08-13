@@ -2,69 +2,69 @@ package scan
 
 import (
 	"path"
+	"regexp"
 	"strings"
 )
 
-// Which files may produce call sites.
+// Which files may produce call sites, and which lines of them.
 //
 // Every file is read: a prompt, a constant or a caller can live anywhere
 // and layers 3 and 4 need the whole repository as context. Emitting a
-// site is a narrower question, and the answer is no for two kinds of
-// file that name models without ever calling one.
+// site is a narrower question.
 //
-// Documentation and configuration describe calls. A README listing
-// supported models, a front matter block recording which agent wrote the
-// document, a YAML roster of what a user may pick from: none of these
-// spends a token. Configuration that a program actually reads is still
-// detected, by traceConfigModels, which ties the value to the code that
-// reads it and reports the site there. A config file with no reader
-// produces nothing, which is correct.
+// Documentation never calls anything. A README listing supported models,
+// or front matter recording which agent wrote the document, spends no
+// tokens.
 //
 // Test files and fixtures name models in order to assert on them. They
 // run in CI, not in production, and pricing them per month is a category
-// error. They stay as context so a test that calls a wrapper still
+// error. They stay as context, so a test that calls a wrapper still
 // counts toward its fan in.
 //
-// This was measured rather than guessed. Against 128 real repositories,
-// documentation and configuration accounted for the largest share of
-// phantom sites: one configuration repository produced 4,964 of them and
-// makes no LLM call at all.
+// Configuration is the interesting case, because it is both. A model
+// bound to a key is a real call site: the program reads it and the shape
+// around it is readable, which is why config style files have their own
+// regex fallback. A model sitting in a list is a roster of what the
+// operator may choose, and nothing calls it. The two look similar and
+// price very differently: one configuration repository of nothing but
+// rosters produced 4,964 sites and makes no LLM call at all.
+//
+// All of this was measured against 128 real repositories, not guessed.
 
-// docExts never hold a call. Notebooks are deliberately absent: .ipynb
-// is JSON, but it is JSON wrapped around real source.
 var docExts = map[string]bool{
 	".md": true, ".markdown": true, ".mdx": true,
 	".rst": true, ".adoc": true, ".txt": true,
 }
 
-// configExts hold values a program may read. traceConfigModels covers
-// the ones with a reader; layer 2 must not also report the raw line.
+// Notebooks are deliberately absent: .ipynb is JSON wrapped around real
+// source, and .json is absent because a JSON config has no reader
+// convention to key on.
 var configExts = map[string]bool{
 	".yaml": true, ".yml": true, ".toml": true,
 	".ini": true, ".properties": true, ".cfg": true,
 }
 
-// testDirs name a directory whose contents are tests wherever it sits in
-// the tree.
 var testDirs = map[string]bool{
 	"test": true, "tests": true, "__tests__": true, "testdata": true,
 	"spec": true, "specs": true, "__mocks__": true, "fixtures": true,
 	"e2e": true, "cypress": true,
 }
 
-// emitsSites reports whether a file may produce call sites of its own.
-// The path is slash separated and relative to the scan root, so a
-// repository whose own root is a test corpus still scans normally.
+// emitsSites reports whether a file may produce call sites at all. The
+// path is slash separated and relative to the scan root, so a repository
+// whose own root is a test corpus still scans normally.
 func emitsSites(p string) bool {
-	ext := strings.ToLower(path.Ext(p))
-	if docExts[ext] || configExts[ext] {
+	if docExts[strings.ToLower(path.Ext(p))] {
 		return false
 	}
-	base := path.Base(p)
-	if strings.HasPrefix(base, ".env") {
-		return false
+	if strings.HasPrefix(path.Base(p), ".env") {
+		return false // traceConfigModels reports these at their reader
 	}
 	return !isTestPath(p)
+}
+
+func isConfigPath(p string) bool {
+	return configExts[strings.ToLower(path.Ext(p))]
 }
 
 // isTestPath reports whether p is a test, a spec, or fixture data, by
@@ -76,16 +76,14 @@ func isTestPath(p string) bool {
 			return true
 		}
 	}
-
 	lower := strings.ToLower(base)
 	name := strings.TrimSuffix(lower, path.Ext(lower))
 
-	// Go, Rust: foo_test.go. Python: test_foo.py and foo_test.py.
+	// Go and Rust: foo_test.go. Python: test_foo.py and foo_test.py.
 	if strings.HasSuffix(name, "_test") || strings.HasPrefix(name, "test_") {
 		return true
 	}
-	// JavaScript and friends: foo.test.ts, foo.spec.tsx. The extension
-	// is already stripped, so the marker is now the trailing segment.
+	// JavaScript and friends: foo.test.ts, foo.spec.tsx.
 	if strings.HasSuffix(name, ".test") || strings.HasSuffix(name, ".spec") {
 		return true
 	}
@@ -93,6 +91,93 @@ func isTestPath(p string) bool {
 	if strings.HasSuffix(name, "_spec") || strings.HasSuffix(name, "tests") {
 		return true
 	}
-	// Jest snapshots.
 	return strings.HasSuffix(lower, ".snap")
+}
+
+// modelKeyish reports whether a key or section name implies that its value
+// names a model. The same vocabulary traceConfigModels uses, lowercased
+// because yaml and toml keys are not shouted the way env vars are.
+func modelKeyish(name string) bool {
+	n := strings.ToLower(name)
+	for _, want := range []string{"model", "deployment", "engine", "llm"} {
+		if strings.Contains(n, want) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	reSection = regexp.MustCompile(`^\s*\[([^\]]+)\]\s*$`)
+	reKeyVal  = regexp.MustCompile(`^(\s*)([\w.$-]+)\s*[:=]\s*(.*)$`)
+)
+
+// configBindings returns the 1-based lines of a config file on which a
+// model is bound to a key, rather than listed as one option among many.
+//
+// A binding is a scalar value whose key, or whose enclosing section or
+// parent key, names a model: `model: gpt-5-mini`, or `name = mistral`
+// under an `[model]` section. A bare sequence item has no key and is
+// never a binding, which is what a roster is made of.
+func configBindings(content string) map[int]bool {
+	allowed := map[int]bool{}
+	section := ""
+	// Parent keys by indent, for the nesting yaml uses instead of
+	// sections. Each entry is a key whose value was a block.
+	type parent struct {
+		indent int
+		key    string
+	}
+	var stack []parent
+
+	for i, line := range strings.Split(content, "\n") {
+		if m := reSection.FindStringSubmatch(line); m != nil {
+			section = m[1]
+			stack = stack[:0]
+			continue
+		}
+		m := reKeyVal.FindStringSubmatch(line)
+		if m == nil {
+			continue // a sequence item, a comment, or blank
+		}
+		indent, key, value := len(m[1]), m[2], strings.TrimSpace(m[3])
+		for len(stack) > 0 && stack[len(stack)-1].indent >= indent {
+			stack = stack[:len(stack)-1]
+		}
+		// An empty value opens a block; the key becomes a parent. So
+		// does a value that is only a comment.
+		if value == "" || strings.HasPrefix(value, "#") {
+			stack = append(stack, parent{indent: indent, key: key})
+			continue
+		}
+		// A value that opens a collection is a roster, not a binding,
+		// however model-ish its key: `models: [a, b]`.
+		if strings.HasPrefix(value, "[") || strings.HasPrefix(value, "{") {
+			continue
+		}
+		if modelKeyish(key) || modelKeyish(section) {
+			allowed[i+1] = true
+			continue
+		}
+		for _, p := range stack {
+			if modelKeyish(p.key) {
+				allowed[i+1] = true
+				break
+			}
+		}
+	}
+	return allowed
+}
+
+// keepConfigBindings drops sites that sit on a config line which does
+// not bind a model to a key.
+func keepConfigBindings(content string, sites []Site) []Site {
+	allowed := configBindings(content)
+	kept := sites[:0]
+	for _, s := range sites {
+		if allowed[s.Line] {
+			kept = append(kept, s)
+		}
+	}
+	return kept
 }
