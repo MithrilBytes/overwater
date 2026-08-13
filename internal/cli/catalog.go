@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -53,6 +54,8 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	dir := fs.String("dir", "catalog", "catalog source directory")
 	write := fs.Bool("write", false, "apply drifted prices and rebuild catalog.json")
+	reverse := fs.Bool("reverse", false, "list models litellm prices that this catalog lacks")
+	only := fs.String("only", "", "comma separated ids to narrow -reverse to")
 	if err := fs.Parse(args); err != nil {
 		return ExitError
 	}
@@ -74,6 +77,27 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
+	}
+	if *reverse {
+		var ids []string
+		if *only != "" {
+			for _, id := range strings.Split(*only, ",") {
+				if id = strings.TrimSpace(id); id != "" {
+					ids = append(ids, id)
+				}
+			}
+		}
+		unlisted := catalog.ReverseDiff(c, prices, ids)
+		for _, u := range unlisted {
+			out := "?"
+			if u.HasOutput {
+				out = strconv.FormatFloat(u.Output, 'g', -1, 64)
+			}
+			fmt.Fprintf(stdout, "%s\t%s\t%s\tin %g\tout %s\tctx %d\t%d routes\n",
+				u.ID, u.Provider, u.Mode, u.Input, out, u.MaxInput, len(u.Keys))
+		}
+		fmt.Fprintf(stdout, "%d models priced upstream and absent here\n", len(unlisted))
+		return ExitClean
 	}
 	drifts, notes, missing := catalog.DiffLitellm(c, prices)
 	for _, d := range drifts {

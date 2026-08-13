@@ -344,6 +344,10 @@ func reportUnrecognized(names map[string]bool, catalogVersion string, stderr io.
 	}
 	fmt.Fprintf(stderr, "overwater: not in catalog %s, so not priced: %s\n",
 		catalogVersion, strings.Join(list, ", "))
+	// Upstream usually knows these already, and the reverse diff turns
+	// them into entries to add rather than a shrug.
+	fmt.Fprintf(stderr, "  look them up: overwater catalog diff -reverse -only %s <litellm.json>\n",
+		strings.Join(list, ","))
 }
 
 // A repository can name a lot of models it does not call; the point is

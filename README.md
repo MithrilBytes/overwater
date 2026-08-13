@@ -244,6 +244,18 @@ references them, and the deprecated-model rule needs their dates.
 Contributors update a price by editing one file. A nightly job diffs the
 catalog against LiteLLM and opens a PR when a provider moves a price.
 
+The same file answers the other question. `catalog diff -reverse` lists
+models LiteLLM prices that this catalog does not carry, collapsing the
+routes upstream lists them under, so a scan that could not price
+something becomes an entry to add:
+
+```bash
+overwater catalog diff -reverse -only deepseek-v4-flash litellm.json
+```
+
+A scan that meets a model it cannot price prints that command with the
+ids filled in.
+
 ## Releases
 
 Tags read `MAJOR.MINOR.FIX`, plus a fourth `UPDATE` component when a
@@ -350,7 +362,7 @@ them, so `brew install overwater`, `scoop install overwater`, and
 
 ### Catalog
 
-- [ ] reverse diff: report models LiteLLM knows and we do not
+- [x] reverse diff: report models LiteLLM knows and we do not
 - [ ] query the dated price history from the CLI; the snapshots are
       already written on every price change
 

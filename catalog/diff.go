@@ -19,10 +19,15 @@ import (
 // HasOutput separates an upstream output price of zero from an upstream
 // file that omits the field, as embedding entries usually do.
 type LitellmEntry struct {
-	Input       float64
-	Output      float64
-	HasOutput   bool
-	MaxInput    int
+	Input     float64
+	Output    float64
+	HasOutput bool
+	MaxInput  int
+	// Mode and Provider are unused by the price diff and carried for
+	// the reverse one, which has to tell a chat model from an image
+	// generator and say who serves it.
+	Mode        string
+	Provider    string
 	Deprecation string
 }
 
@@ -43,6 +48,8 @@ func ParseLitellm(raw []byte) (LitellmPrices, error) {
 			Input       *float64 `json:"input_cost_per_token"`
 			Output      *float64 `json:"output_cost_per_token"`
 			MaxInput    int      `json:"max_input_tokens"`
+			Mode        string   `json:"mode"`
+			Provider    string   `json:"litellm_provider"`
 			Deprecation string   `json:"deprecation_date"`
 		}
 		if err := json.Unmarshal(rawEntry, &e); err != nil || e.Input == nil {
@@ -51,6 +58,8 @@ func ParseLitellm(raw []byte) (LitellmPrices, error) {
 		entry := LitellmEntry{
 			Input:       *e.Input * 1e6,
 			MaxInput:    e.MaxInput,
+			Mode:        e.Mode,
+			Provider:    e.Provider,
 			Deprecation: e.Deprecation,
 		}
 		if e.Output != nil {
