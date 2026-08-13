@@ -86,3 +86,42 @@ export const client = new Anthropic();
 		t.Errorf("endpoint sites = %+v, want one gemini-2.5-flash from the URL", endpoint)
 	}
 }
+
+// The unknown-model pattern needs the same left-edge guard the catalog
+// path has. Go's RE2 counts a hyphen as a non word character, so \b
+// matches inside a hyphenated identifier: an API key prefixed sk-proj-
+// command-secret, a plugin named my-claude-code-plugin and a flag value
+// tunnel-mcp-command-equals all reported as models. Twelve repositories
+// in a real-repo sweep were flagged for nothing else.
+func TestUnknownModelNeedsALeftBoundary(t *testing.T) {
+	notModels := []string{
+		"sk-proj-command-secret123456",
+		"cp-command-id",
+		"tunnel-mcp-command-equals",
+		"my-claude-code-plugin",
+		"npm-command-runner",
+		"x-gpt-4o-header",
+	}
+	for _, s := range notModels {
+		dir := writeTree(t, map[string]string{"a.go": "package a\n\nvar s = \"" + s + "\"\n"})
+		report, err := Analyze(dir, mustCatalog(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Sites) != 0 {
+			t.Errorf("%q produced %d sites, want none: %+v", s, len(report.Sites), report.Sites)
+		}
+	}
+
+	// The guard must not cost a real reference its detection.
+	for _, s := range []string{"gpt-4o", "claude-opus-5", "gemini-2.5-flash"} {
+		dir := writeTree(t, map[string]string{"a.go": "package a\n\nvar s = \"" + s + "\"\n"})
+		report, err := Analyze(dir, mustCatalog(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(report.Sites) != 1 {
+			t.Errorf("%q produced %d sites, want 1", s, len(report.Sites))
+		}
+	}
+}

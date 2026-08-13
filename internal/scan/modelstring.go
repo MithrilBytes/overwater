@@ -88,6 +88,16 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 			if overlaps(loc[0], loc[1]) {
 				continue
 			}
+			// RE2 counts a hyphen as a non word character, so \b matches
+			// in the middle of a hyphenated identifier and the pattern
+			// finds a model inside sk-proj-command-secret or
+			// my-claude-code-plugin. The catalog path above already
+			// guards its left edge with nameChar; this one has to as
+			// well, or every hyphenated name that happens to contain a
+			// family prefix becomes a call site.
+			if loc[0] > 0 && nameChar(line[loc[0]-1]) {
+				continue
+			}
 			ref := strings.TrimRight(line[loc[0]:loc[1]], ".-")
 			sites = append(sites, Site{
 				File:  relPath,
