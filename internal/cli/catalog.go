@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -89,14 +90,21 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 		}
 		unlisted := catalog.ReverseDiff(c, prices, ids)
 		for _, u := range unlisted {
+			// Upstream stores dollars per token, so a price that is a
+			// round number per million arrives as 3.1999999999999997.
+			price := func(v float64) string {
+				return strconv.FormatFloat(math.Round(v*1e6)/1e6, 'f', -1, 64)
+			}
 			out := "?"
 			if u.HasOutput {
-				out = strconv.FormatFloat(u.Output, 'g', -1, 64)
+				out = price(u.Output)
 			}
-			fmt.Fprintf(stdout, "%s\t%s\t%s\tin %g\tout %s\tctx %d\t%d routes\n",
-				u.ID, u.Provider, u.Mode, u.Input, out, u.MaxInput, len(u.Keys))
+			fmt.Fprintf(stdout, "%s\t%s\t%s\tin %s\tout %s\tctx %d\t%d routes\n",
+				u.ID, u.Provider, u.Mode, price(u.Input), out, u.MaxInput, len(u.Keys))
 		}
-		fmt.Fprintf(stdout, "%d models priced upstream and absent here\n", len(unlisted))
+		// The count goes to stderr so stdout is a clean list a caller can
+		// diff against the last one it saw.
+		fmt.Fprintf(stderr, "%d models priced upstream and absent here\n", len(unlisted))
 		return ExitClean
 	}
 	drifts, notes, missing := catalog.DiffLitellm(c, prices)

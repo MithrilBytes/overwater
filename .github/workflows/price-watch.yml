@@ -23,6 +23,30 @@ jobs:
             https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
       - name: diff and apply
         run: go run ./cmd/overwater catalog diff -write /tmp/litellm.json | tee /tmp/diff.txt
+      - name: models upstream prices and we do not
+        # The full list is over a thousand entries and says the same thing
+        # every night. Only what appeared since the last run is news, so
+        # the roster is committed and this reports the delta against it.
+        run: |
+          go run ./cmd/overwater catalog diff -reverse /tmp/litellm.json \
+            2>> "$GITHUB_STEP_SUMMARY" | cut -f1 | sort > /tmp/unlisted.txt
+          comm -13 catalog/unlisted.txt /tmp/unlisted.txt > /tmp/new-models.txt || true
+          comm -23 catalog/unlisted.txt /tmp/unlisted.txt > /tmp/gone-models.txt || true
+          cp /tmp/unlisted.txt catalog/unlisted.txt
+          if [ -s /tmp/new-models.txt ]; then
+            {
+              echo
+              echo "### New upstream models, absent from this catalog"
+              echo
+              echo '```'
+              go run ./cmd/overwater catalog diff -reverse \
+                -only "$(paste -sd, /tmp/new-models.txt)" /tmp/litellm.json 2>/dev/null
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -s /tmp/gone-models.txt ]; then
+            echo "$(wc -l < /tmp/gone-models.txt) models upstream dropped or we adopted" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: open pr when prices moved
         env:
           GH_TOKEN: ${{ github.token }}
@@ -31,7 +55,13 @@ jobs:
             echo "prices match litellm" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          branch="price-watch/$(date +%Y-%m-%d)"
+          # The roster alone is not worth a release, so a run that only
+          # refreshed it uses a branch price-release does not act on.
+          prefix="price-watch"
+          if git diff --quiet -- catalog/models catalog/catalog.json catalog/VERSION; then
+            prefix="catalog-roster"
+          fi
+          branch="$prefix/$(date +%Y-%m-%d)"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
@@ -45,7 +75,21 @@ jobs:
             echo '```'
             cat /tmp/diff.txt
             echo '```'
+            if [ -s /tmp/new-models.txt ]; then
+              echo
+              echo "New upstream models this catalog does not carry. Adding one"
+              echo "decides a tier and a capability set, so none is applied here."
+              echo
+              echo '```'
+              go run ./cmd/overwater catalog diff -reverse \
+                -only "$(paste -sd, /tmp/new-models.txt)" /tmp/litellm.json 2>/dev/null
+              echo '```'
+            fi
           } > /tmp/body.md
-          gh pr create --title "chore: update catalog prices from litellm" \
+          title="chore: update catalog prices from litellm"
+          if [ "$prefix" = "catalog-roster" ]; then
+            title="chore: refresh the upstream model roster"
+          fi
+          gh pr create --title "$title" \
             --body-file /tmp/body.md --head "$branch" \
             || echo "could not open a PR; check that Actions may create pull requests" >> "$GITHUB_STEP_SUMMARY"

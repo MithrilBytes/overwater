@@ -115,7 +115,12 @@ func ReverseDiff(c *Catalog, prices LitellmPrices, onlyIDs []string) []Unlisted 
 		want[strings.ToLower(bareID(id))] = true
 	}
 
-	byID := map[string]*Unlisted{}
+	// Group first, decide second. Upstream lists one model under many
+	// keys and spells it differently across them, so anything chosen
+	// while ranging over the map inherits Go's random iteration order.
+	// A roster that reshuffles reports every model as new, every night,
+	// which is the one outcome that makes the nightly delta worthless.
+	keysByID := map[string][]string{}
 	for key, p := range prices {
 		if !wantedModes[p.Mode] {
 			continue
@@ -131,32 +136,34 @@ func ReverseDiff(c *Catalog, prices LitellmPrices, onlyIDs []string) []Unlisted 
 		if len(want) > 0 && !want[low] {
 			continue
 		}
-		u, seen := byID[low]
-		if !seen {
-			byID[low] = &Unlisted{
-				ID: id, Provider: p.Provider, Mode: p.Mode,
-				Input: p.Input, Output: p.Output, HasOutput: p.HasOutput,
-				MaxInput: p.MaxInput, Keys: []string{key},
-			}
-			continue
-		}
-		u.Keys = append(u.Keys, key)
-		// Prefer the route that carries the most detail.
-		if !u.HasOutput && p.HasOutput {
-			u.Output, u.HasOutput = p.Output, true
-		}
-		if u.MaxInput == 0 {
-			u.MaxInput = p.MaxInput
-		}
-		if u.Provider == "" {
-			u.Provider = p.Provider
-		}
+		keysByID[low] = append(keysByID[low], key)
 	}
 
-	out := make([]Unlisted, 0, len(byID))
-	for _, u := range byID {
-		sort.Strings(u.Keys)
-		out = append(out, *u)
+	out := make([]Unlisted, 0, len(keysByID))
+	for _, keys := range keysByID {
+		sort.Strings(keys)
+		// Every field comes from the sorted keys, so the same input
+		// always produces the same entry.
+		u := Unlisted{ID: bareID(keys[0]), Keys: keys}
+		for _, k := range keys {
+			p := prices[k]
+			if u.Mode == "" {
+				u.Mode = p.Mode
+			}
+			if u.Provider == "" {
+				u.Provider = p.Provider
+			}
+			if u.Input == 0 {
+				u.Input = p.Input
+			}
+			if !u.HasOutput && p.HasOutput {
+				u.Output, u.HasOutput = p.Output, true
+			}
+			if u.MaxInput == 0 {
+				u.MaxInput = p.MaxInput
+			}
+		}
+		out = append(out, u)
 	}
 	// Most expensive first: a model nobody can price is worth adding in
 	// the order it would cost somebody money.

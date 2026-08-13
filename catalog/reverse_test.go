@@ -1,6 +1,10 @@
 package catalog
 
-import "testing"
+import (
+	"reflect"
+	"strings"
+	"testing"
+)
 
 func TestBareIDStripsRouting(t *testing.T) {
 	for key, want := range map[string]string{
@@ -105,5 +109,37 @@ func TestReverseDiffOrdersByPrice(t *testing.T) {
 		if got[i].ID != w {
 			t.Fatalf("order = %v, want %v", []Unlisted{got[0], got[1], got[2]}, want)
 		}
+	}
+}
+
+// The nightly job diffs today's roster against the one committed
+// yesterday, so the same upstream file has to produce the same list
+// every time. It did not: Unlisted.ID took its spelling from whichever
+// of a model's routes Go's map iteration reached first, and a roster
+// that reshuffles reports every model as new, nightly. Dropping three
+// entries from a real 1,281 model roster reported thirty-four new.
+func TestReverseDiffIsDeterministic(t *testing.T) {
+	c := &Catalog{Version: "2026-01-01"}
+	prices := LitellmPrices{}
+	// Many models, each under several routes that spell it differently.
+	for _, id := range []string{"Alpha-One", "beta-two", "Gamma-3", "delta-4", "Epsilon-5"} {
+		for _, route := range []string{
+			"", "azure_ai/", "bedrock/", "us.anthropic.", "vertex_ai/", "novita/",
+		} {
+			prices[route+id] = LitellmEntry{Input: 1, Output: 2, HasOutput: true, Mode: "chat"}
+			prices[route+strings.ToLower(id)] = LitellmEntry{Input: 1, Output: 2, HasOutput: true, Mode: "chat"}
+		}
+	}
+
+	first := ReverseDiff(c, prices, nil)
+	for i := 0; i < 20; i++ {
+		got := ReverseDiff(c, prices, nil)
+		if !reflect.DeepEqual(first, got) {
+			t.Fatalf("run %d differs:\nfirst: %+v\n  got: %+v", i, first, got)
+		}
+	}
+	// Each model collapsed to one entry despite twelve routes apiece.
+	if len(first) != 5 {
+		t.Errorf("entries = %d, want 5: %+v", len(first), first)
 	}
 }
