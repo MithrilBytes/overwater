@@ -108,6 +108,12 @@ JS
 bl="$work/guard-baseline.json"
 check baseline-record 0 "baselined" "$bin" scan -baseline "$bl" -update-baseline "$guard"
 check baseline-pass 0 "all baselined" "$bin" scan -baseline "$bl" "$guard"
+# Moving the file is not a change: the entries follow it.
+mkdir -p "$guard/src"
+mv "$guard/classify.js" "$guard/src/classify.js"
+check baseline-move 0 "all baselined" "$bin" scan -baseline "$bl" "$guard"
+mv "$guard/src/classify.js" "$guard/classify.js"
+rmdir "$guard/src"
 cat > "$guard/legacy.js" <<'JS'
 const client = new (require("openai"))();
 
@@ -141,7 +147,7 @@ rm "$guard/.overwater.yaml"
 vol="$work/volumes.json"
 printf '{"sites": {"extract.py:24": 100000}, "models": {"gpt-4o": 5}}\n' > "$vol"
 check volumes-measured 0 "at measured volume" "$bin" scan -volumes "$vol" fixtures/py-extraction
-check volumes-priced 0 "claude-opus-5 at ~\$1258/mo" "$bin" scan -volumes "$vol" fixtures/py-extraction
+check volumes-priced 0 "claude-opus-5 at ~\$783/mo" "$bin" scan -volumes "$vol" fixtures/py-extraction
 check volumes-unknown-key 0 "no call site uses model gpt-4o" "$bin" scan -volumes "$vol" fixtures/py-extraction
 check volumes-json 0 '"volume_source": "measured"' "$bin" scan -json -volumes "$vol" fixtures/py-extraction
 check volumes-estimate-untouched 0 "at estimated volume" "$bin" scan fixtures/py-extraction
@@ -154,7 +160,7 @@ check volumes-missing 2 - "$bin" scan -volumes "$work/absent-volumes.json" fixtu
 printf 'Date,Model Name,N_Requests\n2026-07-01,claude-opus-5,60000\n2026-07-02,claude-opus-5,40000\n' > "$work/usage.csv"
 check volumes-import-csv 0 'model column "Model Name"' "$bin" volumes import -o "$work/imported.json" "$work/usage.csv"
 check volumes-import-sum 0 '"claude-opus-5": 100000' grep claude-opus-5 "$work/imported.json"
-check volumes-import-scan 0 "claude-opus-5 at ~\$1258/mo" "$bin" scan -volumes "$work/imported.json" fixtures/py-extraction
+check volumes-import-scan 0 "claude-opus-5 at ~\$783/mo" "$bin" scan -volumes "$work/imported.json" fixtures/py-extraction
 printf '[{"model":"claude-opus-5","requests":25},{"model":"nope-1","requests":1}]\n' > "$work/usage.json"
 check volumes-import-json 0 'model field "model"' "$bin" volumes import -o - "$work/usage.json"
 check volumes-import-unknown-model 0 "not in the catalog" "$bin" volumes import -o - "$work/usage.json"
@@ -257,6 +263,10 @@ unset OVERWATER_BIN STUB_SMALL STUB_LARGE
 # Catalog.
 check catalog-show 0 "claude-haiku-4-5" "$bin" catalog show
 check catalog-refresh-offline 2 "network operation" "$bin" catalog refresh -offline
+# The committed snapshots under catalog/history, read back three ways.
+check catalog-history 0 "PRICES MOVED" "$bin" catalog history
+check catalog-history-model 0 "claude-opus-5 across" "$bin" catalog history -model claude-opus-5
+check catalog-history-bad-date 2 "no snapshot dated" "$bin" catalog history -on 1999-01-01
 # Built into the work directory: writing over the tracked catalog.json
 # would make this check destroy uncommitted work when it fails.
 cp -R catalog "$work/catalog-src"

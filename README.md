@@ -42,8 +42,8 @@ Every finding renders five fields, in this order:
 
 ```
 Call site: src/classify.ts:57 (classification: temp 0, JSON schema; high confidence)
-Current:   claude-opus-5 at ~$135/mo at estimated volume
-Candidate: claude-haiku-4-5, same capability tier for this task class, ~$27/mo
+Current:   claude-opus-5 at ~$91/mo at estimated volume
+Candidate: claude-haiku-4-5, same capability tier for this task class, ~$18/mo
 Tripwire:  If eval agreement drops below 97%, stay put
 Flag:      No prompt caching on a 1,191-token repeated system prompt
 ```
@@ -65,7 +65,7 @@ tests it.
 | `fleet` | scan a list of repositories into one rollup |
 | `eval` | generate a runnable A/B script per finding |
 | `volumes` | import a provider usage export into a volumes file |
-| `catalog` | show, build, refresh, or diff the model catalog |
+| `catalog` | show, build, refresh, or diff the catalog, and read its price history |
 | `explain` | print what a rule looks for and what it means |
 | `version` | print the build |
 
@@ -256,6 +256,15 @@ overwater catalog diff -reverse -only deepseek-v4-flash litellm.json
 A scan that meets a model it cannot price prints that command with the
 ids filled in.
 
+Every applied price change drops a dated snapshot of the whole catalog
+into `catalog/history/`, and `catalog history` reads them back: the
+snapshot list, one model's price over time, or what moved on one date.
+
+```bash
+overwater catalog history -model claude-opus-5
+overwater catalog history -on 2026-08-08
+```
+
 ## Releases
 
 Tags read `MAJOR.MINOR.FIX`, plus a fourth `UPDATE` component when a
@@ -357,7 +366,7 @@ them, so `brew install overwater`, `scoop install overwater`, and
 
 ### Guard
 
-- [ ] rename stable fingerprints; a moved file should read as moved
+- [x] rename stable fingerprints; a moved file reads as moved
 - [ ] a sixth fixture covering the newer rules end to end
 
 ### Catalog
