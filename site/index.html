@@ -257,14 +257,16 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
     <h2>What a finding looks like</h2>
     <p class="sub" style="margin-bottom:18px">Every finding renders five fields, in this order.
     Findings are nominations: a scanner cannot know a cheaper model is safe for your task, so each
-    one states the condition under which you should not switch.</p>
+    one states the condition under which you should not switch. That condition ships as a
+    sentence and as numbers, and <code>overwater eval</code> generates a script that exits on
+    them, so CI reads an exit code rather than a report.</p>
     <div class="term">
       <div class="bar"><i></i><i></i><i></i></div>
 <pre><span class="d">$</span> overwater scan .
 
 <span class="k">Call site:</span> src/classify.ts:57 (classification: temp 0, JSON schema; high confidence)
-<span class="k">Current:</span>   claude-opus-5 at ~<span class="w">$135/mo</span> at estimated volume
-<span class="k">Candidate:</span> claude-haiku-4-5, same capability tier for this task class, ~<span class="g">$27/mo</span>
+<span class="k">Current:</span>   claude-opus-5 at ~<span class="w">$91/mo</span> at estimated volume
+<span class="k">Candidate:</span> claude-haiku-4-5, same capability tier for this task class, ~<span class="g">$18/mo</span>
 <span class="k">Tripwire:</span>  If eval agreement drops below 97%, stay put
 <span class="k">Flag:</span>      No prompt caching on a 1,191-token repeated system prompt</pre>
     </div>
@@ -334,8 +336,14 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
       </div>
       <div class="layer">
         <div class="n">02</div><h3>Model strings</h3>
-        <p>The catalog is the dictionary: 88 entries across 15 providers, matched by id and alias.
-        Strings that look like models but are not in the catalog are reported at low confidence.</p>
+        <p>The catalog is the dictionary: 88 entries across 15 providers, matched by id and
+        alias, in any case. Strings that look like models but are not in the catalog are named
+        on stderr as unpriced, so a model we do not carry cannot read as a clean bill of
+        health.</p>
+        <p>Only code calls a model. Documentation, test files and configuration rosters are read
+        as context but report no call sites of their own. Calls that spend tokens without naming
+        a model, an HTTP call whose model is a runtime variable or a shell script running
+        <code>claude --print</code>, are named as unpriced rather than guessed at.</p>
       </div>
       <div class="layer">
         <div class="n">03</div><h3>Call shape</h3>
@@ -384,7 +392,8 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
     URL. Retired models stay in the catalog; legacy code still references them, and the
     deprecated-model rule needs their dates.</p>
     <p class="sub">Contributors update a price by editing one file. A nightly job diffs the catalog
-    against LiteLLM and opens a PR when a provider moves a price. Merging that PR tags and releases
+    against LiteLLM and opens a PR when a provider moves a price, and names any model upstream
+    has started pricing that this catalog does not carry. Merging that PR tags and releases
     on its own, so a price the catalog accepts reaches the binaries without a human picking a
     version.</p>
     <ul class="facts" style="margin-top:18px">
@@ -398,7 +407,12 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
   <section>
     <h2>Releases</h2>
     <dl>
-      <div class="rel"><dt>v2.3 <span class="now">current</span></dt><dd>Merging a price-watch PR
+      <div class="rel"><dt>v2.4 <span class="now">current</span></dt><dd>Layer 2 was measured
+        against 128 real repositories and had been treating any catalog id in any file as a call.
+        Of the ones calling no LLM, 19 reported findings before and 9 do now. A monorepo scan
+        went from 242 seconds to 8. Every rule has an end to end fixture, the ratchet survives a
+        rename, and each release pins the Action itself.</dd></div>
+      <div class="rel"><dt>v2.3</dt><dd>Merging a price-watch PR
         tags and releases on its own. Applying a price carries the cache rates with it.</dd></div>
       <div class="rel"><dt>v2.2</dt><dd>A helper that wraps the SDK is priced for its callers.
         Homebrew, scoop, and winget manifests, a nix flake, a distroless image on GHCR, release
@@ -416,10 +430,11 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
         the baseline ratchet, the GitHub Action, catalog fetch with <code>--offline</code>, and
         generated eval scripts.</dd></div>
     </dl>
-    <p class="sub" style="margin-top:20px">Verified by 274 labeled corpus cases at 0.99 accuracy on
-    an 88 case holdout split assigned before tuning, 89 black box smoke checks through the real
-    binary, byte for byte golden output for five fixtures, fuzz targets over the parsers, and a
-    gate that fails CI when analysis time grows faster than its input.</p>
+    <p class="sub" style="margin-top:20px">Verified by 291 labeled corpus cases at 0.97 accuracy on
+    a 95 case holdout split assigned before tuning, 103 black box smoke checks through the real
+    binary, byte for byte golden output for six fixtures covering every rule, thirteen
+    metamorphic properties, fuzz targets over the parsers, and a gate that fails CI when
+    analysis time grows faster than its input.</p>
     <p class="never">Never: hosted service, telemetry, model calls from the scanner.</p>
   </section>
 
