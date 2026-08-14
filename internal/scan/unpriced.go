@@ -85,10 +85,7 @@ func findUnpricedCalls(relPath, masked string, priced map[int]bool) []UnpricedCa
 		default:
 			continue
 		}
-		trimmed := strings.TrimSpace(line)
-		if len(trimmed) > unpricedEvidenceMax {
-			trimmed = trimmed[:unpricedEvidenceMax] + "..."
-		}
+		trimmed := truncateRunes(strings.TrimSpace(line), unpricedEvidenceMax)
 		out = append(out, UnpricedCall{
 			File: relPath, Line: lineNo, Kind: kind, Evidence: trimmed,
 		})
@@ -98,3 +95,23 @@ func findUnpricedCalls(relPath, masked string, priced map[int]bool) []UnpricedCa
 
 // Long enough to recognise the call, short enough to stay one line.
 const unpricedEvidenceMax = 70
+
+// truncateRunes cuts on a character boundary, counting characters
+// rather than bytes.
+//
+// Slicing a string at a byte offset splits whatever multi byte
+// character straddles it, and the half that survives is not valid
+// UTF-8. This line is printed on stderr, so a repository with an Arabic
+// string in a fetch call emitted bytes that no reader could decode: it
+// crashed a Python harness mid sweep rather than showing up as odd
+// looking output.
+func truncateRunes(s string, max int) string {
+	if len(s) <= max {
+		return s // cannot exceed max runes when it does not exceed max bytes
+	}
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "..."
+}

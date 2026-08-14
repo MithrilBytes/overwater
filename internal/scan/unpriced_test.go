@@ -1,6 +1,10 @@
 package scan
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"unicode/utf8"
+)
 
 // appium-mcp: the billing call is a fetch to a template literal URL, and
 // the model is a runtime variable. The audit that found this measured
@@ -124,5 +128,30 @@ func TestUnpricedCallsRespectFileRules(t *testing.T) {
 	}
 	if len(report.Unpriced) != 0 {
 		t.Errorf("unpriced = %+v, want none from docs or tests", report.Unpriced)
+	}
+}
+
+// The evidence line is printed on stderr, so it has to be valid UTF-8.
+// It was not: truncation counted bytes, so a repository with an Arabic
+// string inside a fetch call emitted a split character. That is not
+// cosmetic, it crashed a harness reading the output mid sweep.
+func TestUnpricedEvidenceIsValidUTF8(t *testing.T) {
+	long := strings.Repeat("مفتاح Bearer لخادم ", 12)
+	dir := writeTree(t, map[string]string{
+		"a.ts": "await fetch(`${base}/chat/completions`, { headers: { hint: \"" + long + "\" } });\n",
+	})
+	report, err := Analyze(dir, mustCatalog(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Unpriced) != 1 {
+		t.Fatalf("unpriced = %+v, want one endpoint call", report.Unpriced)
+	}
+	ev := report.Unpriced[0].Evidence
+	if !utf8.ValidString(ev) {
+		t.Errorf("evidence is not valid utf-8: %q", ev)
+	}
+	if n := utf8.RuneCountInString(strings.TrimSuffix(ev, "...")); n > unpricedEvidenceMax {
+		t.Errorf("evidence is %d runes, want at most %d", n, unpricedEvidenceMax)
 	}
 }
