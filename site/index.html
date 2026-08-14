@@ -283,12 +283,12 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
 
       <div class="chan"><dt>Script</dt><dd>
         <div class="cmd"><span class="prompt">$</span>
-          <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.3.1</span></code>
+          <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.4.1</span></code>
           <button class="copy" data-copy="#c-sh">copy</button></div></dd></div>
 
       <div class="chan"><dt>Container</dt><dd>
         <div class="cmd"><span class="prompt">$</span>
-          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-image-tag>v2.3.1</span> scan /src</code>
+          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-version>v2.4.1</span> scan /src</code>
           <button class="copy" data-copy="#c-img">copy</button></div></dd></div>
 
       <div class="chan"><dt>Nix</dt><dd>
@@ -310,7 +310,7 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
     findings fail the build.</p>
     <div class="term">
 <pre>- uses: actions/checkout@v4
-- uses: MithrilBytes/overwater@<span data-action-ref>v2.3.1</span>
+- uses: MithrilBytes/overwater@<span data-action-ref>v2</span>
   with:
     baseline: .overwater.json</pre>
     </div>
@@ -505,13 +505,12 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
   // right again if the API is rate limited. A price change ships a new
   // release without anyone editing this file, so ask for the real one.
   //
-  // Only [data-version] is rewritten, and only install.sh uses it: it
-  // takes any release tag. The container tag and the action ref are
-  // deliberately left alone. A price release pushes its tag with
-  // GITHUB_TOKEN, which starts no workflow, so image.yml never builds
-  // an image for it and the action is pinned a release behind by
-  // construction. Pointing either at the newest release would print a
-  // command that does not resolve.
+  // Only [data-version] is rewritten, and only install.sh and the
+  // container tag use it, both of which take any release tag: the
+  // release workflow builds an image for every tag now, including the
+  // ones a price change pushes. The action ref is left alone because it
+  // is v2, a floating tag that moves to whichever commit pins the
+  // current release, so there is nothing to keep up to date.
   fetch("https://api.github.com/repos/MithrilBytes/overwater/releases/latest")
     .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
     .then(function (d) {
