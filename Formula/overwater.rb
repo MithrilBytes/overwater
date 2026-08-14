@@ -8,22 +8,22 @@ class Overwater < Formula
   on_macos do
     on_arm do
       url "https://github.com/MithrilBytes/overwater/releases/download/v2.4.1/overwater_darwin_arm64"
-      sha256 "ffd1c7efe4ddeb6afc301ca7d284957f7ccbfdec9f3ac251aafefc9f84d97096"
+      sha256 "95c04b116a896851e043fd610dc3d656461475cb91551093273803edc2d0f5cd"
     end
     on_intel do
       url "https://github.com/MithrilBytes/overwater/releases/download/v2.4.1/overwater_darwin_amd64"
-      sha256 "8caa3d6eef8fd2847a61675cc75dde3940bab9c428f48cadbb4baac184fc816f"
+      sha256 "a32a8acd258d7ad9732b7d34dcc3c322620291ed8c7c41fae2696a99d1574c32"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/MithrilBytes/overwater/releases/download/v2.4.1/overwater_linux_arm64"
-      sha256 "86243220d490668a643ce3d2c854702f264ba39d03de54ee0349f00ee96265e0"
+      sha256 "486c5500f561bd52b1d11adf07e55adf80b4d26770f6fb10dd966380c0355b5b"
     end
     on_intel do
       url "https://github.com/MithrilBytes/overwater/releases/download/v2.4.1/overwater_linux_amd64"
-      sha256 "c808ee4ec56f945751409f46d13b3381e5123a7e58329b8e3ba5d558704f7a3c"
+      sha256 "efddd4ab9b99f5d0d39d095c51dbf8b271b9f4dcc3667e1f02e03524c61bffa7"
     end
   end
 

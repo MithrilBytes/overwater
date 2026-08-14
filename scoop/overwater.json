@@ -7,7 +7,7 @@
     "architecture": {
         "64bit": {
             "url": "https://github.com/MithrilBytes/overwater/releases/download/v2.4.1/overwater_windows_amd64.exe#/overwater.exe",
-            "hash": "7f9d69edc52543e11c9dd760710f32bd47051f171c5d0f59fa7a40d5f0f4a3d9"
+            "hash": "28e76077e56194f4b90ea9f7d79827aed0286204304ad4f32a002e0699b75965"
         }
     },
     "bin": "overwater.exe",
