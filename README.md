@@ -336,9 +336,22 @@ grows faster than its input.
 The numbers that ordered this list predate parallel analysis and the
 quadratic fixes in v2. Profile before optimizing.
 
-- [ ] Aho-Corasick over the dictionary, if a profile still says so
-- [ ] cap peak memory on monorepo scans; stream instead of holding
-      every file
+Aho-Corasick was measured and declined. A working automaton over the
+182 catalog keys, producing byte identical findings, bought 36ms of a
+173ms scan. The key loop is 14 percent of scan CPU on a repository that
+calls no LLM, 7 percent on a model dense one and 1 percent on a
+monorepo, and `unknownModelRE` costs more than the loop on the same
+lines. The dictionary is not the expensive half of layer 2.
+
+- [ ] `traceConfigModels` is 83 percent of a 242 second scan of
+      microsoft/vscode, `regexp.MustCompile` alone 30 percent of it. It
+      compiles up to seven regexes per file per config key and walks the
+      repository once per config line. This is the speed item.
+- [ ] cap peak memory: 1.21GB on 16,890 files, roughly 7x walked bytes.
+      Streaming is the wrong lever, since resolution follows imports and
+      fan in indexes every file. Cheapest first: the walker's `[]byte`
+      copies stay live beside `byPath` because `newAnalyzer` copies
+      rather than taking ownership, which is 20 percent of live heap.
 
 ### Deploy
 
@@ -352,16 +365,15 @@ them, so `brew install overwater`, `scoop install overwater`, and
 - [ ] publish the Homebrew formula to a tap repository
 - [ ] publish the scoop manifest to a bucket repository
 - [ ] submit the winget manifests to microsoft/winget-pkgs
-- [ ] build the container image for tags that price-release pushes;
-      `image.yml` runs on tag push, and a tag pushed with
-      `GITHUB_TOKEN` starts no workflow, so an update ships binaries
-      with no matching image
+- [x] build the container image for tags that price-release pushes
 
 ### Detection
 
-- [ ] corpus cases from real repositories, not written for the corpus
+- [x] corpus cases from real repositories, not written for the corpus.
+      Seventeen of them took holdout accuracy from 0.99 to 0.97, which
+      is the honest number: the rest were written to be classified.
 - [ ] cost ranges instead of point estimates
-- [ ] schema field counts bound the output token estimate
+- [x] schema field counts bound the output token estimate
 - [ ] machine readable tripwires that generated evals exit on
 
 ### Guard
@@ -372,8 +384,7 @@ them, so `brew install overwater`, `scoop install overwater`, and
 ### Catalog
 
 - [x] reverse diff: report models LiteLLM knows and we do not
-- [ ] query the dated price history from the CLI; the snapshots are
-      already written on every price change
+- [x] query the dated price history from the CLI
 
 Never: hosted service, telemetry, model calls from the scanner.
 
