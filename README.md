@@ -23,7 +23,7 @@ file. The installer verifies it for you:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.4.0
+sh install.sh v2.4.1
 ```
 
 ## Usage
@@ -288,6 +288,11 @@ price-watch PR cuts the next patch and releases it on its own, so a
 price the catalog accepts reaches the binaries without a human picking a
 version.
 
+Each release then pins itself. The workflow that built it downloads its
+own `SHA256SUMS`, writes the checksums into `action.yml` and the package
+manifests, commits that to `main`, and moves the floating `v2` tag to
+it. Nothing about a release is done by hand.
+
 A price change used to carry a fourth component, `v2.2.1.1`, so a
 catalog refresh would read differently from a code change. It does read
 differently, but the tag is not where that belongs: the release notes
@@ -359,10 +364,16 @@ The ratchet survives a rename, the corpus carries seventeen cases lifted
 from real repositories, every rule has an end to end fixture, and a
 tripwire now has a form a generated eval can exit on.
 
+Releasing changed too. Tags went back to plain semver, and the Action
+pins itself: its checksums cannot exist until the release has built, so
+for three releases `action.yml` described the one before it and an
+automatic price update repinned nothing at all. `@v2` now floats to
+whichever commit pins the current release.
+
 Verified by 291 labeled corpus cases at 0.97 accuracy on a 95 case
-holdout split assigned before tuning, 101 black box smoke checks through
+holdout split assigned before tuning, 103 black box smoke checks through
 the real binary, byte for byte golden output for six fixtures covering
-every rule, fourteen metamorphic properties, fuzz targets over the
+every rule, thirteen metamorphic properties, fuzz targets over the
 parsers, and a gate that fails CI when analysis time grows faster than
 its input.
 
