@@ -11,3 +11,7 @@ candidate:
   tier: small
   note: same capability tier for this task class
 tripwire: If eval agreement drops below 97%, stay put
+tripwire_check:
+  metric: agreement
+  compare: below
+  threshold: 97

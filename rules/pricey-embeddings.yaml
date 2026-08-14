@@ -11,4 +11,12 @@ when:
 candidate:
   strategy: cheapest_embedding
   note: same provider at the standard embedding tier
-tripwire: If retrieval quality drops on your eval set, stay put
+tripwire: If nearest neighbor agreement drops below 90%, stay put
+# Two embedding models live in different vector spaces, so their
+# vectors never match and the eval compares neighborhoods instead.
+# Neighborhoods shift where chat answers would not, so the bar sits
+# below the 97% the chat rules ask for.
+tripwire_check:
+  metric: nearest_neighbor_agreement
+  compare: below
+  threshold: 90

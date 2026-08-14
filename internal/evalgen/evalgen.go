@@ -97,7 +97,9 @@ func scriptName(f rules.Finding) string {
 
 // fill substitutes the placeholders. Prices are baked in so the script
 // can estimate spend with no fetch; a candidate the catalog does not
-// know prices as zero rather than failing the write.
+// know prices as zero rather than failing the write. The tripwire is
+// baked in twice: raw for the header comment a human reads, and quoted
+// for the constant the exit gate prints.
 func fill(tpl string, f rules.Finding, name string, current, candidate *catalog.Model) string {
 	compat := openAICompat[current.Provider]
 	var candIn, candOut float64
@@ -110,19 +112,32 @@ func fill(tpl string, f rules.Finding, name string, current, candidate *catalog.
 		"{{RULE}}", f.RuleID,
 		"{{SITE}}", fmt.Sprintf("%s:%d", f.File, f.Line),
 		"{{TRIPWIRE}}", f.Tripwire,
+		"{{TRIPWIRE_LITERAL}}", pyString(f.Tripwire),
+		"{{TRIPWIRE_METRIC}}", f.TripwireCheck.Metric,
+		"{{TRIPWIRE_COMPARE}}", f.TripwireCheck.Compare,
+		"{{TRIPWIRE_THRESHOLD}}", pyNumber(f.TripwireCheck.Threshold),
 		"{{SCRIPT}}", name,
 		"{{PROVIDER}}", current.Provider,
 		"{{BASE_URL}}", compat.BaseURL,
 		"{{ENV_VAR}}", compat.EnvVar,
-		"{{CURRENT_IN}}", dollars(current.InputPerMtok),
-		"{{CURRENT_OUT}}", dollars(current.OutputPerMtok),
-		"{{CANDIDATE_IN}}", dollars(candIn),
-		"{{CANDIDATE_OUT}}", dollars(candOut),
+		"{{CURRENT_IN}}", pyNumber(current.InputPerMtok),
+		"{{CURRENT_OUT}}", pyNumber(current.OutputPerMtok),
+		"{{CANDIDATE_IN}}", pyNumber(candIn),
+		"{{CANDIDATE_OUT}}", pyNumber(candOut),
 	)
 	return r.Replace(tpl)
 }
 
-// dollars renders a per million token price as a plain Python number.
-func dollars(v float64) string {
+// pyNumber renders a price or a tripwire threshold as a plain Python
+// number.
+func pyNumber(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// pyString quotes text as a Python literal. The tripwire is prose from
+// a rule file, so a quote, a backslash, or a newline in it would end
+// the constant early and leave a script that does not parse.
+func pyString(s string) string {
+	r := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`)
+	return `"` + r.Replace(s) + `"`
 }

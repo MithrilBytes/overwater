@@ -166,19 +166,20 @@ func (e *Engine) finding(r Rule, site scan.Site, m *catalog.Model, cat *catalog.
 		confidence = demote(confidence)
 	}
 	f := Finding{
-		RuleID:       r.ID,
-		Confidence:   confidence,
-		File:         site.File,
-		Line:         site.Line,
-		SiteHash:     site.Hash,
-		Archetype:    site.Archetype,
-		Evidence:     evidence(site),
-		Model:        m.ID,
-		MonthlyUSD:   round(current),
-		Volume:       vol.calls,
-		VolumeSource: vol.source,
-		Callers:      vol.callers,
-		Tripwire:     r.Tripwire,
+		RuleID:        r.ID,
+		Confidence:    confidence,
+		File:          site.File,
+		Line:          site.Line,
+		SiteHash:      site.Hash,
+		Archetype:     site.Archetype,
+		Evidence:      evidence(site),
+		Model:         m.ID,
+		MonthlyUSD:    round(current),
+		Volume:        vol.calls,
+		VolumeSource:  vol.source,
+		Callers:       vol.callers,
+		Tripwire:      r.Tripwire,
+		TripwireCheck: r.TripwireCheck,
 	}
 	if r.Flag != "" {
 		f.Flags = append(f.Flags, e.template(r.Flag, site, m))

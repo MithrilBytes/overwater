@@ -89,6 +89,7 @@ func TestEvaluateTsChatFirehose(t *testing.T) {
 			CandidateText:  "claude-haiku-4-5, same capability tier for this task class, ~$18/mo",
 			CandidateModel: "claude-haiku-4-5",
 			Tripwire:       "If eval agreement drops below 97%, stay put",
+			TripwireCheck:  TripwireCheck{Metric: "agreement", Compare: "below", Threshold: 97},
 			Flags:          []string{"No prompt caching on a 1,191-token repeated system prompt"},
 		},
 	}
@@ -114,6 +115,7 @@ func TestEvaluatePyExtraction(t *testing.T) {
 			CandidateText:  "claude-haiku-4-5, same capability tier for this task class, ~$16/mo",
 			CandidateModel: "claude-haiku-4-5",
 			Tripwire:       "If eval agreement drops below 97%, stay put",
+			TripwireCheck:  TripwireCheck{Metric: "agreement", Compare: "below", Threshold: 97},
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -176,8 +178,11 @@ func TestEvaluateRagFrontierEmbeddings(t *testing.T) {
 			VolumeSource:   "estimate",
 			CandidateText:  "text-embedding-3-small, same provider at the standard embedding tier, ~$2/mo",
 			CandidateModel: "text-embedding-3-small",
-			Tripwire:       "If retrieval quality drops on your eval set, stay put",
-			Flags:          []string{"No dimensions parameter on a model that supports one; vectors ship at full width"},
+			Tripwire:       "If nearest neighbor agreement drops below 90%, stay put",
+			TripwireCheck: TripwireCheck{
+				Metric: "nearest_neighbor_agreement", Compare: "below", Threshold: 90,
+			},
+			Flags: []string{"No dimensions parameter on a model that supports one; vectors ship at full width"},
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -532,6 +537,18 @@ func TestRuleValidateRejects(t *testing.T) {
 			r.Candidate.Strategy = "price_multiplier"
 			r.Candidate.Multiplier = 1.5
 		}, "multiplier"},
+		{"misspelled tripwire metric", func(r *Rule) {
+			r.TripwireCheck = TripwireCheck{Metric: "agreament", Compare: "below", Threshold: 97}
+		}, "unknown metric"},
+		{"misspelled tripwire comparison", func(r *Rule) {
+			r.TripwireCheck = TripwireCheck{Metric: "agreement", Compare: "under", Threshold: 97}
+		}, "below or above"},
+		{"tripwire threshold off the percentage scale", func(r *Rule) {
+			r.TripwireCheck = TripwireCheck{Metric: "agreement", Compare: "below", Threshold: 970}
+		}, "percentage"},
+		{"tripwire threshold with nothing to measure", func(r *Rule) {
+			r.TripwireCheck = TripwireCheck{Compare: "below", Threshold: 97}
+		}, "needs a metric"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -548,6 +565,35 @@ func TestRuleValidateRejects(t *testing.T) {
 	r.When.Provider = []string{"anthorpic"}
 	if err := r.validate(); err != nil {
 		t.Errorf("validate() = %v, want provider names left to the catalog", err)
+	}
+}
+
+// Which rules give their tripwire a machine readable form, and the
+// numbers they give it, are data. A rule whose tripwire names nothing
+// an eval measures carries none, and its script gates on nothing.
+func TestShippedTripwireChecks(t *testing.T) {
+	want := map[string]TripwireCheck{
+		"effort-overkill":     {Metric: "agreement", Compare: "below", Threshold: 97},
+		"frontier-extraction": {Metric: "agreement", Compare: "below", Threshold: 97},
+		"pricey-embeddings":   {Metric: "nearest_neighbor_agreement", Compare: "below", Threshold: 90},
+	}
+	engine, _ := loadEngine(t)
+	for _, r := range engine.Rules {
+		expected, gated := want[r.ID]
+		if !gated {
+			if r.TripwireCheck.Set() {
+				t.Errorf("%s carries tripwire_check %+v; add it to this table", r.ID, r.TripwireCheck)
+			}
+			continue
+		}
+		if r.TripwireCheck != expected {
+			t.Errorf("%s tripwire_check = %+v, want %+v", r.ID, r.TripwireCheck, expected)
+		}
+		// The terminal only ever shows the sentence, so the sentence has
+		// to carry the number the script exits on.
+		if bar := fmt.Sprintf("%g%%", expected.Threshold); !strings.Contains(r.Tripwire, bar) {
+			t.Errorf("%s tripwire %q does not name its %s bar", r.ID, r.Tripwire, bar)
+		}
 	}
 }
 

@@ -117,6 +117,51 @@ var knownEfforts = map[string]bool{
 	"high": true, "xhigh": true, "max": true,
 }
 
+// knownTripwireMetrics is the closed set of numbers a generated eval
+// script prints. A metric no script computes would be a gate nobody can
+// read. Every one of them is a percentage, which is the bound validate
+// holds a threshold to.
+var knownTripwireMetrics = map[string]bool{
+	"agreement":                  true,
+	"nearest_neighbor_agreement": true,
+}
+
+// TripwireCheck is the tripwire in the form a generated eval script can
+// act on: the number the script measures, which way the comparison
+// runs, and the threshold. A rule whose tripwire names nothing an eval
+// can measure leaves it unset, and its script prints the sentence
+// without gating on it.
+type TripwireCheck struct {
+	Metric    string  `yaml:"metric"`
+	Compare   string  `yaml:"compare"`
+	Threshold float64 `yaml:"threshold"`
+}
+
+// Set reports whether the rule gave its tripwire a machine readable
+// form. The zero check gates nothing.
+func (c TripwireCheck) Set() bool { return c.Metric != "" }
+
+func (c TripwireCheck) validate() error {
+	if !c.Set() {
+		// A threshold with nothing to measure is a number that never
+		// fires, which reads as a gate and is not one.
+		if c.Compare != "" || c.Threshold != 0 {
+			return fmt.Errorf("tripwire_check needs a metric")
+		}
+		return nil
+	}
+	if !knownTripwireMetrics[c.Metric] {
+		return fmt.Errorf("tripwire_check names unknown metric %q", c.Metric)
+	}
+	if c.Compare != "below" && c.Compare != "above" {
+		return fmt.Errorf("tripwire_check compare must be below or above, got %q", c.Compare)
+	}
+	if c.Threshold <= 0 || c.Threshold > 100 {
+		return fmt.Errorf("tripwire_check threshold is a percentage in (0, 100], got %g", c.Threshold)
+	}
+	return nil
+}
+
 // Rule is one data file. Kind finding produces a verdict block of its
 // own; kind flag attaches a line to the finding at the same call site,
 // or becomes a finding itself when the site has no other.
@@ -126,8 +171,11 @@ type Rule struct {
 	Confidence string    `yaml:"confidence"`
 	When       When      `yaml:"when"`
 	Candidate  Candidate `yaml:"candidate"`
-	Tripwire   string    `yaml:"tripwire"`
-	Flag       string    `yaml:"flag"`
+	// Tripwire is the sentence a human reads; TripwireCheck is the same
+	// condition as numbers, for the generated eval script to exit on.
+	Tripwire      string        `yaml:"tripwire"`
+	TripwireCheck TripwireCheck `yaml:"tripwire_check"`
+	Flag          string        `yaml:"flag"`
 }
 
 // Finding is one downgrade nomination for one call site. SiteHash is
@@ -156,6 +204,7 @@ type Finding struct {
 	// shape only candidates. The eval generator keys off it.
 	CandidateModel string
 	Tripwire       string
+	TripwireCheck  TripwireCheck
 	Flags          []string
 }
 
@@ -240,6 +289,9 @@ func (r Rule) validate() error {
 	}
 	if r.Candidate.Note == "" || r.Tripwire == "" {
 		return fmt.Errorf("%s: candidate note and tripwire are required", r.ID)
+	}
+	if err := r.TripwireCheck.validate(); err != nil {
+		return fmt.Errorf("%s: %w", r.ID, err)
 	}
 	// Enumerated when values are checked against their closed sets; a
 	// typo would otherwise load fine and disable the rule. Providers are

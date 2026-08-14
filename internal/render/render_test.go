@@ -85,6 +85,44 @@ func TestJSONCarriesCandidateModel(t *testing.T) {
 	}
 }
 
+// The tripwire ships twice: the sentence for a person, and the numbers
+// for whatever runs the eval. A finding with nothing measurable to gate
+// on carries no object at all rather than an empty one.
+func TestJSONCarriesTripwireCheck(t *testing.T) {
+	f := sampleFinding()
+	f.TripwireCheck = rules.TripwireCheck{Metric: "agreement", Compare: "below", Threshold: 97}
+	out, err := JSON([]rules.Finding{f}, Meta{CatalogVersion: "2026-08-05", CallsPerMonth: 10000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		Findings []struct {
+			Tripwire string `json:"tripwire"`
+			Check    *struct {
+				Metric    string  `json:"metric"`
+				Compare   string  `json:"compare"`
+				Threshold float64 `json:"threshold"`
+			} `json:"tripwire_check"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	got := parsed.Findings[0]
+	if got.Tripwire != "If eval agreement drops below 97%, stay put" {
+		t.Errorf("tripwire = %q, want the prose kept beside the numbers", got.Tripwire)
+	}
+	if got.Check == nil {
+		t.Fatalf("JSON = %s, want a tripwire_check object", out)
+	}
+	if got.Check.Metric != "agreement" || got.Check.Compare != "below" || got.Check.Threshold != 97 {
+		t.Errorf("tripwire_check = %+v", *got.Check)
+	}
+	if out, _ := JSON([]rules.Finding{sampleFinding()}, Meta{}); strings.Contains(string(out), "tripwire_check") {
+		t.Errorf("JSON = %s, want no tripwire_check without one on the finding", out)
+	}
+}
+
 // Only a volumes file reads as measured; every other source reads as
 // an estimate.
 func TestBlockVolumeProvenance(t *testing.T) {

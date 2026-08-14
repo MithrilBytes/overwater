@@ -33,6 +33,11 @@ func TestExplainRule(t *testing.T) {
 			t.Errorf("stdout is missing %q:\n%s", want, stdout)
 		}
 	}
+	// This rule's tripwire is a judgement call, so there is no gate to
+	// print under it.
+	if strings.Contains(stdout, "Exits on:") {
+		t.Errorf("stdout = %q, want no exit gate on a tripwire nothing measures", stdout)
+	}
 	if stderr != "" {
 		t.Errorf("stderr = %q, want empty", stderr)
 	}
@@ -46,6 +51,11 @@ func TestExplainNoFlagLine(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "archetype: extraction, classification") {
 		t.Errorf("stdout is missing the archetype list:\n%s", stdout)
+	}
+	// The number a generated eval exits on is a number a repository may
+	// want to argue with, so explain prints it.
+	if !strings.Contains(stdout, "Exits on:  agreement below 97%") {
+		t.Errorf("stdout is missing the machine readable tripwire:\n%s", stdout)
 	}
 	if strings.Contains(stdout, "Flag:") {
 		t.Errorf("stdout = %q, want no flag line on a finding rule", stdout)

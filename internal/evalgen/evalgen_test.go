@@ -40,6 +40,9 @@ func chatFinding(provider string) rules.Finding {
 		Model:          provider + "-big",
 		CandidateModel: provider + "-small",
 		Tripwire:       "If eval agreement drops below 97%, stay put.",
+		TripwireCheck: rules.TripwireCheck{
+			Metric: "agreement", Compare: "below", Threshold: 97,
+		},
 	}
 }
 
@@ -139,6 +142,8 @@ func TestGenerateChatScripts(t *testing.T) {
 				"CURRENT_OUT = 10\n",
 				"CANDIDATE_IN = 0.25\n",
 				"CANDIDATE_OUT = 1\n",
+				`TRIPWIRE_METRIC = "agreement"`,
+				"TRIPWIRE_THRESHOLD = 97\n",
 			}, tc.wants...)
 			for _, want := range wants {
 				if !strings.Contains(body, want) {

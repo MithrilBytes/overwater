@@ -56,6 +56,10 @@ func TestEvalAnthropicScript(t *testing.T) {
 		`CANDIDATE = "claude-haiku-4-5"`,
 		"import anthropic",
 		"If eval agreement drops below 97%, stay put",
+		// The rule's own numbers reach the script, so the exit code
+		// answers the same question the sentence asks.
+		`TRIPWIRE_METRIC = "agreement"`,
+		"TRIPWIRE_THRESHOLD = 97\n",
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("script is missing %q", want)
@@ -82,6 +86,8 @@ func TestEvalEmbeddingScript(t *testing.T) {
 		`CURRENT = "text-embedding-3-large"`,
 		`CANDIDATE = "text-embedding-3-small"`,
 		"nearest neighbor agreement",
+		`TRIPWIRE_METRIC = "nearest_neighbor_agreement"`,
+		"TRIPWIRE_THRESHOLD = 90\n",
 	} {
 		if !strings.Contains(string(body), want) {
 			t.Errorf("script is missing %q", want)
@@ -110,6 +116,11 @@ func TestEvalSkipsSameModel(t *testing.T) {
 	}
 	if !strings.Contains(string(body), `CANDIDATE = "gpt-5-mini"`) {
 		t.Errorf("script should target the successor model")
+	}
+	// A retired model has no eval to fail: the tripwire is prose only,
+	// so the script gates on nothing and exits clean.
+	if !strings.Contains(string(body), `TRIPWIRE_METRIC = ""`) {
+		t.Errorf("script gates on a metric the deprecated-model rule does not name")
 	}
 }
 

@@ -57,22 +57,31 @@ func ModelsMD(findings []rules.Finding, meta Meta) []byte {
 // JSON renders the findings for machines. The findings field is always
 // an array, never null.
 func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
+	// tripwireCheck is the tripwire as numbers: what an eval measures,
+	// which way the comparison runs, and the bar. Absent on findings
+	// whose tripwire names nothing an eval can measure.
+	type tripwireCheck struct {
+		Metric    string  `json:"metric"`
+		Compare   string  `json:"compare"`
+		Threshold float64 `json:"threshold"`
+	}
 	type jsonFinding struct {
-		Rule           string   `json:"rule"`
-		Confidence     string   `json:"confidence"`
-		File           string   `json:"file"`
-		Line           int      `json:"line"`
-		Archetype      string   `json:"archetype"`
-		Evidence       string   `json:"evidence,omitempty"`
-		Model          string   `json:"model"`
-		MonthlyUSD     int      `json:"monthly_usd"`
-		Volume         int      `json:"volume"`
-		VolumeSource   string   `json:"volume_source"`
-		Callers        int      `json:"callers,omitempty"`
-		Candidate      string   `json:"candidate"`
-		CandidateModel string   `json:"candidate_model,omitempty"`
-		Tripwire       string   `json:"tripwire"`
-		Flags          []string `json:"flags,omitempty"`
+		Rule           string         `json:"rule"`
+		Confidence     string         `json:"confidence"`
+		File           string         `json:"file"`
+		Line           int            `json:"line"`
+		Archetype      string         `json:"archetype"`
+		Evidence       string         `json:"evidence,omitempty"`
+		Model          string         `json:"model"`
+		MonthlyUSD     int            `json:"monthly_usd"`
+		Volume         int            `json:"volume"`
+		VolumeSource   string         `json:"volume_source"`
+		Callers        int            `json:"callers,omitempty"`
+		Candidate      string         `json:"candidate"`
+		CandidateModel string         `json:"candidate_model,omitempty"`
+		Tripwire       string         `json:"tripwire"`
+		TripwireCheck  *tripwireCheck `json:"tripwire_check,omitempty"`
+		Flags          []string       `json:"flags,omitempty"`
 	}
 	report := struct {
 		CatalogVersion string        `json:"catalog_version"`
@@ -84,6 +93,10 @@ func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
 		Findings:       make([]jsonFinding, 0, len(findings)),
 	}
 	for _, f := range findings {
+		var check *tripwireCheck
+		if c := f.TripwireCheck; c.Set() {
+			check = &tripwireCheck{Metric: c.Metric, Compare: c.Compare, Threshold: c.Threshold}
+		}
 		report.Findings = append(report.Findings, jsonFinding{
 			Rule:           f.RuleID,
 			Confidence:     f.Confidence,
@@ -99,6 +112,7 @@ func JSON(findings []rules.Finding, meta Meta) ([]byte, error) {
 			Candidate:      f.CandidateText,
 			CandidateModel: f.CandidateModel,
 			Tripwire:       f.Tripwire,
+			TripwireCheck:  check,
 			Flags:          f.Flags,
 		})
 	}

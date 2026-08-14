@@ -10,3 +10,7 @@ candidate:
   strategy: none
   note: same model at default effort; extraction and classification rarely need deliberate reasoning
 tripwire: If eval agreement drops below 97%, stay put
+tripwire_check:
+  metric: agreement
+  compare: below
+  threshold: 97

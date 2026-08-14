@@ -61,6 +61,11 @@ func explainRule(r rules.Rule) string {
 	b.WriteString("\n")
 	fmt.Fprintf(&b, "Candidate: %s\n", r.Candidate.Note)
 	fmt.Fprintf(&b, "Tripwire:  %s\n", r.Tripwire)
+	// The machine readable half is a number a repository may want to
+	// argue with, so print it rather than leaving it to the YAML.
+	if c := r.TripwireCheck; c.Set() {
+		fmt.Fprintf(&b, "Exits on:  %s %s %g%%\n", c.Metric, c.Compare, c.Threshold)
+	}
 	if r.Flag != "" {
 		fmt.Fprintf(&b, "Flag:      %s\n", r.Flag)
 	}
