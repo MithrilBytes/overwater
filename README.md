@@ -281,16 +281,19 @@ overwater catalog history -on 2026-08-08
 
 ## Releases
 
-Tags read `MAJOR.MINOR.FIX`, plus a fourth `UPDATE` component when a
-merged price change reships the binaries with a new catalog and no code
-change. Merging a price-watch PR tags and releases that update on its
-own.
+Tags are semver: `vMAJOR.MINOR.PATCH`, nothing else. Merging a
+price-watch PR cuts the next patch and releases it on its own, so a
+price the catalog accepts reaches the binaries without a human picking a
+version.
 
-Four component tags are not semver, so each update also pushes a semver
-twin at the same commit for `go install` to resolve: `v2.2.1.1` ships
-alongside `v2.2.2`. The two lanes advance independently, updates
-counting from the last human release and twins owning the patch lane,
-so cut features and fixes at a minor or major bump.
+A price change used to carry a fourth component, `v2.2.1.1`, so a
+catalog refresh would read differently from a code change. It does read
+differently, but the tag is not where that belongs: the release notes
+are, and they already say so. Four component tags are not semver, so
+every one of them needed a twin pushed at the same commit for
+`go install` to resolve, which meant two tags per price change and a
+rule about which lane owned the patch number. None was ever cut before
+the scheme came out.
 
 
 **v1** shipped the tool: catalog, four detection layers, rules engine,

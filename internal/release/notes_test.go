@@ -210,62 +210,62 @@ func TestEveryHeadingIsEmitted(t *testing.T) {
 	}
 }
 
-// The two lanes advance independently: updates count from the last
-// human release, twins own the patch lane so go install can resolve
-// something.
-func TestNextTags(t *testing.T) {
+func TestNextTag(t *testing.T) {
 	cases := []struct {
-		name         string
-		tags         []string
-		update, twin string
+		name string
+		tags []string
+		want string
 	}{
-		{"first update", []string{"v2.1.0", "v2.2.0", "v2.2.1"}, "v2.2.1.1", "v2.2.2"},
-		{"second update", []string{"v2.2.1", "v2.2.1.1", "v2.2.2"}, "v2.2.1.2", "v2.2.3"},
-		{"third update", []string{"v2.2.1", "v2.2.1.2", "v2.2.3"}, "v2.2.1.3", "v2.2.4"},
-		{"ninth to tenth", []string{"v2.2.1", "v2.2.1.9", "v2.2.10"}, "v2.2.1.10", "v2.2.11"},
-		{"minor bump restarts", []string{"v2.2.1", "v2.2.1.3", "v2.2.4", "v2.3.0"}, "v2.3.0.1", "v2.3.1"},
-		{"major bump restarts", []string{"v2.2.1.3", "v2.2.4", "v3.0.0"}, "v3.0.0.1", "v3.0.1"},
-		{"unsorted input", []string{"v2.2.2", "v2.2.1.1", "v2.2.1"}, "v2.2.1.2", "v2.2.3"},
-		{"junk ignored", []string{"latest", "v2.2.1", "not-a-tag", "v2"}, "v2.2.1.1", "v2.2.2"},
+		{"first bump", []string{"v2.2.1"}, "v2.2.2"},
+		{"highest wins, not last", []string{"v2.4.0", "v2.2.1", "v2.3.1"}, "v2.4.1"},
+		{"numeric, not lexical", []string{"v2.9.0", "v2.10.0"}, "v2.10.1"},
+		{"ninth to tenth", []string{"v2.2.9"}, "v2.2.10"},
+		{"minor bump owns the patch lane", []string{"v2.2.4", "v2.3.0"}, "v2.3.1"},
+		{"major bump", []string{"v2.2.4", "v3.0.0"}, "v3.0.1"},
+		{"unsorted input", []string{"v2.2.2", "v2.2.1"}, "v2.2.3"},
+		{"junk ignored", []string{"latest", "v2.2.1", "not-a-tag", "v2"}, "v2.2.2"},
+		// The scheme this replaced pushed four component tags. None was
+		// ever cut, and one turning up now is not a release to bump from.
+		{"four component tags are not releases", []string{"v2.2.1", "v2.2.1.7"}, "v2.2.2"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			update, twin, err := NextTags(tt.tags)
+			got, err := NextTag(tt.tags)
 			if err != nil {
-				t.Fatalf("NextTags(%v) errored: %v", tt.tags, err)
+				t.Fatalf("NextTag(%v) errored: %v", tt.tags, err)
 			}
-			if update != tt.update || twin != tt.twin {
-				t.Errorf("NextTags(%v) = %q, %q; want %q, %q", tt.tags, update, twin, tt.update, tt.twin)
+			if got != tt.want {
+				t.Errorf("NextTag(%v) = %q, want %q", tt.tags, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestNextTagsNeedsAFixTag(t *testing.T) {
+func TestNextTagNeedsARelease(t *testing.T) {
 	for _, tags := range [][]string{nil, {}, {"latest"}, {"v2.2.1.1"}} {
-		if u, tw, err := NextTags(tags); err == nil {
-			t.Errorf("NextTags(%v) = %q, %q; want an error", tags, u, tw)
+		if got, err := NextTag(tags); err == nil {
+			t.Errorf("NextTag(%v) = %q; want an error", tags, got)
 		}
 	}
 }
 
-// Ten consecutive updates stay ordered by git's own version sort, which
-// is what picks the base on the next run.
-func TestNextTagsStayOrdered(t *testing.T) {
+// Ten price changes in a row stay ordered by git's own version sort,
+// which is what picks the base on the next run.
+func TestNextTagStaysOrdered(t *testing.T) {
 	tags := []string{"v2.2.1"}
-	prevUpdate := ""
+	prev := ""
 	for i := 0; i < 10; i++ {
-		update, twin, err := NextTags(tags)
+		next, err := NextTag(tags)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if update == prevUpdate {
-			t.Fatalf("update %q repeated on round %d", update, i)
+		if next == prev {
+			t.Fatalf("tag %q repeated on round %d", next, i)
 		}
-		prevUpdate = update
-		tags = append(tags, update, twin)
+		prev = next
+		tags = append(tags, next)
 	}
-	if prevUpdate != "v2.2.1.10" {
-		t.Errorf("after ten updates the last is %q, want v2.2.1.10", prevUpdate)
+	if prev != "v2.2.11" {
+		t.Errorf("after ten bumps the last is %q, want v2.2.11", prev)
 	}
 }

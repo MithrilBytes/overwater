@@ -195,14 +195,13 @@ func TestRenderRejectsMissingAsset(t *testing.T) {
 }
 
 func TestRenderRejectsBadVersion(t *testing.T) {
-	for _, v := range []string{"", "2.1", "latest", "v2.1.0-rc1", "2.1.0.0.1"} {
+	// A four component version was the old price update scheme. Nothing
+	// ever shipped one and a manifest cannot describe one, since none of
+	// the three package managers takes a version that is not semver.
+	for _, v := range []string{"", "2.1", "latest", "v2.1.0-rc1", "2.1.0.0.1", "2.1.0.3"} {
 		if _, err := Render(v, fixtureSums(t)); err == nil {
 			t.Errorf("version %q was accepted", v)
 		}
-	}
-	// A price update carries a fourth component.
-	if _, err := Render("2.1.0.3", fixtureSums(t)); err != nil {
-		t.Errorf("Render(2.1.0.3) = %v, want an update version to render", err)
 	}
 	// A leading v is optional; the URLs get one either way.
 	files, err := Render("9.9.9", fixtureSums(t))

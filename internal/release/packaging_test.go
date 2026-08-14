@@ -270,7 +270,7 @@ func TestPriceReleaseCallsRelease(t *testing.T) {
 		"pull_request",
 		"merged == true",
 		"price-watch/",
-		"-next-tags",
+		"-next-tag",
 		"uses: ./.github/workflows/release.yml",
 	} {
 		if !strings.Contains(src, want) {
@@ -336,22 +336,24 @@ func TestPriceReleaseCallsImage(t *testing.T) {
 	}
 }
 
-// The twin exists only so go install resolves a three component
-// version; dropping it would strand price updates for module users.
-func TestPriceReleasePushesTwin(t *testing.T) {
+// A price change is a patch release like any other. It used to push two
+// tags, a four component one and a semver twin beside it, because four
+// component tags are not semver and go install could not resolve them.
+func TestPriceReleasePushesOneTag(t *testing.T) {
 	src := repoFile(t, ".github", "workflows", "price-release.yml")
 	for _, want := range []string{
-		"-next-tags",
-		`git tag "$update"`,
-		`git tag "$twin"`,
-		`git push origin "$update" "$twin"`,
+		"-next-tag",
+		`git tag "$next"`,
+		`git push origin "$next"`,
+		`echo "tag=$next"`,
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("price-release.yml is missing %q", want)
 		}
 	}
-	// The release attaches to the update tag, not the twin.
-	if !strings.Contains(src, `echo "tag=$update"`) {
-		t.Error("price-release.yml does not hand the update tag to the release job")
+	for _, gone := range []string{"-next-tags", "$twin", "$update"} {
+		if strings.Contains(src, gone) {
+			t.Errorf("price-release.yml still references %q from the two tag scheme", gone)
+		}
 	}
 }

@@ -42,9 +42,7 @@ const (
 )
 
 var (
-	// The fourth component is the update: a price change reships the
-	// binaries with a new catalog and nothing else.
-	versionRe = regexp.MustCompile(`^v?([0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+)?)$`)
+	versionRe = regexp.MustCompile(`^v?([0-9]+\.[0-9]+\.[0-9]+)$`)
 	sha256Re  = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
 )
 

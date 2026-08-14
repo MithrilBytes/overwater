@@ -127,50 +127,35 @@ func escape(s string) string {
 	return b.String()
 }
 
-// A price change reships the binaries with a new catalog and no code
-// change, so it gets a fourth version component: v2.2.1.1 after
-// v2.2.1. Go modules only resolve three component semver, so each
-// update also pushes a semver twin with the patch bumped, and the two
-// lanes advance independently: updates count from the last human
-// release, twins own the patch lane.
-//
-// Cut features and fixes at a minor or major bump. A hand cut patch
-// release would collide with the twin lane.
-
 var (
-	reFixTag    = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)$`)
-	reUpdateTag = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$`)
+	reFixTag = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)$`)
 )
 
-// NextTags returns the update tag and the semver twin to push for a
-// price change, given every tag the repository already carries.
-func NextTags(tags []string) (update, twin string, err error) {
-	var bestFix, bestUpdate []int
+// NextTag returns the tag to push for a price change: the patch after
+// the highest release.
+//
+// This used to be two tags. A price change carried a fourth component,
+// v2.2.1.1, on the theory that a catalog refresh is a different kind of
+// event from a code change and should read as one. It is, but nobody
+// needed to be told: the tag is not where that belongs, the release
+// notes are. Four component tags are not semver, so every one of them
+// needed a twin pushed at the same commit for go install to resolve,
+// which meant two tags, two lanes advancing independently, and a rule
+// about which lane owns the patch number. No four component tag was
+// ever pushed before the scheme came out.
+func NextTag(tags []string) (string, error) {
+	var best []int
 	for _, t := range tags {
 		if m := reFixTag.FindStringSubmatch(strings.TrimSpace(t)); m != nil {
-			if v := ints(m[1:]); higher(v, bestFix) {
-				bestFix = v
-			}
-			continue
-		}
-		if m := reUpdateTag.FindStringSubmatch(strings.TrimSpace(t)); m != nil {
-			if v := ints(m[1:]); higher(v, bestUpdate) {
-				bestUpdate = v
+			if v := ints(m[1:]); higher(v, best) {
+				best = v
 			}
 		}
 	}
-	if bestFix == nil {
-		return "", "", fmt.Errorf("no vMAJOR.MINOR.FIX tag to bump from")
+	if best == nil {
+		return "", fmt.Errorf("no vMAJOR.MINOR.PATCH tag to bump from")
 	}
-	twin = fmt.Sprintf("v%d.%d.%d", bestFix[0], bestFix[1], bestFix[2]+1)
-
-	// A minor or major bump is a human release and starts a new update
-	// series; the patch lane belongs to the twins.
-	if bestUpdate != nil && bestUpdate[0] == bestFix[0] && bestUpdate[1] == bestFix[1] {
-		update = fmt.Sprintf("v%d.%d.%d.%d", bestUpdate[0], bestUpdate[1], bestUpdate[2], bestUpdate[3]+1)
-		return update, twin, nil
-	}
-	return fmt.Sprintf("v%d.%d.%d.1", bestFix[0], bestFix[1], bestFix[2]), twin, nil
+	return fmt.Sprintf("v%d.%d.%d", best[0], best[1], best[2]+1), nil
 }
 
 func ints(parts []string) []int {
