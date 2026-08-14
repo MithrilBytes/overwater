@@ -23,7 +23,7 @@ file. The installer verifies it for you:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.3.0
+sh install.sh v2.4.0
 ```
 
 ## Usage
@@ -320,28 +320,46 @@ distroless image on GHCR, release notes from the commit log, and build
 provenance on every binary. A scan root may be a single file, and
 `explain <rule-id>` prints a rule from its own YAML.
 
-**v2.3** is the current line. Merging a price-watch PR now tags and
-releases on its own, so a price the catalog accepts reaches the
-binaries without a human picking a version. Applying a price carries
-the cache rates with it, which providers publish as multiples of base
-input and the previous version left describing the old price.
+**v2.3** made merging a price-watch PR tag and release on its own, so a
+price the catalog accepts reaches the binaries without a human picking a
+version. Applying a price carries the cache rates with it, which
+providers publish as multiples of base input and the previous version
+left describing the old price.
 
-Layer 2 was then measured against 128 real public repositories rather
-than fixtures, and it was wrong far more often than the corpus showed:
-19 of the 25 that call no LLM at all still reported call sites. It had
-been treating any catalog id in any file as a call. Comments,
-docstrings, documentation, test fixtures and configuration rosters no
-longer are, a hyphenated identifier no longer matches a model inside
-itself, and agent tooling that borrows a model's family name is not a
-model. One configuration repository dropped from 1,364 findings to 33,
-and a CLI that never opens a socket from 220 to none. No repository
-that genuinely calls an LLM lost a finding.
+**v2.4** is the current line, and it came out of pointing the scanner at
+128 real public repositories instead of fixtures.
 
-Verified by 274 labeled corpus cases at 0.99 accuracy on an 88 case
-holdout split assigned before tuning, 96 black box smoke checks through
-the real binary, byte for byte golden output for five fixtures, fuzz
-targets over the parsers, and a gate that fails CI when analysis time
-grows faster than its input.
+Layer 2 had been treating any catalog id in any file as a call, and it
+was wrong far more often than the corpus showed. Comments, docstrings,
+documentation, test fixtures and configuration rosters no longer count
+as calls, a hyphenated identifier no longer matches a model inside
+itself, agent tooling that borrows a model's family name is not a model,
+and matching is case insensitive because providers ship ids like
+Qwen3-VL and people write GPT-4o. Rerunning the same 128 repositories:
+of the ones that call no LLM, 19 reported findings before and 9 do now,
+and the phantom findings among them fell from 2,283 to 147.
+
+What cannot be priced is now said out loud rather than passing as clean.
+A model the catalog does not carry is named on stderr as unpriced, with
+the `catalog diff -reverse` command that looks it up; an HTTP call whose
+model is a runtime variable, and `claude --print`, are reported as calls
+with no model to price.
+
+A monorepo scan went from 242 seconds to 8: `traceConfigModels` was
+rebuilding seven regexes and rereading every file for each config key.
+Peak memory fell with it, since the analyzer had been holding two copies
+of the repository.
+
+The ratchet survives a rename, the corpus carries seventeen cases lifted
+from real repositories, every rule has an end to end fixture, and a
+tripwire now has a form a generated eval can exit on.
+
+Verified by 291 labeled corpus cases at 0.97 accuracy on a 95 case
+holdout split assigned before tuning, 101 black box smoke checks through
+the real binary, byte for byte golden output for six fixtures covering
+every rule, fourteen metamorphic properties, fuzz targets over the
+parsers, and a gate that fails CI when analysis time grows faster than
+its input.
 
 ## Next
 
