@@ -29,6 +29,18 @@ func Sync(dir, version string, sums map[string]string) ([]string, error) {
 	}
 	files[FlakePath] = bumped
 
+	// The Action is pinned by the same run that wrote the manifests, so
+	// the two can never disagree about which release is current.
+	actionSrc, err := os.ReadFile(filepath.Join(dir, ActionPath))
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", ActionPath, err)
+	}
+	pinned, err := PinAction(string(actionSrc), version, sums)
+	if err != nil {
+		return nil, err
+	}
+	files[ActionPath] = pinned
+
 	var changed []string
 	for _, name := range sortedKeys(files) {
 		full := filepath.Join(dir, filepath.FromSlash(name))
@@ -57,8 +69,9 @@ func sortedKeys(m map[string]string) []string {
 
 const usage = `Usage: sync-manifests -version vX.Y.Z -sums PATH [-dir REPO]
 
-Rewrites the Homebrew, scoop, and winget manifests and flake.nix from a
-release's SHA256SUMS. Pass "-" as PATH to read SHA256SUMS from stdin.
+Rewrites the Homebrew, scoop and winget manifests, flake.nix, and the
+composite Action's pinned checksums from a release's SHA256SUMS. Pass
+"-" as PATH to read SHA256SUMS from stdin.
 `
 
 // Run is the sync-manifests entry point. It is maintainer tooling: the

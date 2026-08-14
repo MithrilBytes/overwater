@@ -141,15 +141,17 @@ Record a baseline once, commit it, and only new findings fail:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: MithrilBytes/overwater@v2.3.1
+- uses: MithrilBytes/overwater@v2
   with:
     baseline: .overwater.json
 ```
 
-The Action downloads a release binary pinned by checksum, and those
-checksums only exist once the release is built. So a `MAJOR.MINOR.0`
-tag always carries the previous release's pin, and the tag to use is
-the `FIX` that follows it.
+`@v2` is a floating tag that moves to whichever commit pins the current
+release. Use it rather than an exact version: the Action downloads a
+release binary checked against a sha256 written into `action.yml`, and
+those checksums cannot exist until that release has built, so a tag
+never carries its own pin. The release workflow writes the pin
+afterwards and moves `v2` to it.
 
 Add `pr-comment: true` for a sticky verdict comment, which needs
 `pull-requests: write`. Add `incremental: true` on PR builds.

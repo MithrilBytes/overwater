@@ -293,6 +293,7 @@ go build -o "$sync" ./tools/sync-manifests || { echo "FAIL build sync-manifests"
 pkgdir="$work/packaging"
 mkdir -p "$pkgdir"
 cp flake.nix "$pkgdir/flake.nix"
+cp action.yml "$pkgdir/action.yml"
 fixture="internal/packaging/testdata/SHA256SUMS"
 check sync-usage 2 "Usage:" "$sync"
 check sync-bad-version 2 "not vX.Y.Z" "$sync" -version latest -sums "$fixture" -dir "$pkgdir"
@@ -309,7 +310,7 @@ else
   pass=$((pass + 1))
 fi
 
-check sync-writes 0 "updated 6 files" "$sync" -version v9.9.9 -sums "$fixture" -dir "$pkgdir"
+check sync-writes 0 "updated 7 files" "$sync" -version v9.9.9 -sums "$fixture" -dir "$pkgdir"
 check sync-idempotent 0 "already describe" "$sync" -version v9.9.9 -sums "$fixture" -dir "$pkgdir"
 check sync-winget-uppercases-hash 0 "EEEEEEEE" \
   grep InstallerSha256 "$pkgdir/winget/MithrilBytes.Overwater.installer.yaml"
@@ -321,6 +322,20 @@ check sync-bumps-flake 0 'version = "9.9.9";' grep version "$pkgdir/flake.nix"
 if command -v nix > /dev/null 2>&1; then
   check flake-eval 0 - nix --extra-experimental-features "nix-command flakes" \
     flake check --no-build --all-systems
+fi
+
+# The Action is pinned by the same run that writes the manifests, so the
+# two can never disagree about which release is current. A half pinned
+# Action fails only on the platform nobody tested.
+mkdir -p "$work/fresh-pkg"
+cp flake.nix action.yml "$work/fresh-pkg/"
+check sync-pins-action 0 "action.yml" \
+  "$sync" -version v9.9.9 -sums "$fixture" -dir "$work/fresh-pkg"
+if grep -q 'version="v9.9.9"' "$work/fresh-pkg/action.yml"; then
+  pass=$((pass + 1))
+else
+  echo "FAIL sync-pins-action-version: action.yml still names the old release"
+  fail=$((fail + 1))
 fi
 
 echo

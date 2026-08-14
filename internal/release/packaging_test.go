@@ -357,3 +357,43 @@ func TestPriceReleasePushesOneTag(t *testing.T) {
 		}
 	}
 }
+
+// The pin job is the whole answer to a tag never carrying its own
+// checksums, and it is one deletion away from silently not running.
+func TestReleasePinsAfterBuilding(t *testing.T) {
+	src := repoFile(t, ".github", "workflows", "release.yml")
+	for _, want := range []string{
+		"pin:",
+		"needs: release",
+		"ref: main",
+		"gh release download",
+		"tools/sync-manifests",
+		"tools/major-tag",
+		`git push -f origin "$major"`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("release.yml pin job is missing %q", want)
+		}
+	}
+}
+
+// A price change reaches users only if its release pins too, which it
+// does by calling release rather than duplicating it.
+func TestPriceReleaseInheritsThePin(t *testing.T) {
+	src := repoFile(t, ".github", "workflows", "price-release.yml")
+	if !strings.Contains(src, "uses: ./.github/workflows/release.yml") {
+		t.Error("price-release does not call release, so an auto shipped update would never repin")
+	}
+}
+
+// The README hands readers the floating tag. An exact version there is
+// always one release behind on the pin, which is the bug this replaced.
+func TestReadmeUsesTheFloatingTag(t *testing.T) {
+	src := repoFile(t, "README.md")
+	if !strings.Contains(src, "MithrilBytes/overwater@v2") {
+		t.Error("README does not tell readers to use the floating tag")
+	}
+	if regexp.MustCompile(`MithrilBytes/overwater@v[0-9]+\.[0-9]+`).MatchString(src) {
+		t.Error("README pins the Action to an exact version, which is stale by construction")
+	}
+}

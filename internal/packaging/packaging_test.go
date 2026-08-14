@@ -241,17 +241,20 @@ func TestBumpFlake(t *testing.T) {
 	}
 }
 
-// newRepo makes a directory Sync can write into: only flake.nix has to
-// exist beforehand, because Sync edits it rather than generating it.
+// newRepo makes a directory Sync can write into. flake.nix and
+// action.yml have to exist beforehand, because Sync edits those rather
+// than generating them.
 func newRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	src, err := os.ReadFile(filepath.Join("..", "..", FlakePath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, FlakePath), src, 0o644); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{FlakePath, ActionPath} {
+		src, err := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(name)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), src, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return dir
 }
@@ -264,7 +267,7 @@ func TestSyncWritesAndIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{FormulaPath, FlakePath, ScoopPath, WingetInstallPath, WingetLocalePath, WingetVersionPath}
+	want := []string{ActionPath, FormulaPath, FlakePath, ScoopPath, WingetInstallPath, WingetLocalePath, WingetVersionPath}
 	for _, path := range want {
 		body, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(path)))
 		if err != nil {
@@ -320,7 +323,7 @@ func TestRun(t *testing.T) {
 	if code := Run([]string{"-version", "v9.9.9", "-sums", sums, "-dir", dir}, nil, &out, &errOut); code != 0 {
 		t.Fatalf("exit %d, stderr: %s", code, errOut.String())
 	}
-	if !strings.Contains(out.String(), "updated 6 files for v9.9.9") {
+	if !strings.Contains(out.String(), "updated 7 files for v9.9.9") {
 		t.Errorf("stdout: %q", out.String())
 	}
 

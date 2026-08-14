@@ -65,3 +65,46 @@ jobs:
           gh release create "$TAG" dist/* \
             --title "$TAG" \
             --notes-file "$RUNNER_TEMP/notes.md"
+
+  # The Action pins a release binary by checksum, and those checksums do
+  # not exist until the release above has built. So no tag can ever
+  # carry its own pin: whatever action.yml says at v2.4.0 was true of
+  # v2.3.0. This closes that by pinning after the fact and moving the
+  # floating major tag, which is what the README tells readers to use.
+  pin:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: pin the action and manifests to this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --pattern SHA256SUMS --output "$RUNNER_TEMP/SHA256SUMS"
+          go run ./tools/sync-manifests -version "$TAG" -sums "$RUNNER_TEMP/SHA256SUMS"
+          major="$(go run ./tools/major-tag "$TAG")"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "already pinned to $TAG" >> "$GITHUB_STEP_SUMMARY"
+          else
+            git add action.yml Formula scoop winget flake.nix
+            git commit -m "chore: pin the action and manifests to $TAG"
+            git push origin main
+          fi
+          # The floating tag moves whether or not the pin changed, since
+          # a rerun must still leave it on the current commit.
+          git tag -f "$major"
+          git push -f origin "$major"
+          echo "$major now points at $(git rev-parse --short HEAD) pinned to $TAG" >> "$GITHUB_STEP_SUMMARY"
