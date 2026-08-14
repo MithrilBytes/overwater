@@ -74,6 +74,11 @@ jobs:
   pin:
     needs: release
     runs-on: ubuntu-latest
+    # Two releases in flight would both commit the pin to main and the
+    # second would be rejected as non fast forward.
+    concurrency:
+      group: pin-main
+      cancel-in-progress: false
     permissions:
       contents: write
     env:
@@ -101,6 +106,8 @@ jobs:
           else
             git add action.yml Formula scoop winget flake.nix
             git commit -m "chore: pin the action and manifests to $TAG"
+            # Someone may have pushed while the release built.
+            git pull --rebase origin main
             git push origin main
           fi
           # The floating tag moves whether or not the pin changed, since
