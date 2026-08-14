@@ -28,6 +28,8 @@ type workflow struct {
 	Permissions map[string]string `yaml:"permissions"`
 	Jobs        map[string]struct {
 		Permissions map[string]string `yaml:"permissions"`
+		Uses        string            `yaml:"uses"`
+		With        map[string]string `yaml:"with"`
 		Steps       []struct {
 			Name string            `yaml:"name"`
 			Uses string            `yaml:"uses"`
@@ -232,7 +234,7 @@ func TestImagePublishesOnTagsOnly(t *testing.T) {
 			if !strings.Contains(s.If, "refs/tags/v") {
 				t.Errorf("step %q pushes without a tag guard (if: %q)", s.Name, s.If)
 			}
-			for _, want := range []string{`"$IMAGE:$GITHUB_REF_NAME"`, `"$IMAGE:latest"`} {
+			for _, want := range []string{`"$IMAGE:$TAG"`, `"$IMAGE:latest"`} {
 				if strings.Count(s.Run, "docker push "+want) != 1 {
 					t.Errorf("step %q does not push %s exactly once", s.Name, want)
 				}
@@ -288,6 +290,49 @@ func TestPriceReleaseCallsRelease(t *testing.T) {
 	}
 	if !strings.Contains(rel, "TAG: ${{ inputs.tag || github.ref_name }}") {
 		t.Error("release.yml does not fall back to github.ref_name for a plain tag push")
+	}
+}
+
+// The binaries are only half the release. The image needs the same
+// called-workflow treatment for the same reason, or an automated price
+// release ships new binaries against a stale image.
+func TestPriceReleaseCallsImage(t *testing.T) {
+	w := readWorkflow(t, "price-release.yml")
+	job, ok := w.Jobs["image"]
+	if !ok {
+		t.Fatal("price-release.yml has no job that builds the image for the tag it pushed")
+	}
+	if job.Uses != "./.github/workflows/image.yml" {
+		t.Errorf("price-release image job calls %q, want ./.github/workflows/image.yml", job.Uses)
+	}
+	if got := job.With["tag"]; got != "${{ needs.tag.outputs.tag }}" {
+		t.Errorf("price-release image job passes tag %q, want the tag job's output", got)
+	}
+	// A called workflow's token can only narrow its caller's, and the
+	// publish step pushes to GHCR.
+	if job.Permissions["packages"] != "write" {
+		t.Errorf("price-release image job packages permission is %q, want write", job.Permissions["packages"])
+	}
+
+	img := repoFile(t, ".github", "workflows", "image.yml")
+	if !strings.Contains(img, "workflow_call:") {
+		t.Error("image.yml has no workflow_call trigger, so price-release cannot call it")
+	}
+	// The same trap release.yml walked into: when called, the ref is the
+	// merged pull request, so the tag has to come from the input.
+	if strings.Contains(img, "GITHUB_REF_NAME") {
+		t.Error("image.yml still reads GITHUB_REF_NAME, which is the caller's ref when called with an input tag")
+	}
+	if !strings.Contains(img, "ref: ${{ inputs.tag || github.ref }}") {
+		t.Error("image.yml does not check out the input tag, so it would build the caller's ref")
+	}
+
+	// And the tag guard on the publish step has to admit a called run,
+	// which carries no tag ref at all.
+	for _, s := range readWorkflow(t, "image.yml").Jobs["image"].Steps {
+		if strings.Contains(s.Run, "docker push") && !strings.Contains(s.If, "inputs.tag") {
+			t.Errorf("step %q would skip the push when called with an input tag (if: %q)", s.Name, s.If)
+		}
 	}
 }
 

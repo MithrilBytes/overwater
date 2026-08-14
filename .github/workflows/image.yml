@@ -8,6 +8,12 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag to publish; the caller must have pushed it already
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,15 +26,18 @@ jobs:
       packages: write
     env:
       IMAGE: ghcr.io/mithrilbytes/overwater
+      # Called by price-release after a merged price change, or entered
+      # directly by a tag push. Empty on a branch or pull request build,
+      # which builds a dev image and publishes nothing.
+      TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       - name: build image
         run: |
           set -euo pipefail
-          version=dev
-          case "$GITHUB_REF" in
-            refs/tags/v*) version="$GITHUB_REF_NAME" ;;
-          esac
+          version="${TAG:-dev}"
           echo "VERSION=$version" >> "$GITHUB_ENV"
           docker build --build-arg "VERSION=$version" -t "$IMAGE:ci" .
       - name: smoke image
@@ -51,14 +60,14 @@ jobs:
             exit 1
           fi
       - name: publish to ghcr
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: inputs.tag || startsWith(github.ref, 'refs/tags/v')
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
         run: |
           set -euo pipefail
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-          docker tag "$IMAGE:ci" "$IMAGE:$GITHUB_REF_NAME"
+          docker tag "$IMAGE:ci" "$IMAGE:$TAG"
           docker tag "$IMAGE:ci" "$IMAGE:latest"
-          docker push "$IMAGE:$GITHUB_REF_NAME"
+          docker push "$IMAGE:$TAG"
           docker push "$IMAGE:latest"
