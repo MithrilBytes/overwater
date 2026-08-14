@@ -17,15 +17,14 @@ import (
 //	code   blanks comments and multi line string interiors, keeping
 //	       single line strings whole; this is where layer 2 looks for
 //	       model ids, which live in strings but never in a docstring.
+//
+// The first two are built together and held for the whole pass, since
+// layers 3 and 4 come back to them per call site. The code view is
+// built by itself, by maskCode, because layer 2 reads it once per file
+// and nothing reads it again; see analyzer.codeView.
 type maskedFile struct {
 	all   string
 	prose string
-	// code has comments blanked and every string left whole. Model ids
-	// live inside strings, including long ones like a REST endpoint that
-	// names the model in its path, so neither of the other two views can
-	// be used to find them: all blanks every string interior, and prose
-	// blanks the long ones.
-	code string
 }
 
 // Strings longer than this are prose, not syntax.
@@ -80,36 +79,57 @@ func familyFor(p string) langFamily {
 }
 
 func maskFile(p, content string) maskedFile {
-	spans := scanSpans(content, familyFor(p))
+	return maskViews(content, scanSpans(content, familyFor(p)))
+}
+
+// maskViews builds the two whole pass views from a span list already
+// scanned, so a caller that wants the code view as well pays for one
+// scan rather than two.
+func maskViews(content string, spans []span) maskedFile {
 	all := []byte(content)
 	prose := []byte(content)
-	code := []byte(content)
 	for _, s := range spans {
 		switch s.kind {
 		case spanComment:
 			blank(all, s.start, s.end)
 			blank(prose, s.start, s.end)
-			blank(code, s.start, s.end)
 		case spanString:
 			blank(all, s.interiorStart, s.interiorEnd)
 			if s.interiorEnd-s.interiorStart > proseStringLimit {
 				blank(prose, s.interiorStart, s.interiorEnd)
 			}
-			// A string that spans lines is a docstring, a heredoc or a
-			// block of prose, and a model named inside one is being
-			// written about rather than called. A Python docstring is a
-			// comment in every way except syntactically, and used to be
-			// the one spelling of a comment layer 2 still read.
-			//
-			// The test is the newline, not the length: the value that
-			// must survive is a REST endpoint naming the model in its
-			// path, which is long but never wraps.
+		}
+	}
+	return maskedFile{all: string(all), prose: string(prose)}
+}
+
+// maskCode builds layer 2's view: comments blanked, strings left whole
+// unless they span lines.
+//
+// A string that spans lines is a docstring, a heredoc or a block of
+// prose, and a model named inside one is being written about rather
+// than called. A Python docstring is a comment in every way except
+// syntactically, and used to be the one spelling of a comment layer 2
+// still read.
+//
+// The test is the newline, not the length: the value that must survive
+// is a REST endpoint naming the model in its path, which is long but
+// never wraps. That is also why neither of the other two views can
+// stand in for this one, since all blanks every string interior and
+// prose blanks the long ones.
+func maskCode(content string, spans []span) string {
+	code := []byte(content)
+	for _, s := range spans {
+		switch s.kind {
+		case spanComment:
+			blank(code, s.start, s.end)
+		case spanString:
 			if strings.Contains(content[s.interiorStart:s.interiorEnd], "\n") {
 				blank(code, s.interiorStart, s.interiorEnd)
 			}
 		}
 	}
-	return maskedFile{all: string(all), prose: string(prose), code: string(code)}
+	return string(code)
 }
 
 func blank(b []byte, from, to int) {

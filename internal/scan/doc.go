@@ -25,5 +25,7 @@
 // The analyzer (analyzer.go) holds every walked file for the whole pass,
 // so prompt and constant resolution can follow imports across the repo
 // (prompt.go, imports.go) and config values can be traced to the code
-// that reads them (trace.go).
+// that reads them (trace.go). Each masked view beside it is another
+// copy of the repository, so only the views later stages come back to
+// are kept: layer 2's is built with the file and released with it.
 package scan

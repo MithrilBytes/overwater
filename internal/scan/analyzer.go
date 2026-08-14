@@ -20,7 +20,7 @@ type analyzer struct {
 	mu        sync.Mutex
 	maskCache map[string]maskedFile
 	spanCache map[string][]span
-	lineCache map[string][]int
+	lineCache map[string][]int32
 	factCache map[string]fileFacts
 	// factsRuns counts fileFacts evaluations, so a test can prove the
 	// file scoped regexes run per file and not per site.
@@ -29,6 +29,13 @@ type analyzer struct {
 	// afterwards (fanin.go).
 	indexOnce sync.Once
 	idx       *repoIndex
+	// The files that could read an environment variable, built once per
+	// pass and read only afterwards (trace.go).
+	envOnce  sync.Once
+	envCands []envCandidate
+	// envCompiles counts reader regexes built, so a test can prove they
+	// are built per config key and not per key per file.
+	envCompiles atomic.Int64
 }
 
 func newAnalyzer(files []file) *analyzer {
@@ -36,11 +43,14 @@ func newAnalyzer(files []file) *analyzer {
 		byPath:    make(map[string]string, len(files)),
 		maskCache: map[string]maskedFile{},
 		spanCache: map[string][]span{},
-		lineCache: map[string][]int{},
+		lineCache: map[string][]int32{},
 		factCache: map[string]fileFacts{},
 	}
+	// The walker hands over the contents, it does not lend them: a copy
+	// here would leave every file in the repository on the heap twice,
+	// once as the walker's string and once as ours, for the whole pass.
 	for _, f := range files {
-		a.byPath[f.path] = string(f.data)
+		a.byPath[f.path] = f.data
 	}
 	a.paths = make([]string, 0, len(a.byPath))
 	for p := range a.byPath {
@@ -73,6 +83,25 @@ func (a *analyzer) masked(p string) maskedFile {
 	})
 }
 
+// codeView returns layer 2's view of p and hands it to the caller
+// rather than caching it. Every view is a full copy of the file, and on
+// a monorepo the mask cache is the largest thing the scanner holds;
+// this is the one view with a single reader, the model id sweep, which
+// is done with it before the next file starts. The same span scan fills
+// the cache the other two views live in, so a file masked this way is
+// still scanned once.
+func (a *analyzer) codeView(p string) string {
+	content := a.byPath[p]
+	spans := scanSpans(content, familyFor(p))
+	views := maskViews(content, spans)
+	a.mu.Lock()
+	if _, ok := a.maskCache[p]; !ok {
+		a.maskCache[p] = views
+	}
+	a.mu.Unlock()
+	return maskCode(content, spans)
+}
+
 func (a *analyzer) facts(p string) fileFacts {
 	return cached(a, a.factCache, p, func() fileFacts {
 		a.factsRuns.Add(1)
@@ -88,8 +117,8 @@ func (a *analyzer) spans(p string) []span {
 
 // lineStarts caches the line index; rebuilding it per call site is a
 // full pass over the file each time.
-func (a *analyzer) lineStarts(p string) []int {
-	return cached(a, a.lineCache, p, func() []int {
+func (a *analyzer) lineStarts(p string) []int32 {
+	return cached(a, a.lineCache, p, func() []int32 {
 		return lineStarts(a.byPath[p])
 	})
 }
@@ -121,7 +150,7 @@ func (a *analyzer) siteHash(p string, line int, r region) string {
 		if line-1 < len(starts) {
 			end := len(content)
 			if line < len(starts) {
-				end = starts[line]
+				end = int(starts[line])
 			}
 			text = content[starts[line-1]:end]
 		}
@@ -136,15 +165,21 @@ func (a *analyzer) hitOffsetIn(p string, line, col int) int {
 	if line-1 >= len(starts) {
 		return 0
 	}
-	return min(starts[line-1]+col, len(a.byPath[p]))
+	return min(int(starts[line-1])+col, len(a.byPath[p]))
 }
 
-func lineStarts(s string) []int {
-	starts := []int{0}
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			starts = append(starts, i+1)
+// lineStarts indexes the start of every line. int32 offsets, and a
+// slice sized to the newline count rather than grown into: one of these
+// lives for the whole pass per file touched, and the walker admits
+// nothing anywhere near 2GB (maxFileSize).
+func lineStarts(s string) []int32 {
+	starts := make([]int32, 1, strings.Count(s, "\n")+1)
+	for off := 0; ; {
+		i := strings.IndexByte(s[off:], '\n')
+		if i < 0 {
+			return starts
 		}
+		off += i + 1
+		starts = append(starts, int32(off))
 	}
-	return starts
 }

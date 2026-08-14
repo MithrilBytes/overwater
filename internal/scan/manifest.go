@@ -38,7 +38,7 @@ var swiftSDKs = []string{"openai", "anthropic", "generative-ai-swift"}
 
 // scanManifest reads one file as a dependency manifest and returns the
 // LLM SDKs it declares. Files that are not manifests return nothing.
-func scanManifest(relPath string, data []byte) []SDK {
+func scanManifest(relPath, data string) []SDK {
 	base := path.Base(relPath)
 	if strings.HasSuffix(base, ".csproj") {
 		return substringManifest(relPath, data, "nuget", csprojSDKs, false)
@@ -66,8 +66,8 @@ func scanManifest(relPath string, data []byte) []SDK {
 	return nil
 }
 
-func substringManifest(relPath string, data []byte, ecosystem string, names []string, fold bool) []SDK {
-	s := string(data)
+func substringManifest(relPath, data, ecosystem string, names []string, fold bool) []SDK {
+	s := data
 	if fold {
 		s = strings.ToLower(s)
 	}
@@ -84,12 +84,12 @@ func substringManifest(relPath string, data []byte, ecosystem string, names []st
 	return sdks
 }
 
-func npmManifest(relPath string, data []byte) []SDK {
+func npmManifest(relPath, data string) []SDK {
 	var m struct {
 		Dependencies    map[string]string `json:"dependencies"`
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
-	if err := json.Unmarshal(data, &m); err != nil {
+	if err := json.Unmarshal([]byte(data), &m); err != nil {
 		return nil
 	}
 	var sdks []SDK
@@ -103,9 +103,9 @@ func npmManifest(relPath string, data []byte) []SDK {
 	return sdks
 }
 
-func pipManifest(relPath string, data []byte) []SDK {
+func pipManifest(relPath, data string) []SDK {
 	found := map[string]bool{}
-	for _, line := range strings.Split(string(data), "\n") {
+	for _, line := range strings.Split(data, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -130,33 +130,30 @@ func pipManifest(relPath string, data []byte) []SDK {
 // pyprojectManifest looks for quoted dependency names instead of parsing
 // TOML. That is enough to establish SDK presence, which is all layer 1
 // claims to do.
-func pyprojectManifest(relPath string, data []byte) []SDK {
-	s := string(data)
+func pyprojectManifest(relPath, data string) []SDK {
 	var sdks []SDK
 	for _, name := range pypiSDKs {
-		if strings.Contains(s, `"`+name) || strings.Contains(s, `'`+name) {
+		if strings.Contains(data, `"`+name) || strings.Contains(data, `'`+name) {
 			sdks = append(sdks, SDK{Ecosystem: "pypi", Name: name, File: relPath})
 		}
 	}
 	return sdks
 }
 
-func goManifest(relPath string, data []byte) []SDK {
-	s := string(data)
+func goManifest(relPath, data string) []SDK {
 	var sdks []SDK
 	for _, name := range goSDKs {
-		if strings.Contains(s, name) {
+		if strings.Contains(data, name) {
 			sdks = append(sdks, SDK{Ecosystem: "gomod", Name: name, File: relPath})
 		}
 	}
 	return sdks
 }
 
-func gemManifest(relPath string, data []byte) []SDK {
-	s := string(data)
+func gemManifest(relPath, data string) []SDK {
 	var sdks []SDK
 	for _, name := range gemSDKs {
-		if strings.Contains(s, `gem "`+name+`"`) || strings.Contains(s, `gem '`+name+`'`) {
+		if strings.Contains(data, `gem "`+name+`"`) || strings.Contains(data, `gem '`+name+`'`) {
 			sdks = append(sdks, SDK{Ecosystem: "rubygems", Name: name, File: relPath})
 		}
 	}

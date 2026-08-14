@@ -46,6 +46,7 @@ check unknown-command 2 "unknown command" "$bin" firehose
 # Rule documentation, from the rules' own YAML.
 check explain 0 "min_retries: 3" "$bin" explain retry-amplification
 check explain-tripwire 0 "Tripwire:" "$bin" explain frontier-extraction
+check explain-tripwire-gate 0 "Exits on:  agreement below 97%" "$bin" explain frontier-extraction
 check explain-list 0 "uncached-system-prompt" "$bin" explain
 check explain-unknown 2 "no rule" "$bin" explain retry-amplifcation
 check explain-unknown-lists 2 "retry-amplification" "$bin" explain retry-amplifcation
@@ -54,6 +55,7 @@ check explain-unknown-lists 2 "retry-amplification" "$bin" explain retry-amplifc
 check scan-clean 0 "Keep the models you have." "$bin" scan fixtures/clean-app
 check scan-findings 0 "Call site:" "$bin" scan fixtures/ts-chat-firehose
 check scan-json 0 '"rule"' "$bin" scan -json fixtures/py-extraction
+check scan-json-tripwire-check 0 '"threshold": 97' "$bin" scan -json fixtures/py-extraction
 check scan-summary 0 "findings" "$bin" scan -summary fixtures/node-cron-summarizer
 check fail-on-any 1 - "$bin" scan -fail-on any fixtures/ts-chat-firehose
 check fail-on-none 0 - "$bin" scan -fail-on none fixtures/ts-chat-firehose
@@ -242,6 +244,7 @@ check fleet-fail-on-any 1 - "$bin" fleet -fail-on any "$work/repos.txt"
 
 # Eval generation.
 check eval 0 "wrote" "$bin" eval -o "$work/evals" fixtures/py-extraction
+check eval-tripwire-gate 0 "TRIPWIRE_THRESHOLD = 97" grep -r TRIPWIRE_THRESHOLD "$work/evals"
 check eval-draft 0 "drafted" "$bin" eval -o "$work/evals2" -draft-prompts fixtures/py-extraction
 check eval-clean 0 "Nothing to eval." "$bin" eval -o "$work/evals3" fixtures/clean-app
 

@@ -93,21 +93,25 @@ func Analyze(root string, cat *catalog.Catalog) (*Report, error) {
 	return AnalyzeOnly(root, cat, nil)
 }
 
-// analyzeFile runs layers 2 through 4 over one file.
-func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
-	var sites []Site
+// analyzeFile runs layers 2 through 4 over one file: the sites it
+// emits, and the calls it spends tokens on without naming a model. Both
+// sweeps read the code view, and they are the only readers it has, so
+// it is built here and released with the file (analyzer.codeView).
+func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) ([]Site, []UnpricedCall) {
 	// Documentation and tests name models without calling them
 	// (emit.go). They stay loaded as context for prompts, constants and
 	// fan in; they just do not report sites of their own.
 	if !emitsSites(f.path) {
-		return nil
+		return nil, nil
 	}
-	// The code view, not the raw bytes: a model named in a comment is
+	code := a.codeView(f.path)
+	var sites []Site
+	// The code view, not the raw file: a model named in a comment is
 	// somebody writing about a call, not making one, and it used to
 	// become a call site of its own, with a price and its own findings.
 	// Strings stay whole because a model id can sit inside a long one,
 	// and blanking preserves offsets so line and column still hold.
-	for _, site := range findModelRefs(f.path, []byte(a.masked(f.path).code), names) {
+	for _, site := range findModelRefs(f.path, code, names) {
 		tier := ""
 		// By id, not by Ref: Ref keeps the spelling the source used, and
 		// matching is case insensitive, so GPT-4o is a valid reference
@@ -124,7 +128,13 @@ func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) []Site {
 	if isConfigPath(f.path) {
 		sites = keepConfigBindings(a.byPath[f.path], sites)
 	}
-	return sites
+	// A line that already carries a site is priced; the unpriced sweep
+	// reports the rest (unpriced.go).
+	priced := map[int]bool{}
+	for _, s := range sites {
+		priced[s.Line] = true
+	}
+	return sites, findUnpricedCalls(f.path, code, priced)
 }
 
 // AnalyzeOnly is Analyze restricted to the files named in only (slash
@@ -167,14 +177,7 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 				}
 				r := &results[i]
 				r.sdks = scanManifest(f.path, f.data)
-				r.sites = a.analyzeFile(f, names)
-				if emitsSites(f.path) {
-					priced := map[int]bool{}
-					for _, s := range r.sites {
-						priced[s.Line] = true
-					}
-					r.unpriced = findUnpricedCalls(f.path, a.masked(f.path).code, priced)
-				}
+				r.sites, r.unpriced = a.analyzeFile(f, names)
 			}
 		}()
 	}

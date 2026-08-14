@@ -73,14 +73,57 @@ func isConfigFile(p string) bool {
 	return false
 }
 
-var envReaderPatterns = []string{
-	`process\.env\.%s\b`,
-	`process\.env\[["']%s["']\]`,
-	`os\.environ(?:\.get)?\(\s*["']%s["']`,
-	`os\.environ\[\s*["']%s["']`,
-	`os\.Getenv\(\s*["']%s["']`,
-	`ENV\[\s*["']%s["']`,
-	`System\.getenv\(\s*["']%s["']`,
+// envReaderPattern is one way source code reads an environment variable.
+// prefix is the literal every match of template must begin with, so a
+// file that does not contain it cannot match and never needs the regex.
+type envReaderPattern struct {
+	prefix   string
+	template string
+}
+
+var envReaderPatterns = []envReaderPattern{
+	{"process.env.", `process\.env\.%s\b`},
+	{"process.env[", `process\.env\[["']%s["']\]`},
+	{"os.environ", `os\.environ(?:\.get)?\(\s*["']%s["']`},
+	{"os.environ[", `os\.environ\[\s*["']%s["']`},
+	{"os.Getenv(", `os\.Getenv\(\s*["']%s["']`},
+	{"ENV[", `ENV\[\s*["']%s["']`},
+	{"System.getenv(", `System\.getenv\(\s*["']%s["']`},
+}
+
+// envCandidate is a non config file that mentions at least one reader
+// syntax, in sorted path order. Every other file in the repo is dropped
+// once here instead of being re-read for every config key, which on a
+// repo the size of vscode is thousands of full corpus walks.
+type envCandidate struct {
+	path    string
+	content string
+	// prefixes has bit i set when envReaderPatterns[i].prefix appears in
+	// content. The other patterns cannot match, whatever the key.
+	prefixes uint
+}
+
+// envReaders builds the candidate list once per pass.
+func (a *analyzer) envReaders() []envCandidate {
+	a.envOnce.Do(func() {
+		for _, p := range a.paths { // already sorted
+			if isConfigFile(p) {
+				continue
+			}
+			content := a.byPath[p]
+			var prefixes uint
+			for i, pat := range envReaderPatterns {
+				if strings.Contains(content, pat.prefix) {
+					prefixes |= 1 << i
+				}
+			}
+			if prefixes == 0 {
+				continue
+			}
+			a.envCands = append(a.envCands, envCandidate{path: p, content: content, prefixes: prefixes})
+		}
+	})
+	return a.envCands
 }
 
 type readerLoc struct {
@@ -99,14 +142,10 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 	for _, s := range report.Sites {
 		existing[s.File+":"+strconv.Itoa(s.Line)] = true
 	}
-	var cfgPaths []string
-	for p := range a.byPath {
-		if isConfigFile(p) {
-			cfgPaths = append(cfgPaths, p)
+	for _, cfgPath := range a.paths { // already sorted
+		if !isConfigFile(cfgPath) {
+			continue
 		}
-	}
-	sort.Strings(cfgPaths)
-	for _, cfgPath := range cfgPaths {
 		for _, line := range strings.Split(a.byPath[cfgPath], "\n") {
 			m := reConfigKV.FindStringSubmatch(line)
 			if m == nil {
@@ -158,24 +197,32 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 // findEnvReaders locates up to two places that read the given env key,
 // in deterministic path order.
 func (a *analyzer) findEnvReaders(key, excludePath string) []readerLoc {
-	var paths []string
-	for p := range a.byPath {
-		if p != excludePath && !isConfigFile(p) {
-			paths = append(paths, p)
-		}
-	}
-	sort.Strings(paths)
+	// Compiled per key, not per file: every pattern embeds the quoted key
+	// literally, so the same seven regexes serve the whole corpus. Lazily,
+	// because most keys are read by nobody and compile nothing at all.
+	res := make([]*regexp.Regexp, len(envReaderPatterns))
 	var out []readerLoc
-	for _, p := range paths {
-		content := a.byPath[p]
-		for _, pattern := range envReaderPatterns {
-			re := regexp.MustCompile(fmt.Sprintf(pattern, regexp.QuoteMeta(key)))
-			loc := re.FindStringIndex(content)
+	for _, c := range a.envReaders() {
+		// A match spells the key out, quoting or not, so a file that never
+		// mentions it cannot match any pattern. Substring search costs a
+		// fraction of the regex it replaces.
+		if c.path == excludePath || !strings.Contains(c.content, key) {
+			continue
+		}
+		for i, pattern := range envReaderPatterns {
+			if c.prefixes&(1<<i) == 0 {
+				continue
+			}
+			if res[i] == nil {
+				res[i] = regexp.MustCompile(fmt.Sprintf(pattern.template, regexp.QuoteMeta(key)))
+				a.envCompiles.Add(1)
+			}
+			loc := res[i].FindStringIndex(c.content)
 			if loc == nil {
 				continue
 			}
-			line, col := offsetToLineCol(content, loc[0])
-			out = append(out, readerLoc{path: p, line: line, col: col})
+			line, col := a.offsetToLineCol(c.path, loc[0])
+			out = append(out, readerLoc{path: c.path, line: line, col: col})
 			break
 		}
 		if len(out) == 2 {
@@ -185,8 +232,8 @@ func (a *analyzer) findEnvReaders(key, excludePath string) []readerLoc {
 	return out
 }
 
-func offsetToLineCol(content string, off int) (int, int) {
-	starts := lineStarts(content)
-	line := sort.Search(len(starts), func(i int) bool { return starts[i] > off })
-	return line, off - starts[line-1]
+func (a *analyzer) offsetToLineCol(p string, off int) (int, int) {
+	starts := a.lineStarts(p)
+	line := sort.Search(len(starts), func(i int) bool { return int(starts[i]) > off })
+	return line, off - int(starts[line-1])
 }

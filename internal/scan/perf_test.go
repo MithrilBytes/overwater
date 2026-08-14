@@ -2,6 +2,9 @@ package scan
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -26,14 +29,15 @@ func minifiedRegistry(n int) string {
 // config.
 func TestFileFactsRunOncePerFile(t *testing.T) {
 	files := []file{
-		{path: "registry.json", data: []byte(minifiedRegistry(60))},
-		{path: "cron.js", data: []byte("const cron = require(\"node-cron\");\ncron.schedule(\"0 * * * *\", () => call(\"gpt-5-mini\"));\n")},
+		{path: "registry.json", data: minifiedRegistry(60)},
+		{path: "cron.js", data: "const cron = require(\"node-cron\");\ncron.schedule(\"0 * * * *\", () => call(\"gpt-5-mini\"));\n"},
 	}
 	a := newAnalyzer(files)
 	names := mustCatalog(t).Names()
 	sites := 0
 	for _, f := range files {
-		sites += len(a.analyzeFile(f, names))
+		found, _ := a.analyzeFile(f, names)
+		sites += len(found)
 	}
 	if sites < 60 {
 		t.Fatalf("got %d sites, want at least 60", sites)
@@ -41,6 +45,110 @@ func TestFileFactsRunOncePerFile(t *testing.T) {
 	if got := a.factsRuns.Load(); got != int64(len(files)) {
 		t.Errorf("file scoped facts computed %d times over %d files and %d sites; want once per file",
 			got, len(files), sites)
+	}
+}
+
+// Tracing a config key to its readers costs one pass over the corpus for
+// the whole scan, not one per key. Files that name no reader syntax are
+// dropped once, and the regexes are built per key rather than per key
+// per file: on a repo the size of vscode the old shape was thousands of
+// corpus walks and millions of compiles, five sixths of the whole scan.
+func TestEnvReaderWorkDoesNotScaleWithCorpus(t *testing.T) {
+	files := []file{
+		{path: "app.env", data: "SUMMARY_MODEL=gpt-5.1\nTRIAGE_MODEL=gpt-5-mini\nDRAFT_MODEL=gpt-5-nano\n"},
+		{path: "reader.js", data: `const a = process.env.SUMMARY_MODEL;
+const b = process.env.TRIAGE_MODEL;
+const c = process.env.DRAFT_MODEL;
+`},
+	}
+	const noise = 40
+	for i := 0; i < noise; i++ {
+		files = append(files, file{
+			path: fmt.Sprintf("noise/n%d.js", i),
+			data: fmt.Sprintf("export function n%d(x) { return x + %d; }\n", i, i),
+		})
+	}
+	a := newAnalyzer(files)
+	report := &Report{}
+	a.traceConfigModels(report, mustCatalog(t).Names(), nil)
+	if len(report.Sites) != 3 {
+		t.Fatalf("got %d traced sites, want 3: %+v", len(report.Sites), report.Sites)
+	}
+	if got := len(a.envReaders()); got != 1 {
+		t.Errorf("%d of %d files kept as reader candidates; want only the one that names a reader syntax",
+			got, len(files))
+	}
+	// Three keys, and the reader file spells all three the same way, so
+	// one pattern each. The bound is generous: per key per file would be
+	// over a hundred here and millions on a real repo.
+	if got, want := a.envCompiles.Load(), int64(len(envReaderPatterns)); got > want {
+		t.Errorf("built %d reader regexes for 3 keys over %d files; want at most %d, one pass per key",
+			got, len(files), want)
+	}
+}
+
+// The analyzer holds the whole repository for the whole pass, so what
+// it keeps per walked byte is the memory bill: 16,888 files and 170MB
+// of source peaked at 1.16GB of RSS. A ratio, like the scaling gate,
+// because an absolute number means nothing across machines.
+//
+// Two multiples of the repository were being held for nothing. The
+// analyzer converted the walker's bytes instead of taking the string it
+// was handed, leaving every file resident twice, and the mask cache
+// held three views of every masked file when the third has one reader
+// and is finished with before the next file starts.
+func TestLiveHeapPerWalkedByte(t *testing.T) {
+	dir := t.TempDir()
+	var src strings.Builder
+	for i := 0; i < 1600; i++ {
+		fmt.Fprintf(&src, "const label%d = \"row %d of a generated module\"; // note %d\n", i, i, i)
+	}
+	const fileCount = 80
+	for i := 0; i < fileCount; i++ {
+		name := filepath.Join(dir, fmt.Sprintf("m%d.ts", i))
+		if err := os.WriteFile(name, []byte(src.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	walked := int64(fileCount * src.Len())
+
+	files, err := walk(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != fileCount {
+		t.Fatalf("walked %d files, want %d", len(files), fileCount)
+	}
+	// Two collections: the first frees what the walk allocated, the
+	// second the finalizer work the first queued.
+	heap := func() int64 {
+		runtime.GC()
+		runtime.GC()
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		return int64(m.HeapAlloc)
+	}
+
+	base := heap()
+	a := newAnalyzer(files)
+	for _, f := range files {
+		a.masked(f.path)
+		a.lineStarts(f.path)
+	}
+	live := heap() - base
+	// The measurement is of what these still reach, so neither may be
+	// collected before it is taken.
+	runtime.KeepAlive(files)
+	runtime.KeepAlive(a)
+
+	// Tenths of the walked bytes. Two views and a line index measure
+	// 2.1x here; a third view and a second copy of the file itself
+	// measured 4.3x.
+	const bound = 26
+	tenths := live * 10 / walked
+	if tenths > bound {
+		t.Errorf("%d files, %d walked bytes, %d bytes live after masking: %d.%dx the input, bound %d.%dx",
+			len(files), walked, live, tenths/10, tenths%10, bound/10, bound%10)
 	}
 }
 
@@ -68,8 +176,8 @@ func TestRegionsBoundedInMinified(t *testing.T) {
 		{"registry.json", minifiedRegistry(400)},
 		{"ids.json", ids.String()},
 	} {
-		a := newAnalyzer([]file{{path: tc.path, data: []byte(tc.content)}})
-		refs := findModelRefs(tc.path, []byte(tc.content), names)
+		a := newAnalyzer([]file{{path: tc.path, data: tc.content}})
+		refs := findModelRefs(tc.path, tc.content, names)
 		if len(refs) < 400 {
 			t.Fatalf("%s: got %d references, want at least 400", tc.path, len(refs))
 		}

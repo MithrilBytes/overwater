@@ -12,7 +12,7 @@ func testNames(t *testing.T) map[string]*catalog.Model {
 }
 
 func TestModelRefAliases(t *testing.T) {
-	content := []byte(`model = "claude-haiku-4-5-20251001"` + "\n")
+	content := `model = "claude-haiku-4-5-20251001"` + "\n"
 	sites := findModelRefs("app.py", content, testNames(t))
 	if len(sites) != 1 {
 		t.Fatalf("got %d sites, want 1: %+v", len(sites), sites)
@@ -25,7 +25,7 @@ func TestModelRefAliases(t *testing.T) {
 func TestModelRefBoundaries(t *testing.T) {
 	// claude-opus-55 must not read as claude-opus-5, but it still looks
 	// like a model string, so it is reported as unknown.
-	content := []byte(`model = "claude-opus-55"` + "\n")
+	content := `model = "claude-opus-55"` + "\n"
 	sites := findModelRefs("app.py", content, testNames(t))
 	if len(sites) != 1 {
 		t.Fatalf("got %d sites, want 1: %+v", len(sites), sites)
@@ -36,7 +36,7 @@ func TestModelRefBoundaries(t *testing.T) {
 }
 
 func TestModelRefUnknown(t *testing.T) {
-	content := []byte(`model: "gpt-6-preview"` + "\n")
+	content := `model: "gpt-6-preview"` + "\n"
 	sites := findModelRefs("app.ts", content, testNames(t))
 	if len(sites) != 1 {
 		t.Fatalf("got %d sites, want 1: %+v", len(sites), sites)
@@ -47,7 +47,7 @@ func TestModelRefUnknown(t *testing.T) {
 }
 
 func TestUnreadableEnvShape(t *testing.T) {
-	a := newAnalyzer([]file{{path: ".env", data: []byte("MODEL=gpt-5.1\n")}})
+	a := newAnalyzer([]file{{path: ".env", data: "MODEL=gpt-5.1\n"}})
 	r := a.regionFor(".env", 1, 6)
 	if r.isExtent {
 		t.Fatal("a bare env assignment should not produce a call extent")
@@ -63,7 +63,7 @@ func TestUnreadableEnvShape(t *testing.T) {
 }
 
 func TestManifestNpm(t *testing.T) {
-	content := []byte(`{"dependencies": {"openai": "^4.0.0", "left-pad": "1.0.0"}, "devDependencies": {"ai": "^4.0.0"}}`)
+	content := `{"dependencies": {"openai": "^4.0.0", "left-pad": "1.0.0"}, "devDependencies": {"ai": "^4.0.0"}}`
 	sdks := scanManifest("package.json", content)
 	if len(sdks) != 2 {
 		t.Fatalf("got %+v, want openai and ai", sdks)
@@ -71,7 +71,7 @@ func TestManifestNpm(t *testing.T) {
 }
 
 func TestManifestRequirements(t *testing.T) {
-	content := []byte("# deps\nanthropic>=0.40\nnumpy==1.26.0\n")
+	content := "# deps\nanthropic>=0.40\nnumpy==1.26.0\n"
 	sdks := scanManifest("requirements.txt", content)
 	if len(sdks) != 1 || sdks[0].Name != "anthropic" || sdks[0].Ecosystem != "pypi" {
 		t.Fatalf("got %+v, want anthropic", sdks)
@@ -79,7 +79,7 @@ func TestManifestRequirements(t *testing.T) {
 }
 
 func TestManifestGoMod(t *testing.T) {
-	content := []byte("module example.com/app\n\nrequire github.com/anthropics/anthropic-sdk-go v1.0.0\n")
+	content := "module example.com/app\n\nrequire github.com/anthropics/anthropic-sdk-go v1.0.0\n"
 	sdks := scanManifest("go.mod", content)
 	if len(sdks) != 1 || sdks[0].Ecosystem != "gomod" {
 		t.Fatalf("got %+v, want the anthropic Go SDK", sdks)
@@ -87,7 +87,7 @@ func TestManifestGoMod(t *testing.T) {
 }
 
 func TestManifestIgnoresOthers(t *testing.T) {
-	if sdks := scanManifest("main.py", []byte("import openai\n")); sdks != nil {
+	if sdks := scanManifest("main.py", "import openai\n"); sdks != nil {
 		t.Fatalf("got %+v, want nil for a non manifest file", sdks)
 	}
 }

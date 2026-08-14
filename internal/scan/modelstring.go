@@ -75,7 +75,7 @@ var toolNameRE = regexp.MustCompile(
 
 // findModelRefs scans one file for catalog ids and aliases (layer 2).
 // The catalog doubles as the detection dictionary.
-func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model) []Site {
+func findModelRefs(relPath, data string, names map[string]*catalog.Model) []Site {
 	keys := make([]string, 0, len(names))
 	for k := range names {
 		keys = append(keys, k)
@@ -90,7 +90,7 @@ func findModelRefs(relPath string, data []byte, names map[string]*catalog.Model)
 	})
 
 	var sites []Site
-	for lineNo, line := range strings.Split(string(data), "\n") {
+	for lineNo, line := range strings.Split(data, "\n") {
 		// Providers ship mixed case ids (Qwen3-VL-235B-A22B-Instruct) and
 		// people write GPT-4o. Catalog keys are lowercase, so matching
 		// happens against a lowercase view whose offsets are the line's.

@@ -40,9 +40,12 @@ func notebookToPython(data []byte) []byte {
 	return []byte(b.String())
 }
 
+// file is one walked source. data is a string, not the []byte it was
+// read as, because the analyzer keeps it for the whole pass and a
+// []byte here would mean the repository is resident twice.
 type file struct {
 	path string // slash separated, relative to root
-	data []byte
+	data string
 }
 
 // normalizeNewlines folds CRLF to LF at the one point where content
@@ -145,7 +148,7 @@ func walk(root string) ([]file, error) {
 		if strings.HasSuffix(d.Name(), ".ipynb") {
 			data = notebookToPython(data)
 		}
-		files = append(files, file{path: rel, data: normalizeNewlines(data)})
+		files = append(files, file{path: rel, data: string(normalizeNewlines(data))})
 		return nil
 	})
 	return files, err

@@ -155,6 +155,49 @@ def draft_response(prompt):
 	}
 }
 
+// Which reader a config key resolves to is exact, and the prefilters
+// that keep the search cheap must not move it: patterns are tried in
+// listed order, so a process.env hit far down a file beats an os.Getenv
+// hit at the top; files are visited in sorted path order and only the
+// first two report; a key that is merely the prefix of a longer one is
+// not read; and a config file is never itself a reader.
+func TestFindEnvReadersOrder(t *testing.T) {
+	a := newAnalyzer([]file{
+		{path: "a/one.ts", data: "const m = process.env.PICK_MODEL;\n"},
+		{path: "app.yaml", data: "model: ${process.env.PICK_MODEL}\n"},
+		{path: "b/two.py", data: "import os\nmodel = os.environ[\"PICK_MODEL\"]\n"},
+		{path: "c/three.go", data: "var m = os.Getenv(\"PICK_MODEL\")\n"},
+		{path: "d/precedence.js", data: "const early = os.Getenv(\"TRIAGE_MODEL\");\n// pad\n// pad\n// pad\nconst late = process.env.TRIAGE_MODEL;\n"},
+		{path: "e/prefix.js", data: "const v2 = process.env.PICK_MODEL_V2;\n"},
+	})
+	cases := []struct {
+		name, key, exclude string
+		want               []readerLoc
+	}{
+		{"sorted order, first two only", "PICK_MODEL", "app.yaml", []readerLoc{
+			{path: "a/one.ts", line: 1, col: 10},
+			{path: "b/two.py", line: 2, col: 8},
+		}},
+		{"pattern order beats file order", "TRIAGE_MODEL", "", []readerLoc{
+			{path: "d/precedence.js", line: 5, col: 13},
+		}},
+		{"prefix of a longer key is not read", "PICK", "", nil},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := a.findEnvReaders(tt.key, tt.exclude)
+			if len(got) != len(tt.want) {
+				t.Fatalf("readers for %s = %+v, want %+v", tt.key, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("reader %d = %+v, want %+v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestNearbyStrings(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{"app.py": `import anthropic
 

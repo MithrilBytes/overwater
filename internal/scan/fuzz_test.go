@@ -112,9 +112,9 @@ func FuzzAnalyzeFile(f *testing.F) {
 		if len(content) > 1<<16 {
 			t.Skip("oversized input")
 		}
-		fl := file{path: p, data: []byte(content)}
+		fl := file{path: p, data: content}
 		a := newAnalyzer([]file{fl})
-		sites := a.analyzeFile(fl, names)
+		sites, _ := a.analyzeFile(fl, names)
 		for _, s := range sites {
 			if s.Line < 1 || s.Col < 0 {
 				t.Fatalf("site out of bounds: %+v", s)

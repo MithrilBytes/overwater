@@ -505,7 +505,7 @@ const draftReply = async (ticket) => {};
 def extract_invoice(text):
     return text
 `
-	a := newAnalyzer([]file{{path: "mixed.go", data: []byte(src)}})
+	a := newAnalyzer([]file{{path: "mixed.go", data: src}})
 	got := map[string]bool{}
 	for _, d := range a.fileDefs("mixed.go") {
 		got[d.name] = true
@@ -535,7 +535,7 @@ func TestIndexBoundedInMinified(t *testing.T) {
 		fmt.Fprintf(&b, `send({model:"gpt-4o-mini",max_tokens:%d});`, i)
 	}
 	b.WriteString("}")
-	a := newAnalyzer([]file{{path: "bundle.js", data: []byte(b.String())}})
+	a := newAnalyzer([]file{{path: "bundle.js", data: b.String()}})
 	start := time.Now()
 	idx := a.index()
 	if elapsed := time.Since(start); elapsed > 10*time.Second {

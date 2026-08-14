@@ -310,15 +310,15 @@ func paramsOpen(all string, from int) (int, bool) {
 // and the C family. A line holding only an opening brace is skipped for
 // Allman style bodies, and no definition closes before its parameter
 // list does, so a signature split over several lines stays open.
-func closeDefs(all string, starts []int, defs []*funcDef) {
+func closeDefs(all string, starts []int32, defs []*funcDef) {
 	type open struct{ idx, indent int }
 	var stack []open
 	next := 0
 	for ln := 0; ln < len(starts); ln++ {
-		lineStart := starts[ln]
+		lineStart := int(starts[ln])
 		lineEnd := len(all)
 		if ln+1 < len(starts) {
-			lineEnd = starts[ln+1]
+			lineEnd = int(starts[ln+1])
 		}
 		text := all[lineStart:lineEnd]
 		indent, meaningful := lineIndent(text)
@@ -641,19 +641,20 @@ func (a *analyzer) constDefaultOwner(idx *repoIndex, p string, hit int) *funcDef
 	}
 	content := a.byPath[p]
 	starts := a.lineStarts(p)
-	ln := sort.Search(len(starts), func(i int) bool { return starts[i] > hit }) - 1
+	ln := sort.Search(len(starts), func(i int) bool { return int(starts[i]) > hit }) - 1
 	if ln < 0 {
 		return nil
 	}
+	lineStart := int(starts[ln])
 	lineEnd := len(content)
 	if ln+1 < len(starts) {
-		lineEnd = starts[ln+1]
+		lineEnd = int(starts[ln+1])
 	}
-	m := reAssignedName.FindStringSubmatchIndex(a.masked(p).prose[starts[ln]:lineEnd])
-	if m == nil || starts[ln]+m[1] > hit {
+	m := reAssignedName.FindStringSubmatchIndex(a.masked(p).prose[lineStart:lineEnd])
+	if m == nil || lineStart+m[1] > hit {
 		return nil
 	}
-	return owners[content[starts[ln]+m[2]:starts[ln]+m[3]]]
+	return owners[content[lineStart+m[2]:lineStart+m[3]]]
 }
 
 // callerScan tallies the models a wrapper's callers pass in.

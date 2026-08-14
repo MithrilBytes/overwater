@@ -170,13 +170,13 @@ func (a *analyzer) regionFor(p string, line, col int) region {
 // windowBounds returns the fallback window around the hit at a one
 // based line number. Without the byte bound every reference in a
 // minified file reads the whole file, which is quadratic.
-func windowBounds(content string, starts []int, line, hit int) (int, int) {
+func windowBounds(content string, starts []int32, line, hit int) (int, int) {
 	startLine := max(0, line-1-windowLines)
 	endLine := min(len(starts), line+windowLines)
-	winStart := starts[startLine]
+	winStart := int(starts[startLine])
 	winEnd := len(content)
 	if endLine < len(starts) {
-		winEnd = starts[endLine]
+		winEnd = int(starts[endLine])
 	}
 	return max(winStart, hit-windowMaxBytes), min(winEnd, hit+windowMaxBytes)
 }

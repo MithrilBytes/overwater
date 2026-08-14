@@ -217,7 +217,7 @@ func TestNewManifestEcosystems(t *testing.T) {
 		{"Package.swift", `.package(url: "https://github.com/MacPaw/OpenAI", from: "0.3.0")`, "swiftpm"},
 	}
 	for _, tt := range cases {
-		sdks := scanManifest(tt.file, []byte(tt.content))
+		sdks := scanManifest(tt.file, tt.content)
 		if len(sdks) == 0 || sdks[0].Ecosystem != tt.ecosystem {
 			t.Errorf("%s: got %+v, want ecosystem %s", tt.file, sdks, tt.ecosystem)
 		}
