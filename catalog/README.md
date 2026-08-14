@@ -25,6 +25,21 @@ catalog refresh` pulls it into a local cache, and the scanner prefers
 the cache only when it is newer than the embedded snapshot. A GitHub
 Pages mirror of the same bytes deploys on merge.
 
+## History
+
+`catalog diff -write` applies an upstream price change and files the
+whole catalog as it then stood under `history/<date>.json`. Read those
+back with
+
+```bash
+go run ./cmd/overwater catalog history                       # the snapshots
+go run ./cmd/overwater catalog history -model claude-opus-5  # one price over time
+go run ./cmd/overwater catalog history -on 2026-08-08        # what moved that day
+```
+
+A price edited by hand writes no snapshot, so the series can stop short
+of `VERSION`; the command says so when it does.
+
 ## What belongs in the catalog
 
 Models people actually reference in code, priced by the provider's own
