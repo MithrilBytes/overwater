@@ -56,6 +56,20 @@ for your task, so every finding states the condition under which you
 should not switch, and `overwater eval` generates the A/B script that
 tests it.
 
+That condition ships in both forms. The sentence is what the terminal
+prints; `--json` carries the same condition as numbers, and the
+generated script exits on them:
+
+```json
+"tripwire": "If eval agreement drops below 97%, stay put",
+"tripwire_check": {"metric": "agreement", "compare": "below", "threshold": 97}
+```
+
+A script exits 0 when the tripwire held, 1 when it tripped, and 2 when
+the run could not answer, so CI reads the exit code rather than the
+report. A tripwire that names nothing an eval can measure, such as a
+retired model id, carries no `tripwire_check` and gates on nothing.
+
 ### Commands
 
 | Command | Does |
@@ -324,7 +338,7 @@ and a CLI that never opens a socket from 220 to none. No repository
 that genuinely calls an LLM lost a finding.
 
 Verified by 274 labeled corpus cases at 0.99 accuracy on an 88 case
-holdout split assigned before tuning, 89 black box smoke checks through
+holdout split assigned before tuning, 96 black box smoke checks through
 the real binary, byte for byte golden output for five fixtures, fuzz
 targets over the parsers, and a gate that fails CI when analysis time
 grows faster than its input.
@@ -347,11 +361,16 @@ lines. The dictionary is not the expensive half of layer 2.
       microsoft/vscode, `regexp.MustCompile` alone 30 percent of it. It
       compiles up to seven regexes per file per config key and walks the
       repository once per config line. This is the speed item.
-- [ ] cap peak memory: 1.21GB on 16,890 files, roughly 7x walked bytes.
-      Streaming is the wrong lever, since resolution follows imports and
-      fan in indexes every file. Cheapest first: the walker's `[]byte`
-      copies stay live beside `byPath` because `newAnalyzer` copies
-      rather than taking ownership, which is 20 percent of live heap.
+- [ ] cap peak memory: 854MB on 16,888 files and 170MB of source, 5.0x
+      walked bytes, from 1.16GB and 6.8x measured back to back on the
+      same tree at the same wall clock. The three cheap copies are gone:
+      the walker hands its strings to `byPath` instead of being copied
+      out of, layer 2's mask view is built with the file and released
+      with it rather than cached for the pass, and the line index is
+      `int32` and presized. What is left is the two masked views every
+      later stage comes back to and the fan in index, all read for the
+      whole pass. Streaming is still the wrong lever, since resolution
+      follows imports and fan in indexes every file.
 
 ### Deploy
 
@@ -372,9 +391,21 @@ them, so `brew install overwater`, `scoop install overwater`, and
 - [x] corpus cases from real repositories, not written for the corpus.
       Seventeen of them took holdout accuracy from 0.99 to 0.97, which
       is the honest number: the rest were written to be classified.
-- [ ] cost ranges instead of point estimates
 - [x] schema field counts bound the output token estimate
-- [ ] machine readable tripwires that generated evals exit on
+- [x] machine readable tripwires that generated evals exit on
+- [ ] measured tokens per call, read from the same usage exports
+      `volumes import` already parses
+
+Cost ranges instead of point estimates came off this list. The soft
+number is tokens per call, and the only ceilings the scanner can read
+are `max_tokens` and the context window, which price the `py-extraction`
+finding anywhere from $3 to $50,256 a month against a point estimate of
+$78. Anything narrower is a percentage someone chose. A volumes file
+carries call counts, so measuring volume would not narrow a token range
+either. Meanwhile the comparison the finding exists to make barely
+moves: over a 25x swing in `default_input`, claude-opus-5 against
+claude-haiku-4-5 goes from 4.83x to 5.07x while both dollar figures
+triple. Measuring the tokens beats bracketing them.
 
 ### Guard
 
