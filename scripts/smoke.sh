@@ -57,6 +57,11 @@ check scan-findings 0 "Call site:" "$bin" scan fixtures/ts-chat-firehose
 check scan-json 0 '"rule"' "$bin" scan -json fixtures/py-extraction
 check scan-json-tripwire-check 0 '"threshold": 97' "$bin" scan -json fixtures/py-extraction
 check scan-summary 0 "findings" "$bin" scan -summary fixtures/node-cron-summarizer
+check rule-duplicate-sites 0 "duplicate" "$bin" scan -json fixtures/py-agent-pipeline
+check rule-hot-temperature 0 "Temperature above zero" "$bin" scan fixtures/py-agent-pipeline
+check rule-uncapped-dimensions 0 "No dimensions parameter" "$bin" scan fixtures/py-agent-pipeline
+check rule-image-detail 0 "Image detail pinned" "$bin" scan fixtures/py-agent-pipeline
+check rule-retry-amplification 0 "max_retries 8" "$bin" scan fixtures/py-agent-pipeline
 check fail-on-any 1 - "$bin" scan -fail-on any fixtures/ts-chat-firehose
 check fail-on-none 0 - "$bin" scan -fail-on none fixtures/ts-chat-firehose
 check fail-on-bogus 2 "unknown --fail-on" "$bin" scan -fail-on sometimes fixtures/clean-app

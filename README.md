@@ -410,7 +410,7 @@ triple. Measuring the tokens beats bracketing them.
 ### Guard
 
 - [x] rename stable fingerprints; a moved file reads as moved
-- [ ] a sixth fixture covering the newer rules end to end
+- [x] a sixth fixture covering the newer rules end to end
 
 ### Catalog
 

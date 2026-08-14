@@ -20,6 +20,7 @@ func TestScanReproducesGoldens(t *testing.T) {
 		"py-extraction",
 		"node-cron-summarizer",
 		"rag-frontier-embeddings",
+		"py-agent-pipeline",
 		"clean-app",
 	}
 	cat, err := catalog.Embedded()
