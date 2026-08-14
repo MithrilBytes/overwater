@@ -1369,6 +1369,91 @@
       "file": "ind_a9.py",
       "archetype": "codegen",
       "split": "holdout"
+    },
+    {
+      "file": "r1_dsl_translate.py",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "r1_vtk_rag_chat.py",
+      "archetype": "chat",
+      "split": "holdout"
+    },
+    {
+      "file": "r2_axel_web_research.ts",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "r2_line_voice_transcribe.ts",
+      "archetype": "transcription",
+      "split": "tune"
+    },
+    {
+      "file": "r2_phase_insight.ts",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "r2_understanding_update.ts",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "r3_change_note.py",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "r3_crop_match_vision.py",
+      "archetype": "vision",
+      "split": "holdout"
+    },
+    {
+      "file": "r3_profile_rule_agent.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "r3_zone_detect_vision.py",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "r4_digest_narration.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "r4_interest_extract.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "r4_paper_scorer.py",
+      "archetype": "reranking",
+      "split": "holdout"
+    },
+    {
+      "file": "r4_section_classify.py",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "r5_lesson_assistant.rb",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "r5_lesson_review.go",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "r5_related_courses.rb",
+      "archetype": "reranking",
+      "split": "tune"
     }
   ]
 }
