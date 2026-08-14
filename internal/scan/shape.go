@@ -98,7 +98,7 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 		// schema facts.
 		schemaText = text
 	}
-	s.SchemaEnumOnly, s.SchemaMultiField = schemaFacts(schemaText)
+	s.SchemaFields, s.SchemaEnumOnly, s.SchemaMultiField = schemaFacts(schemaText)
 
 	if m := reEffort.FindStringSubmatch(text); m != nil {
 		s.Effort = strings.ToLower(m[1])
@@ -170,24 +170,26 @@ func (a *analyzer) constValue(p, name string) string {
 
 // schemaFacts reads the semantics out of a schema: an enum only output
 // is classification shaped, several free fields are extraction shaped.
-func schemaFacts(text string) (enumOnly, multiField bool) {
+// The field count goes out too, since how much a call can emit scales
+// with it.
+func schemaFacts(text string) (fields int, enumOnly, multiField bool) {
 	if text == "" {
-		return false, false
+		return 0, false, false
 	}
 	if fields := len(reZodField.FindAllString(text, -1)); fields > 0 {
 		enums := strings.Count(text, "z.enum(")
-		return enums >= fields, fields >= 2 && enums < fields
+		return fields, enums >= fields, fields >= 2 && enums < fields
 	}
 	props := propertiesBlock(text)
 	if props == "" {
-		return false, false
+		return 0, false, false
 	}
-	fields := strings.Count(props, `"type"`)
+	fields = strings.Count(props, `"type"`)
 	enums := strings.Count(props, `"enum"`)
 	if fields == 0 {
-		return false, false
+		return 0, false, false
 	}
-	return enums >= fields, fields >= 2 && enums < fields
+	return fields, enums >= fields, fields >= 2 && enums < fields
 }
 
 func propertiesBlock(text string) string {

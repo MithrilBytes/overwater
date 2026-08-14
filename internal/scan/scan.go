@@ -21,16 +21,20 @@ type SDK struct {
 // BatchContext and BatchAPI are file scoped, since a cron trigger and
 // the call it drives rarely sit on adjacent lines.
 type Shape struct {
-	Readable          bool
-	Temperature       *float64
-	MaxTokens         *int
-	MaxRetries        *int
-	Dimensions        *int
-	Effort            string
-	ImageDetailHigh   bool
-	JSONSchema        bool
-	SchemaEnumOnly    bool
-	SchemaMultiField  bool
+	Readable         bool
+	Temperature      *float64
+	MaxTokens        *int
+	MaxRetries       *int
+	Dimensions       *int
+	Effort           string
+	ImageDetailHigh  bool
+	JSONSchema       bool
+	SchemaEnumOnly   bool
+	SchemaMultiField bool
+	// SchemaFields is how many fields the response schema declares, 0
+	// when none was read. It bounds what the call can emit, so the
+	// cost model spends it (rules/estimates.yaml).
+	SchemaFields      int
 	Tools             bool
 	ForcedTool        bool
 	Streaming         bool

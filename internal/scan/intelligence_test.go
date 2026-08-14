@@ -194,10 +194,18 @@ func TestFixtureSchemaAndConfidence(t *testing.T) {
 	if got := firehose.Sites[1].ArchetypeConfidence; got != "high" {
 		t.Errorf("classify.ts archetype confidence = %s, want high", got)
 	}
+	// The count bounds the output estimate, so it has to survive the hop
+	// through the named schema, not just the enum verdict.
+	if got := firehose.Sites[1].Shape.SchemaFields; got != 2 {
+		t.Errorf("classify.ts schema fields = %d, want the 2 in Ticket", got)
+	}
 
 	extraction := analyzeFixture(t, "py-extraction")
 	if !extraction.Sites[0].Shape.SchemaMultiField {
 		t.Errorf("extract.py shape = %+v, want SchemaMultiField", extraction.Sites[0].Shape)
+	}
+	if got := extraction.Sites[0].Shape.SchemaFields; got != 5 {
+		t.Errorf("extract.py schema fields = %d, want the 5 in INVOICE_TOOL", got)
 	}
 
 	clean := analyzeFixture(t, "clean-app")

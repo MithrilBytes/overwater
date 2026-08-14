@@ -8,6 +8,15 @@ tokens:
   default_input: 500
   default_output: 400
   embedding_input: 10000
+  # A response schema caps what the call can emit: the JSON envelope
+  # plus a field's worth per field, and an enum field is one label off
+  # a fixed list rather than free text. Deliberately generous per
+  # field; the point is that a five field extraction is not an essay,
+  # not that we can predict its length. Only ever lowers the estimate.
+  schema_output:
+    envelope: 10
+    per_field: 40
+    per_enum_field: 8
 # Steady state prompt caching: the fraction of calls that read the
 # cached system prompt rather than write it. 1.0 means the write cost
 # amortizes to nothing at estimate volumes.

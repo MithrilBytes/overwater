@@ -80,7 +80,7 @@ func TestScanFindings(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Call site: app/api/chat/route.ts:7",
-		"claude-haiku-4-5, same capability tier for this task class, ~$27/mo",
+		"claude-haiku-4-5, same capability tier for this task class, ~$18/mo",
 		"No prompt caching on a 1,191-token repeated system prompt",
 	} {
 		if !strings.Contains(stdout.String(), want) {
@@ -111,8 +111,8 @@ func TestScanJSONVolumeOverride(t *testing.T) {
 	if len(report.Findings) != 1 || report.Findings[0].Rule != "frontier-extraction" {
 		t.Fatalf("findings = %+v", report.Findings)
 	}
-	if report.Findings[0].MonthlyUSD != 252 {
-		t.Errorf("monthly_usd = %d, want 252 at doubled volume", report.Findings[0].MonthlyUSD)
+	if report.Findings[0].MonthlyUSD != 157 {
+		t.Errorf("monthly_usd = %d, want 157 at doubled volume", report.Findings[0].MonthlyUSD)
 	}
 }
 

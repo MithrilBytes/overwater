@@ -28,6 +28,11 @@ type Estimates struct {
 		DefaultInput   int `yaml:"default_input"`
 		DefaultOutput  int `yaml:"default_output"`
 		EmbeddingInput int `yaml:"embedding_input"`
+		SchemaOutput   struct {
+			Envelope     int `yaml:"envelope"`
+			PerField     int `yaml:"per_field"`
+			PerEnumField int `yaml:"per_enum_field"`
+		} `yaml:"schema_output"`
 	} `yaml:"tokens"`
 	Cache struct {
 		SteadyStateReadFraction float64 `yaml:"steady_state_read_fraction"`
@@ -194,18 +199,30 @@ func Load() (*Engine, error) {
 		}
 		e.Rules = append(e.Rules, r)
 	}
-	if e.Est.Volume.CallsPerMonth <= 0 || e.Est.Tokens.CharsPerToken <= 0 {
-		return nil, fmt.Errorf("estimates.yaml is missing volume or token assumptions")
-	}
-	if f := e.Est.Cache.SteadyStateReadFraction; f <= 0 || f > 1 {
-		return nil, fmt.Errorf("estimates.yaml cache.steady_state_read_fraction must be in (0, 1]")
-	}
-	for _, status := range e.Est.FanIn.MultiplyWhen {
-		if !knownFanInStatuses[status] {
-			return nil, fmt.Errorf("estimates.yaml fan_in.multiply_when names unknown status %q", status)
-		}
+	if err := e.Est.validate(); err != nil {
+		return nil, fmt.Errorf("estimates.yaml: %w", err)
 	}
 	return e, nil
+}
+
+func (est Estimates) validate() error {
+	if est.Volume.CallsPerMonth <= 0 || est.Tokens.CharsPerToken <= 0 {
+		return fmt.Errorf("missing volume or token assumptions")
+	}
+	// A zero here would price every schema bounded call at the envelope
+	// alone, which is a bound nobody chose.
+	if so := est.Tokens.SchemaOutput; so.Envelope <= 0 || so.PerField <= 0 || so.PerEnumField <= 0 {
+		return fmt.Errorf("tokens.schema_output needs a positive envelope, per_field and per_enum_field")
+	}
+	if f := est.Cache.SteadyStateReadFraction; f <= 0 || f > 1 {
+		return fmt.Errorf("cache.steady_state_read_fraction must be in (0, 1]")
+	}
+	for _, status := range est.FanIn.MultiplyWhen {
+		if !knownFanInStatuses[status] {
+			return fmt.Errorf("fan_in.multiply_when names unknown status %q", status)
+		}
+	}
+	return nil
 }
 
 func (r Rule) validate() error {

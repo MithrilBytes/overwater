@@ -13,8 +13,8 @@ Flag:      No max_tokens set; worst case spend is unbounded
 
 ```
 Call site: src/classify.ts:57 (classification: temp 0, JSON schema; high confidence)
-Current:   claude-opus-5 at ~$135/mo at estimated volume
-Candidate: claude-haiku-4-5, same capability tier for this task class, ~$27/mo
+Current:   claude-opus-5 at ~$91/mo at estimated volume
+Candidate: claude-haiku-4-5, same capability tier for this task class, ~$18/mo
 Tripwire:  If eval agreement drops below 97%, stay put
 Flag:      No prompt caching on a 1,191-token repeated system prompt
 ```

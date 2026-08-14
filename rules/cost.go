@@ -35,10 +35,7 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site, calls int) float64
 		in, out = t.EmbeddingInput, 0
 	} else {
 		in = t.DefaultInput + site.Shape.SystemPromptChars/t.CharsPerToken
-		out = t.DefaultOutput
-		if site.Shape.MaxTokens != nil && *site.Shape.MaxTokens < out {
-			out = *site.Shape.MaxTokens
-		}
+		out = e.outputTokens(site)
 	}
 	perCall := (float64(in)*m.InputPerMtok + float64(out)*m.OutputPerMtok) / 1e6
 	return perCall * float64(calls)
@@ -51,10 +48,7 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site, calls int) float64
 func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site, calls int) float64 {
 	t := e.Est.Tokens
 	sys := float64(e.systemTokens(site))
-	out := t.DefaultOutput
-	if site.Shape.MaxTokens != nil && *site.Shape.MaxTokens < out {
-		out = *site.Shape.MaxTokens
-	}
+	out := e.outputTokens(site)
 	read := sys * e.Est.Cache.SteadyStateReadFraction
 	write := sys - read
 	perCall := (float64(t.DefaultInput)*m.InputPerMtok +
@@ -65,6 +59,40 @@ func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site, calls int) f
 
 func (e *Engine) systemTokens(site scan.Site) int {
 	return site.Shape.SystemPromptChars / e.Est.Tokens.CharsPerToken
+}
+
+// outputTokens is the default output assumption lowered by whatever the
+// call site proves it cannot exceed: a response schema the model must
+// fill in, and an explicit cap. Nothing here raises the estimate; a
+// wide schema or a generous max_tokens leaves default_output standing.
+func (e *Engine) outputTokens(site scan.Site) int {
+	out := e.Est.Tokens.DefaultOutput
+	if b := e.schemaBound(site.Shape); b > 0 && b < out {
+		out = b
+	}
+	if site.Shape.MaxTokens != nil && *site.Shape.MaxTokens < out {
+		out = *site.Shape.MaxTokens
+	}
+	return out
+}
+
+// schemaBound is the widest response the schema at this site can hold.
+// Only the two shapes the reader is sure of bound anything: every field
+// an enum, or several fields that are not. A lone free text field is
+// neither, since one "summary": string can run as long as the model
+// likes. 0 means the schema says nothing about length.
+func (e *Engine) schemaBound(s scan.Shape) int {
+	if s.SchemaFields <= 0 {
+		return 0
+	}
+	b := e.Est.Tokens.SchemaOutput
+	switch {
+	case s.SchemaEnumOnly:
+		return b.Envelope + b.PerEnumField*s.SchemaFields
+	case s.SchemaMultiField:
+		return b.Envelope + b.PerField*s.SchemaFields
+	}
+	return 0
 }
 
 func round(x float64) int {
