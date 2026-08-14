@@ -349,6 +349,176 @@ func TestPropertyBaselineOfATreeGreensThatTree(t *testing.T) {
 	}
 }
 
+// A file that moves is the same file: git mv must leave every finding's
+// rule, model and price alone and move nothing but the path.
+//
+// The verdict half of that holds. The ratchet half does not. A
+// fingerprint hashes the repo relative path, so every finding in a moved
+// file reads as new against a baseline recorded before the move, and a
+// rename that touched no call site fails the build. Rename stable
+// fingerprints is an open roadmap item; the second half of this test
+// pins what the guard does today, so landing it turns this red instead
+// of going unnoticed.
+func TestPropertyRenameMovesOnlyThePath(t *testing.T) {
+	gitOrSkip(t)
+	// legacy.js never moves, so the ratchet half can tell churn caused by
+	// the rename from churn across the whole baseline.
+	dir := tree(t, map[string]string{
+		"package.json":     `{"dependencies":{"@anthropic-ai/sdk":"^0.30.0"}}`,
+		"src/classify.ts":  classifierTS,
+		"src/summarize.py": summarizerPY,
+		"src/legacy.js":    legacyCall,
+	})
+	initRepo(t, dir)
+	_, before, _ := scanJSON(t, dir)
+
+	const from, to = "src/classify.ts", "src/tickets/classify.ts"
+	var want []string
+	moved := 0
+	for _, f := range before.Findings {
+		if f.File == from {
+			f.File = to
+			moved++
+		}
+		want = append(want, key(f))
+	}
+	sort.Strings(want)
+	if moved < 1 || len(want) == moved {
+		t.Fatalf("fixture: %d of %d findings sit in %s; the property needs findings on both sides of the move",
+			moved, len(want), from)
+	}
+
+	bl := filepath.Join(t.TempDir(), "baseline.json")
+	var out, errOut bytes.Buffer
+	if code := Run([]string{"scan", "--baseline", bl, "--update-baseline", dir}, &out, &errOut); code == ExitError {
+		t.Fatalf("recording the baseline exited 2: %s", errOut.String())
+	}
+
+	// Somewhere neutral: under tests/ or named .spec the sites would be
+	// suppressed on purpose, which is a different property.
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, filepath.FromSlash(to))), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "mv", from, to)
+	gitRun(t, dir, "commit", "-q", "-m", "move the classifier")
+
+	_, after, _ := scanJSON(t, dir)
+	// Fatal, not an error: with the verdict itself moved there is nothing
+	// left for the ratchet half below to read.
+	if got := keys(after); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("renaming %s changed more than the path\nwant (%d):\n  %s\ngot (%d):\n  %s",
+			from, len(want), strings.Join(want, "\n  "), len(got), strings.Join(got, "\n  "))
+	}
+
+	// The ratchet half. A move retired every baselined finding in the
+	// file and reintroduced an identical set as new, so a commit that
+	// changed no behaviour failed the build. The baseline now records
+	// each finding's call site hash beside its fingerprint and matches
+	// on that when the path no longer lines up.
+	out.Reset()
+	errOut.Reset()
+	code := Run([]string{"scan", "--baseline", bl, "--fail-on", "new", dir}, &out, &errOut)
+	if code != ExitClean {
+		t.Fatalf("the ratchet exited %d after a pure rename, not %d\n%s\n%s",
+			code, ExitClean, out.String(), errOut.String())
+	}
+	if strings.Contains(errOut.String(), "new") {
+		t.Errorf("stderr = %q, want nothing reported as new", errOut.String())
+	}
+}
+
+// callersTS reaches the classifier from three places. Fan in prices that
+// call site at three times the volume, and this file never changes, so
+// an incremental scan can only agree with a full one by reading it.
+const callersTS = `import { classifyTicket } from "./classify";
+
+export async function onWebhook(text: string) {
+  return classifyTicket(text);
+}
+
+export async function onEmail(text: string) {
+  return classifyTicket(text);
+}
+
+export async function onChat(text: string) {
+  return classifyTicket(text);
+}
+`
+
+// routerTS is a second call, deliberately not a copy of the classifier's:
+// duplicate-call-sites counts the sites a scan emitted, so a copy whose
+// twin sits in an unscanned file is the one thing the two scans do not
+// agree on.
+const routerTS = `import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+export async function routeMessage(text: string) {
+  return client.messages.create({
+    model: "claude-opus-5",
+    temperature: 0,
+    system: "Route the message to exactly one of: sales, support, abuse.",
+    messages: [{ role: "user", content: text }],
+  });
+}
+`
+
+// A scan restricted to what git says changed must report exactly what a
+// whole repository scan reports for those same files. That is the whole
+// claim --incremental makes in CI, and the incremental tests cover the
+// coverage note, the ratchet and quoted paths without ever asserting it.
+// The restriction decides which files may produce sites, not which files
+// inform them, so an unscanned caller still has to count.
+func TestPropertyIncrementalAgreesWithFullScan(t *testing.T) {
+	gitOrSkip(t)
+	dir := tree(t, map[string]string{
+		"package.json":     `{"dependencies":{"@anthropic-ai/sdk":"^0.30.0"}}`,
+		"src/classify.ts":  classifierTS,
+		"src/handlers.ts":  callersTS,
+		"src/summarize.py": summarizerPY,
+	})
+	initRepo(t, dir)
+
+	bl := filepath.Join(t.TempDir(), "baseline.json")
+	var out, errOut bytes.Buffer
+	if code := Run([]string{"scan", "--baseline", bl, "--update-baseline", dir}, &out, &errOut); code == ExitError {
+		t.Fatalf("recording the baseline exited 2: %s", errOut.String())
+	}
+
+	// One tracked file edited and one file added: git names the first
+	// through diff and the second through ls-files.
+	changed := map[string]bool{"src/classify.ts": true, "src/route.ts": true}
+	writeInto(t, dir, map[string]string{
+		"src/classify.ts": strings.Replace(classifierTS, "billing, bug, feature", "billing, bug, feature, other", 1),
+		"src/route.ts":    routerTS,
+	})
+
+	_, full, _ := scanJSON(t, dir)
+	var want []string
+	perFile := map[string]int{}
+	for _, f := range full.Findings {
+		if changed[f.File] {
+			want = append(want, key(f))
+			perFile[f.File]++
+		}
+	}
+	sort.Strings(want)
+	for name := range changed {
+		if perFile[name] == 0 {
+			t.Fatalf("fixture: the full scan reports nothing in %s, so the comparison is vacuous", name)
+		}
+	}
+
+	_, incremental, stderr := scanJSON(t, "--baseline", bl, "--incremental", dir)
+	if !strings.Contains(stderr, "incremental: scanned 2 of 2 candidate files") {
+		t.Fatalf("stderr = %q, want both changed files scanned; the comparison is against the wrong set", stderr)
+	}
+	if got := keys(incremental); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("--incremental disagrees with the full scan over the files it scanned\nfull (%d):\n  %s\nincremental (%d):\n  %s",
+			len(want), strings.Join(want, "\n  "), len(got), strings.Join(got, "\n  "))
+	}
+}
+
 // The failure policy is the only thing that decides exit 1. Whatever the
 // findings, "none" must never fail the build, and the policy must not
 // change what was found.

@@ -19,7 +19,7 @@ func TestNewFindingsMultiset(t *testing.T) {
 	findings := []rules.Finding{a, a, finding("r", "f.ts", "bbbb")}
 
 	bl := &File{Version: 1, Findings: []Entry{{Fingerprint: Fingerprint(a)}}}
-	fresh := NewFindings(findings, bl)
+	fresh := NewFindings(findings, bl, nil)
 	if len(fresh) != 2 {
 		t.Fatalf("got %d new findings, want 2: one duplicate and one distinct", len(fresh))
 	}
@@ -37,6 +37,96 @@ func TestFingerprintIgnoresLine(t *testing.T) {
 	c.SiteHash = "cccc"
 	if Fingerprint(a) == Fingerprint(c) {
 		t.Error("fingerprint ignored the call site content")
+	}
+}
+
+// A git mv changes the path and nothing else, so the entry recorded
+// before the move must still absorb the finding after it.
+func TestMovedFileKeepsItsEntry(t *testing.T) {
+	before := finding("r", "classify.js", "aaaa")
+	after := finding("r", "src/classify.js", "aaaa")
+	bl := &File{Version: version, Findings: Entries([]rules.Finding{before})}
+
+	if fresh := NewFindings([]rules.Finding{after}, bl, nil); len(fresh) != 0 {
+		t.Fatalf("moving the file produced %d new findings, want 0: %+v", len(fresh), fresh)
+	}
+}
+
+// Path free matching must not blur call sites apart from a move: a
+// different site is new, and a second copy of the same site is new
+// because one entry absorbs one finding.
+func TestDistinctSitesDoNotCollide(t *testing.T) {
+	recorded := finding("r", "classify.js", "aaaa")
+	bl := &File{Version: version, Findings: Entries([]rules.Finding{recorded})}
+
+	cases := []struct {
+		name    string
+		scanned []rules.Finding
+		want    int
+	}{
+		{"same site, other text", []rules.Finding{finding("r", "classify.js", "bbbb")}, 1},
+		{"same text, other rule", []rules.Finding{finding("r2", "classify.js", "aaaa")}, 1},
+		{"copied into a second file", []rules.Finding{recorded, finding("r", "copy.js", "aaaa")}, 1},
+		{"moved and copied", []rules.Finding{
+			finding("r", "src/classify.js", "aaaa"),
+			finding("r", "src/copy.js", "aaaa"),
+		}, 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if fresh := NewFindings(tc.scanned, bl, nil); len(fresh) != tc.want {
+				t.Fatalf("NewFindings = %d, want %d: %+v", len(fresh), tc.want, fresh)
+			}
+		})
+	}
+}
+
+// A partial scan vouches only for the files it read. An entry filed
+// under a file this run never opened must stay out of reach, or a
+// pasted copy would claim it and read as a move.
+func TestPartialScanOnlyMovesWhatItRead(t *testing.T) {
+	bl := &File{Version: version, Findings: Entries([]rules.Finding{finding("r", "legacy.js", "aaaa")})}
+	copied := []rules.Finding{finding("r", "fresh.js", "aaaa")}
+
+	fresh := NewFindings(copied, bl, map[string]bool{"fresh.js": true})
+	if len(fresh) != 1 {
+		t.Fatalf("NewFindings = %+v, want the copy to read as new while legacy.js went unread", fresh)
+	}
+	// Cover the file the entry came from and the same pair is a move.
+	fresh = NewFindings(copied, bl, map[string]bool{"fresh.js": true, "legacy.js": true})
+	if len(fresh) != 0 {
+		t.Fatalf("NewFindings = %+v, want a move once the old path was scanned and found empty", fresh)
+	}
+}
+
+// A baseline recorded by an older release carries no site hashes. It
+// must still green the tree it was recorded from, unmoved.
+func TestVersionTwoEntryStillAbsorbs(t *testing.T) {
+	f := finding("r", "classify.js", "aaaa")
+	bl := &File{Version: 2, Findings: []Entry{{
+		Fingerprint: Fingerprint(f), Rule: "r", File: "classify.js", Recorded: "2026-01-01",
+	}}}
+	if fresh := NewFindings([]rules.Finding{f}, bl, nil); len(fresh) != 0 {
+		t.Fatalf("a version 2 entry stopped absorbing its own finding: %+v", fresh)
+	}
+	// It cannot follow a move: the hash it would need was never written.
+	moved := finding("r", "src/classify.js", "aaaa")
+	if fresh := NewFindings([]rules.Finding{moved}, bl, nil); len(fresh) != 1 {
+		t.Fatalf("NewFindings = %+v, want the move to read as new until the baseline is re-recorded", fresh)
+	}
+}
+
+// Aging follows the site, not the path: an entry recorded too long ago
+// still nags after the file moves.
+func TestAgedMatchesFollowsAMove(t *testing.T) {
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+	bl := &File{Version: version, Findings: []Entry{{
+		Fingerprint: Fingerprint(finding("r", "classify.js", "aaaa")),
+		Rule:        "r", File: "classify.js", Site: "aaaa", Recorded: "2026-01-01",
+	}}}
+	aged := AgedMatches([]rules.Finding{finding("r", "src/classify.js", "aaaa")}, bl, nil, now, 30)
+	if len(aged) != 1 || aged[0].Entry.File != "classify.js" {
+		t.Fatalf("aged = %+v, want the moved site's entry to still nag", aged)
 	}
 }
 
@@ -141,11 +231,15 @@ func TestWriteStampsToday(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bl.Version != 2 {
-		t.Errorf("version = %d, want 2", bl.Version)
+	if bl.Version != version {
+		t.Errorf("version = %d, want %d", bl.Version, version)
 	}
 	if got := bl.Findings[0].Recorded; got != before && got != after {
 		t.Errorf("recorded = %q, want today (%s)", got, after)
+	}
+	// The site hash has to reach disk or a move cannot be recognised.
+	if got := bl.Findings[0].Site; got != "aaaa" {
+		t.Errorf("site = %q, want the call site hash aaaa", got)
 	}
 }
 
@@ -170,13 +264,13 @@ func TestAgedMatches(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := AgedMatches(tc.findings, &File{Version: version, Findings: tc.entries}, now, tc.maxDays)
+			got := AgedMatches(tc.findings, &File{Version: version, Findings: tc.entries}, nil, now, tc.maxDays)
 			if len(got) != tc.want {
 				t.Fatalf("AgedMatches = %d aged entries, want %d", len(got), tc.want)
 			}
 		})
 	}
-	aged := AgedMatches([]rules.Finding{matched}, &File{Findings: []Entry{entry(matched, "2026-06-01")}}, now, 30)
+	aged := AgedMatches([]rules.Finding{matched}, &File{Findings: []Entry{entry(matched, "2026-06-01")}}, nil, now, 30)
 	if len(aged) != 1 || aged[0].Days != 66 || aged[0].Entry.File != "f.ts" {
 		t.Fatalf("aged = %+v, want one f.ts entry aged 66 days", aged)
 	}
@@ -190,11 +284,11 @@ func TestAgedMatchesBadDate(t *testing.T) {
 	bl := &File{Version: version, Findings: []Entry{{
 		Fingerprint: Fingerprint(matched), Rule: "r", File: "f.ts", Recorded: "yesterdayish",
 	}}}
-	aged := AgedMatches([]rules.Finding{matched}, bl, now, 30)
+	aged := AgedMatches([]rules.Finding{matched}, bl, nil, now, 30)
 	if len(aged) != 1 || aged[0].Days != -1 || aged[0].Entry.Recorded != "yesterdayish" {
 		t.Fatalf("aged = %+v, want one entry with Days -1 carrying the bad date", aged)
 	}
-	if got := AgedMatches([]rules.Finding{matched}, bl, now, 0); got != nil {
+	if got := AgedMatches([]rules.Finding{matched}, bl, nil, now, 0); got != nil {
 		t.Fatalf("aged with maxDays 0 = %+v, want nil; aging off means no nags at all", got)
 	}
 }

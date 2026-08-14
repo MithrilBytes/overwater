@@ -29,8 +29,13 @@ func gitHead(root string) string {
 //
 // -z is required: under the default core.quotePath git octal escapes
 // any path with a non-ASCII byte, and that string matches no real file.
+//
+// --no-renames is required too: rename detection reports only where a
+// file landed, and the baseline entries the move retired are filed
+// under where it left. Naming both paths lets the ratchet recognise the
+// move and lets --update-baseline prune the old path's entries.
 func gitChangedFiles(root, sha string) (map[string]bool, error) {
-	diff, err := exec.Command("git", "-C", root, "diff", "--relative", "--name-only", "-z", sha).Output()
+	diff, err := exec.Command("git", "-C", root, "diff", "--relative", "--name-only", "--no-renames", "-z", sha).Output()
 	if err != nil {
 		return nil, fmt.Errorf("git diff: %w", err)
 	}

@@ -155,6 +155,45 @@ func TestIncrementalKeepsUnscanned(t *testing.T) {
 	}
 }
 
+// git names only where a renamed file landed, so an incremental scan
+// used to see the arrival without the departure and call the moved
+// findings new. Both paths are candidates: the scan reads the new one,
+// the old one is covered and empty, and the move stays green. An
+// update then files the entries under the new path only.
+func TestIncrementalGitMove(t *testing.T) {
+	gitOrSkip(t)
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repo, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	initRepo(t, repo)
+
+	bl := filepath.Join(dir, ".overwater.json")
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("update exit = %d, stderr = %q", code, stderr)
+	}
+	gitRun(t, repo, "mv", "classify.js", "src/classify.js")
+	gitRun(t, repo, "commit", "-q", "-m", "move")
+
+	code, _, stderr := runScanArgs(t, "-baseline", bl, "-incremental", repo)
+	if code != ExitClean {
+		t.Fatalf("incremental scan after git mv exit = %d, stderr = %q; a move is not a change", code, stderr)
+	}
+	if !strings.Contains(stderr, "incremental: scanned 1 of 2 candidate files") {
+		t.Errorf("stderr = %q, want both sides of the rename counted as candidates", stderr)
+	}
+
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-incremental", "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("incremental update exit = %d, stderr = %q", code, stderr)
+	}
+	_, files := readBaseline(t, bl)
+	if len(files) != 1 || files[0] != "src/classify.js" {
+		t.Errorf("baselined files = %v, want the entry refiled under the new path alone", files)
+	}
+}
+
 // Every incremental scan says how many files it covered, so a null
 // verdict over zero files cannot read as a clean bill of health.
 func TestIncrementalCoverageNote(t *testing.T) {

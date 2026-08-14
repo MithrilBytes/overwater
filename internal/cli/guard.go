@@ -48,15 +48,15 @@ func recordBaseline(findings []rules.Finding, o guardOpts, stderr io.Writer) int
 
 // nagAged names the baseline entries that have outlived the age limit.
 // Nags never move the exit code.
-func nagAged(findings []rules.Finding, bl *baseline.File, maxDays int, stderr io.Writer) {
-	for _, a := range baseline.AgedMatches(findings, bl, time.Now(), maxDays) {
+func nagAged(findings []rules.Finding, bl *baseline.File, o guardOpts, stderr io.Writer) {
+	for _, a := range baseline.AgedMatches(findings, bl, o.scanned, time.Now(), o.maxAgeDays) {
 		if a.Days < 0 {
 			fmt.Fprintf(stderr, "baseline: %s at %s has an unreadable recorded date %q; re-record it\n",
 				a.Entry.Rule, a.Entry.File, a.Entry.Recorded)
 			continue
 		}
 		fmt.Fprintf(stderr, "baseline: %s at %s baselined %d days ago, past the %d day limit\n",
-			a.Entry.Rule, a.Entry.File, a.Days, maxDays)
+			a.Entry.Rule, a.Entry.File, a.Days, o.maxAgeDays)
 	}
 }
 
@@ -75,7 +75,7 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "overwater: %v\n", err)
 			return ExitError
 		}
-		nagAged(findings, bl, o.maxAgeDays, stderr)
+		nagAged(findings, bl, o, stderr)
 	}
 	switch o.failOn {
 	case "none":
@@ -96,7 +96,7 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 		// Advisor mode: no baseline, no explicit policy, no failure.
 		return ExitClean
 	}
-	fresh := baseline.NewFindings(findings, bl)
+	fresh := baseline.NewFindings(findings, bl, o.scanned)
 	if len(fresh) > 0 {
 		fmt.Fprintf(stderr, "%d findings, %d new against %s\n", len(findings), len(fresh), o.baselinePath)
 		for _, f := range fresh {

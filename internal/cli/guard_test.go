@@ -115,6 +115,44 @@ func TestRatchetLifecycle(t *testing.T) {
 	}
 }
 
+// A git mv changes no behaviour, so it must not fail the build: the
+// baselined findings follow the file to its new path, while a genuinely
+// new call in the same tree still trips the ratchet.
+func TestRatchetSurvivesGitMove(t *testing.T) {
+	gitOrSkip(t)
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(filepath.Join(repo, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+	initRepo(t, repo)
+
+	bl := filepath.Join(dir, ".overwater.json")
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("update exit = %d, stderr = %q", code, stderr)
+	}
+	gitRun(t, repo, "mv", "classify.js", "src/classify.js")
+
+	code, _, stderr := runScanArgs(t, "-baseline", bl, repo)
+	if code != ExitClean {
+		t.Fatalf("scan after git mv exit = %d, stderr = %q; a move is not a change", code, stderr)
+	}
+	if !strings.Contains(stderr, "all baselined") {
+		t.Errorf("stderr = %q, want the moved findings still baselined", stderr)
+	}
+
+	// The move did not blunt the ratchet for anything else.
+	writeRepoFile(t, repo, "legacy.js", legacyCall)
+	code, _, stderr = runScanArgs(t, "-baseline", bl, repo)
+	if code != ExitFindings {
+		t.Fatalf("exit = %d, want %d after a real new finding", code, ExitFindings)
+	}
+	if !strings.Contains(stderr, "new: deprecated-model at legacy.js") {
+		t.Errorf("stderr = %q, want the new finding named", stderr)
+	}
+}
+
 // rewriteRecorded stamps every baseline entry's recorded date, so tests
 // can age or corrupt them.
 func rewriteRecorded(t *testing.T, path, recorded string) {
