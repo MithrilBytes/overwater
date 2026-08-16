@@ -13,6 +13,20 @@ DeepSeek-V3.1-Terminus
 Embeddings
 Embeddings-2
 EmbeddingsGigaR
+FW-DeepSeek-V3.2
+FW-DeepSeek-V4-Pro
+FW-GLM-5
+FW-GLM-5.1
+FW-GLM-5.2
+FW-GLM-5.2-Fast
+FW-Inkling
+FW-Kimi-K2.5
+FW-Kimi-K2.6
+FW-Kimi-K2.7-Code
+FW-Kimi-K3
+FW-MiniMax-M2.5
+FW-MiniMax-M3
+FW-Nemotron-3-Ultra-NVFP4
 GLM-4.5-Air-FP8
 GLM-4.6
 GLM-4.7
@@ -643,6 +657,7 @@ grok-4.3
 grok-4.3-latest
 grok-4.5
 grok-4.5-latest
+grok-4.6
 grok-beta
 grok-build-0.1
 grok-code-fast
@@ -964,6 +979,8 @@ morph-v3-large
 multimodalembedding
 multimodalembedding@001
 muse-spark-1.1
+muse-spark-1.2
+muse-spark-1.2-contributor
 nemotron-3-120b-a12b
 nemotron-3.5-lightning
 nemotron-nano-v2-12b-vl
