@@ -12,7 +12,8 @@ import (
 )
 
 // Fan in: how many places in the repo reach a call site through the
-// function that holds it, and which models those callers pass in.
+// function that holds it, which models those callers pass in, and what
+// they ask the model to do.
 //
 // A repo that centralizes its LLM calls behind one helper has a single
 // call site; the traffic is at the helper's callers, and so is the
@@ -32,14 +33,16 @@ const (
 	callerHops = 3
 )
 
-// Fan in statuses. Only exact carries a counted number; the rest report
-// 1 because the caller set could not be established, and 1 there is a
-// floor rather than a measurement.
+// Fan in statuses. Only exact and tests carry a counted number; the
+// rest report 1 because the caller set could not be established, and 1
+// there is a floor rather than a measurement. Only exact is traffic, so
+// it is the only one estimates.yaml multiplies by.
 const (
 	FanInDirect     = "direct"     // the site is not inside any function
-	FanInExact      = "exact"      // the enclosing function has counted callers
+	FanInExact      = "exact"      // the enclosing function has counted production callers
 	FanInAmbiguous  = "ambiguous"  // the function name is defined more than once
 	FanInUnresolved = "unresolved" // no caller of the enclosing function is visible
+	FanInTests      = "tests"      // every caller is a test or a fixture, so none is traffic
 )
 
 // CallerModel is one model that callers of the enclosing wrapper pass
@@ -69,10 +72,13 @@ type funcDef struct {
 	params     []funcParam
 }
 
-// callRef is one place that names a function.
+// callRef is one place that names a function. test marks a caller that
+// runs in CI rather than in production (emit.go): still a caller, and
+// still evidence of what the function is for, but not traffic.
 type callRef struct {
 	file string
 	open int // byte offset of the opening parenthesis
+	test bool
 }
 
 // defsInFile holds one file's definitions sorted by start, alongside a
@@ -158,9 +164,10 @@ func (a *analyzer) buildIndex() *repoIndex {
 			return
 		}
 		var out []named
+		test := isTestPath(p)
 		for _, c := range a.fileCalls(p, idx) {
 			if _, ok := idx.byName[c.name]; ok {
-				out = append(out, named{c.name, callRef{file: p, open: c.open}})
+				out = append(out, named{c.name, callRef{file: p, open: c.open, test: test}})
 			}
 		}
 		perCalls[i] = out
@@ -572,8 +579,10 @@ func modelParamOf(d *funcDef) (*funcParam, int, int) {
 	return nil, 0, 0
 }
 
-// applyFanIn is layer 5: every site learns how many places reach it and,
-// where its model is a wrapper's default, what callers pass instead.
+// applyFanIn is layer 5: every site learns how many places reach it,
+// where its model is a wrapper's default, what callers pass instead,
+// and, where the site said nothing about its task, what the callers ask
+// for (archetype.go).
 func (a *analyzer) applyFanIn(report *Report, names map[string]*catalog.Model) {
 	idx := a.index()
 	// Cached: two sites can share a wrapper.
@@ -592,15 +601,25 @@ func (a *analyzer) applyFanIn(report *Report, names map[string]*catalog.Model) {
 			continue
 		}
 		s.FanInFunc = d.name
-		switch {
-		case len(idx.byName[d.name]) > 1:
+		if len(idx.byName[d.name]) > 1 {
 			s.FanInStatus = FanInAmbiguous
 			continue
-		case len(idx.calls[d.name]) == 0:
-			s.FanInStatus = FanInUnresolved
+		}
+		prod, tests := productionCalls(idx.calls[d.name])
+		switch {
+		case len(prod) > 0:
+			s.FanInStatus, s.FanIn = FanInExact, len(prod)
+			// Layer 4 read this file alone, and a helper that takes the
+			// prompt as an argument says nothing there about the task.
+			// The callers say it outright (archetype.go).
+			a.archetypeFromCallers(idx, s, tierOf(names, s), prod)
+		case tests > 0:
+			// Real callers, none of them traffic. The count is reported
+			// rather than dropped, so a helper only its suite calls does
+			// not read as one nobody calls at all.
+			s.FanInStatus, s.FanIn = FanInTests, tests
 		default:
-			s.FanInStatus = FanInExact
-			s.FanIn = len(idx.calls[d.name])
+			s.FanInStatus = FanInUnresolved
 		}
 		mp, _, _ := modelParamOf(d)
 		if mp == nil {
@@ -615,6 +634,33 @@ func (a *analyzer) applyFanIn(report *Report, names map[string]*catalog.Model) {
 			s.CallerModels = models
 		}
 	}
+}
+
+// productionCalls splits a caller set into the calls that run in
+// production and a count of the rest. A test names a model to assert on
+// it and calls a helper to exercise it, neither of which is monthly
+// traffic; a well tested repository has more test callers than
+// production ones, so counting them prices a helper at the size of its
+// suite.
+func productionCalls(refs []callRef) ([]callRef, int) {
+	prod, tests := make([]callRef, 0, len(refs)), 0
+	for _, c := range refs {
+		if c.test {
+			tests++
+			continue
+		}
+		prod = append(prod, c)
+	}
+	return prod, tests
+}
+
+// tierOf is the catalog tier of a site's model, empty when the model is
+// unknown, matching what layer 4 was given the first time.
+func tierOf(names map[string]*catalog.Model, s *Site) string {
+	if m := names[s.ModelID]; s.Known && m != nil {
+		return m.Tier
+	}
+	return ""
 }
 
 var reAssignedName = regexp.MustCompile(
@@ -666,10 +712,10 @@ type callerScan struct {
 	seen  map[string]bool
 }
 
-// callerModels reports the models callers pass for a wrapper's model
-// parameter, most used first. Counts sum to at most the fan in: a
-// caller whose argument could not be read is left out rather than
-// guessed at.
+// callerModels reports the models production callers pass for a
+// wrapper's model parameter, most used first. Counts sum to at most the
+// fan in: a caller whose argument could not be read is left out rather
+// than guessed at, and so is one that only runs in CI.
 func (a *analyzer) callerModels(idx *repoIndex, d *funcDef, names map[string]*catalog.Model) []CallerModel {
 	cs := &callerScan{a: a, idx: idx, names: names, tally: map[string]int{}, seen: map[string]bool{}}
 	cs.walk(d, 0)
@@ -714,7 +760,8 @@ func (cs *callerScan) walk(d *funcDef, depth int) {
 	if mp.defEnd > 0 {
 		fallback = cs.a.resolveModelArg(cs.names, d.file, cs.a.byPath[d.file][mp.defStart:mp.defEnd])
 	}
-	for _, c := range cs.idx.calls[d.name] {
+	prod, _ := productionCalls(cs.idx.calls[d.name])
+	for _, c := range prod {
 		raw, passed := cs.a.argAt(c, pos, entry)
 		if !passed {
 			if fallback != "" {

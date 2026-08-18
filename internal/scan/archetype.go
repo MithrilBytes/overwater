@@ -237,17 +237,26 @@ func validArchetype(s string) bool {
 // a graded confidence. A pragma in or just above the region, and an
 // embedding call, both win outright; everything else is scored.
 func (a *analyzer) classify(p string, shape Shape, r region, tier string) (string, string) {
+	arch, conf, _ := a.classifySite(p, shape, r, tier)
+	return arch, conf
+}
+
+// classifySite is classify, and also reports whether anything at the
+// site named the task. A site that named nothing was decided by its
+// parameters alone, which is the wrapper case layer 5 comes back to
+// (archetypeFromCallers).
+func (a *analyzer) classifySite(p string, shape Shape, r region, tier string) (string, string, bool) {
 	content := a.byPath[p]
 	pragmaStart := linesAbove(content, r.start, 3)
 	if m := rePragma.FindStringSubmatch(content[pragmaStart:r.end]); m != nil && validArchetype(m[1]) {
-		return m[1], "high"
+		return m[1], "high", true
 	}
 	if shape.EmbeddingCall || tier == "embedding" {
-		return ArchetypeEmbedding, "high"
+		return ArchetypeEmbedding, "high", true
 	}
 	narrow := a.archetypeScores(p, shape, r)
 	if arch, conf, ok := narrow.winner(); ok {
-		return arch, conf
+		return arch, conf, true
 	}
 	// The region names no task, which is ordinary: the prompt is often a
 	// constant at the top of the file. Widen, and downgrade the answer,
@@ -258,12 +267,80 @@ func (a *analyzer) classify(p string, shape Shape, r region, tier string) (strin
 		if conf == "high" {
 			conf = "medium"
 		}
-		return arch, conf
+		return arch, conf, true
 	}
 	// Neither pass found a word about the task, so the parameters are all
 	// that is left. Reported low.
 	arch, _ := rank(narrow.scores)
-	return arch, "low"
+	return arch, "low", false
+}
+
+// How much of the caller set one site reads: enough calls to see what a
+// helper is for, bounded so a helper reached from hundreds of places
+// does not turn one classification into a repository wide read.
+const (
+	callerEvidenceMax   = 24
+	callerEvidenceBytes = 16000
+)
+
+// archetypeFromCallers re-reads a wrapper's archetype with what the
+// callers ask for. A helper that takes the prompt as an argument says
+// nothing about the task at its own call, so the scorer is left with a
+// token cap and a temperature; every caller says it outright, and layer
+// 5 knows exactly which calls those are. Second hand evidence, so it
+// never answers high and never overrides a site that named its own
+// task.
+func (a *analyzer) archetypeFromCallers(idx *repoIndex, s *Site, tier string, callers []callRef) {
+	r := a.regionFor(s.File, s.Line, s.Col)
+	if _, _, named := a.classifySite(s.File, s.Shape, r, tier); named {
+		return
+	}
+	prompt, funcNames := a.callerEvidence(idx, callers)
+	if prompt == "" && funcNames == "" {
+		return
+	}
+	ev := a.evidenceFor(s.File, s.Shape, r)
+	ev.prompt += "\n" + prompt
+	ev.funcName += "\n" + funcNames
+	arch, conf, ok := scoreEvidence(s.Shape, ev).winner()
+	if !ok {
+		return
+	}
+	if conf == "high" {
+		conf = "medium"
+	}
+	s.Archetype, s.ArchetypeConfidence = arch, conf
+}
+
+// callerEvidence joins what a wrapper's callers write: the literals in
+// the argument list, which is where the prompt is passed, and the name
+// of the function each call sits in. Both are read the way evidenceFor
+// reads them at a site, so a caller's prompt scores as a prompt and its
+// function name as a name.
+func (a *analyzer) callerEvidence(idx *repoIndex, callers []callRef) (string, string) {
+	var prompt, funcNames strings.Builder
+	for i, c := range callers {
+		if i >= callerEvidenceMax || prompt.Len() > callerEvidenceBytes {
+			break
+		}
+		all := a.masked(c.file).all
+		if c.open >= len(all) {
+			continue
+		}
+		closer, ok := matchClose(all, c.open)
+		if !ok {
+			continue
+		}
+		if lits := a.regionLiterals(c.file, region{start: c.open, end: closer + 1, hit: c.open}); lits != "" {
+			prompt.WriteString(strings.ToLower(lits))
+			prompt.WriteByte('\n')
+		}
+		if d := idx.enclosing(c.file, c.open); d != nil {
+			funcNames.WriteString(strings.ToLower(d.name))
+			funcNames.WriteByte('\n')
+		}
+	}
+	return prompt.String(), funcNames.String()
 }
 
 // How far the widened pass reads either side of the reference. Wide
@@ -389,7 +466,13 @@ func (s scoreSet) winner() (string, string, bool) {
 // the call: what the prompt asks for, what the enclosing function is
 // called, which endpoint was reached for, and the shape of the call.
 func (a *analyzer) archetypeScores(p string, shape Shape, r region) scoreSet {
-	ev := a.evidenceFor(p, shape, r)
+	return scoreEvidence(shape, a.evidenceFor(p, shape, r))
+}
+
+// scoreEvidence is the scorer proper, apart from the gather so a site
+// can be scored a second time with evidence its own file does not hold
+// (archetypeFromCallers).
+func scoreEvidence(shape Shape, ev evidence) scoreSet {
 	set := scoreSet{scores: map[string]int{}, named: map[string]bool{}}
 	// names is false for a stem that only turned up in a nearby
 	// identifier: that is corroboration, not a statement of the task.

@@ -572,3 +572,51 @@ func TestFixturesHaveNoWrappers(t *testing.T) {
 		}
 	}
 }
+
+// A test suite exercises a helper without spending anything on it, and
+// a well tested repository has more test callers than production ones.
+func TestFanInExcludesTestCallers(t *testing.T) {
+	files := map[string]string{
+		"llm.py": `import anthropic
+
+client = anthropic.Anthropic()
+
+
+def complete(prompt, model="claude-opus-5"):
+    return client.messages.create(
+        model=model,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+    )
+`,
+		"jobs.py": "from llm import complete\n\n\ndef nightly(text):\n    return complete(text)\n",
+	}
+	for i := 0; i < 6; i++ {
+		files[fmt.Sprintf("tests/test_case%d.py", i)] = fmt.Sprintf(
+			"from llm import complete\n\n\ndef test_case%d():\n    assert complete(\"a\")\n", i)
+	}
+	site := fanInSite(t, analyzeTemp(t, files), "llm.py")
+	if site.FanIn != 1 || site.FanInStatus != FanInExact {
+		t.Errorf("fan in = %d (%s), want 1 exact: six of the seven callers are tests",
+			site.FanIn, site.FanInStatus)
+	}
+	want := []CallerModel{{Ref: "claude-opus-5", ModelID: "claude-opus-5", Known: true, Count: 1}}
+	if !reflect.DeepEqual(site.CallerModels, want) {
+		t.Errorf("caller models = %+v, want %+v", site.CallerModels, want)
+	}
+}
+
+// A helper nothing but its own suite calls: the callers are real and
+// are reported, but none of them is traffic, so the status is not one
+// estimates.yaml multiplies by.
+func TestFanInTestOnlyCallers(t *testing.T) {
+	files := map[string]string{"llm.js": wrapperLib}
+	for i := 0; i < 3; i++ {
+		files[fmt.Sprintf("llm%d.test.js", i)] = fmt.Sprintf(
+			"const { complete } = require(\"./llm\");\n\nit(\"case %d\", async () => {\n  await complete(\"a\");\n});\n", i)
+	}
+	site := fanInSite(t, analyzeTemp(t, files), "llm.js")
+	if site.FanIn != 3 || site.FanInStatus != FanInTests {
+		t.Errorf("fan in = %d (%s), want 3 tests", site.FanIn, site.FanInStatus)
+	}
+}
