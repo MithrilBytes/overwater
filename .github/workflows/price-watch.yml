@@ -9,6 +9,13 @@ permissions:
   contents: write
   pull-requests: write
 
+# The branch name carries the run id, so two runs cannot land on the
+# same ref. This keeps them from racing to commit and open a PR for the
+# same drift at all.
+concurrency:
+  group: price-watch
+  cancel-in-progress: false
+
 jobs:
   diff:
     runs-on: ubuntu-latest
@@ -19,17 +26,31 @@ jobs:
           go-version-file: go.mod
       - name: fetch litellm prices
         run: |
+          set -euo pipefail
           curl -fsSL -o /tmp/litellm.json \
             https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
       - name: diff and apply
-        run: go run ./cmd/overwater catalog diff -write /tmp/litellm.json | tee /tmp/diff.txt
+        # A run block is bash -e but not pipefail, so the step would take
+        # tee's exit status and a catalog diff that exited 2 would commit
+        # a half applied catalog behind a green run.
+        run: |
+          set -euo pipefail
+          go run ./cmd/overwater catalog diff -write /tmp/litellm.json | tee /tmp/diff.txt
       - name: models upstream prices and we do not
         # The full list is over a thousand entries and says the same thing
         # every night. Only what appeared since the last run is news, so
         # the roster is committed and this reports the delta against it.
         run: |
+          set -euo pipefail
           go run ./cmd/overwater catalog diff -reverse /tmp/litellm.json \
             2>> "$GITHUB_STEP_SUMMARY" | cut -f1 | sort > /tmp/unlisted.txt
+          # pipefail catches a diff that failed. This catches one that
+          # succeeded and printed nothing, which the comm below would read
+          # as upstream dropping every model and commit as an empty roster.
+          if [ ! -s /tmp/unlisted.txt ]; then
+            echo "the reverse diff listed no models; leaving the roster alone" >&2
+            exit 1
+          fi
           comm -13 catalog/unlisted.txt /tmp/unlisted.txt > /tmp/new-models.txt || true
           comm -23 catalog/unlisted.txt /tmp/unlisted.txt > /tmp/gone-models.txt || true
           cp /tmp/unlisted.txt catalog/unlisted.txt
@@ -51,6 +72,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           if git diff --quiet; then
             echo "prices match litellm" >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -64,7 +86,10 @@ jobs:
             prefix="catalog-roster"
             title="chore: refresh the upstream model roster"
           fi
-          branch="$prefix/$(date +%Y-%m-%d)"
+          # The date alone repeats, and the push below is forced: a second
+          # run in a day would rewrite the branch under an open PR and
+          # discard whatever a reviewer had pushed onto it.
+          branch="$prefix/$(date +%Y-%m-%d)-$GITHUB_RUN_ID"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
@@ -89,6 +114,10 @@ jobs:
               echo '```'
             fi
           } > /tmp/body.md
-          gh pr create --title "$title" \
-            --body-file /tmp/body.md --head "$branch" \
-            || echo "could not open a PR; check that Actions may create pull requests" >> "$GITHUB_STEP_SUMMARY"
+          # A pushed branch with no PR notifies nobody, and the run that
+          # left it there was the notification. Fail so the schedule does.
+          if ! gh pr create --title "$title" \
+            --body-file /tmp/body.md --head "$branch"; then
+            echo "pushed $branch but could not open a PR; check that Actions may create pull requests" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

@@ -8,8 +8,15 @@ on:
 
 jobs:
   tag:
+    # A head branch name is a label anyone opening a PR can choose, and
+    # this job releases main whatever the PR touched. The conditions it
+    # actually relies on are that price-watch opened it, from a branch in
+    # this repository, and that it merged into main.
     if: >-
       github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login == 'github-actions[bot]' &&
       startsWith(github.event.pull_request.head.ref, 'price-watch/')
     runs-on: ubuntu-latest
     permissions:
