@@ -1,5 +1,7 @@
 # An aggressive retry policy wrapped around a frontier model. Retries
-# multiply the most expensive call in the codebase.
+# multiply the most expensive call in the codebase. Only a cap written
+# into the call itself is visible: the SDKs take max_retries on the
+# client constructor, which sits outside the call extent layer 3 reads.
 id: retry-amplification
 kind: flag
 confidence: medium

@@ -60,6 +60,9 @@ type When struct {
 	MinRetries        int      `yaml:"min_retries"`
 	TemperatureAbove  *float64 `yaml:"temperature_above"`
 	ImageDetailHigh   *bool    `yaml:"image_detail_high"`
+	Tools             *bool    `yaml:"tools"`
+	ForcedTool        *bool    `yaml:"forced_tool"`
+	Streaming         *bool    `yaml:"streaming"`
 	ModelCapability   string   `yaml:"model_capability"`
 	DimensionsPresent *bool    `yaml:"dimensions_present"`
 	// MinDuplicateSites matches a site whose hash and model appear at

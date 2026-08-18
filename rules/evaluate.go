@@ -146,6 +146,15 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dup
 	if w.ImageDetailHigh != nil && site.Shape.ImageDetailHigh != *w.ImageDetailHigh {
 		return false
 	}
+	if w.Tools != nil && site.Shape.Tools != *w.Tools {
+		return false
+	}
+	if w.ForcedTool != nil && site.Shape.ForcedTool != *w.ForcedTool {
+		return false
+	}
+	if w.Streaming != nil && site.Shape.Streaming != *w.Streaming {
+		return false
+	}
 	if w.ModelCapability != "" && !m.HasCapability(w.ModelCapability) {
 		return false
 	}

@@ -5,7 +5,7 @@ kind: finding
 confidence: medium
 when:
   archetype: [extraction, classification]
-  effort: [high, xhigh]
+  effort: [high, xhigh, max]
 candidate:
   strategy: none
   note: same model at default effort; extraction and classification rarely need deliberate reasoning

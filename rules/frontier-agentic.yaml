@@ -1,0 +1,15 @@
+# A frontier model driving a tool loop. Every turn pays frontier
+# prices, and the turns that only pick the next tool are not the ones
+# that needed the model. Confidence sits below frontier-extraction: an
+# agent's hard turns are the ones a downgrade breaks first.
+id: frontier-agentic
+kind: finding
+confidence: low
+when:
+  archetype: [agentic]
+  tier: [frontier]
+candidate:
+  strategy: tier_downgrade
+  tier: mid
+  note: one tier down for the turns that only pick the next tool
+tripwire: If the loop needs more turns to reach the same answer, stay put

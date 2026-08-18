@@ -1,0 +1,17 @@
+# A tool loop with the tool list at the call and no cache_control. What
+# repeats here is the tool schemas and the transcript, not the system
+# prompt, so uncached-system-prompt's token gate can miss it entirely.
+# Scoped like that rule to providers where caching is explicit.
+id: uncached-tool-loop
+kind: flag
+confidence: medium
+when:
+  archetype: [agentic]
+  provider: [anthropic]
+  tools: true
+  cache_control: false
+candidate:
+  strategy: none
+  note: same model with cache_control on the tool definitions and the transcript prefix
+tripwire: None; caching changes cost, not output
+flag: No cache_control on a tool loop; the tool schemas and the transcript are resent every turn

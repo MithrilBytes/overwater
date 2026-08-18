@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/MithrilBytes/overwater/catalog"
 	"github.com/MithrilBytes/overwater/internal/scan"
 )
@@ -46,8 +48,8 @@ func TestLoadRulesAndEstimates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Rules) != 12 {
-		t.Errorf("loaded %d rules, want the 12 shipped", len(e.Rules))
+	if len(e.Rules) != 14 {
+		t.Errorf("loaded %d rules, want the 14 shipped", len(e.Rules))
 	}
 	if e.Est.Volume.CallsPerMonth != 10000 {
 		t.Errorf("calls_per_month = %d, want 10000", e.Est.Volume.CallsPerMonth)
@@ -306,6 +308,19 @@ func TestEffortOverkillOnExtraction(t *testing.T) {
 	}
 }
 
+// max is the top of the effort scale the shape reader captures, so it
+// is the setting the rule least wants to skip.
+func TestEffortOverkillOnMaxEffort(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-sonnet-5", scan.ArchetypeClassification, scan.Shape{Effort: "max"}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "effort-overkill" {
+		t.Fatalf("got %+v, want one effort-overkill finding", got)
+	}
+}
+
 func TestEffortOverkillIgnores(t *testing.T) {
 	engine, cat := loadEngine(t)
 	report := &scan.Report{Sites: []scan.Site{
@@ -441,6 +456,99 @@ func TestImageDetailHighIgnoresChat(t *testing.T) {
 	}}
 	if got := engine.Evaluate(report, cat); len(got) != 0 {
 		t.Errorf("got %+v, want no findings on a chat archetype", got)
+	}
+}
+
+// The two agentic rules meet at the same site: the tier finding hosts
+// the caching flag.
+func TestFrontierAgenticToolLoop(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-opus-5", scan.ArchetypeAgentic, scan.Shape{Tools: true}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "frontier-agentic" {
+		t.Fatalf("got %+v, want one frontier-agentic finding", got)
+	}
+	if got[0].CandidateModel != "claude-sonnet-5" {
+		t.Errorf("candidate model = %q, want the mid tier claude-sonnet-5", got[0].CandidateModel)
+	}
+	want := "No cache_control on a tool loop; the tool schemas and the transcript are resent every turn"
+	if len(got[0].Flags) != 1 || got[0].Flags[0] != want {
+		t.Errorf("flags = %v, want %q", got[0].Flags, want)
+	}
+}
+
+// Off the frontier there is no finding to host it, so the flag stands
+// on its own.
+func TestUncachedToolLoopPromoted(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-sonnet-5", scan.ArchetypeAgentic, scan.Shape{Tools: true}),
+	}}
+	got := engine.Evaluate(report, cat)
+	if len(got) != 1 || got[0].RuleID != "uncached-tool-loop" {
+		t.Fatalf("got %+v, want one promoted uncached-tool-loop finding", got)
+	}
+	if got[0].CandidateText != "same model with cache_control on the tool definitions and the transcript prefix" {
+		t.Errorf("candidate = %q", got[0].CandidateText)
+	}
+}
+
+func TestUncachedToolLoopIgnores(t *testing.T) {
+	engine, cat := loadEngine(t)
+	report := &scan.Report{Sites: []scan.Site{
+		site("claude-sonnet-5", scan.ArchetypeAgentic, scan.Shape{Tools: true, CacheControl: true}),
+		// Agentic on the classifier's other signals, with no tool list
+		// at the call: nothing readable is being resent.
+		site("claude-sonnet-5", scan.ArchetypeAgentic, scan.Shape{}),
+		// A provider that caches without being asked.
+		site("gpt-5-mini", scan.ArchetypeAgentic, scan.Shape{Tools: true}),
+	}}
+	if got := engine.Evaluate(report, cat); len(got) != 0 {
+		t.Errorf("got %+v, want no findings once cached, tool-less, or off anthropic", got)
+	}
+}
+
+// No shipped rule turns on forced_tool or streaming, so the predicates
+// and the names a rule file writes them under answer for themselves.
+func TestForcedToolAndStreamingPredicates(t *testing.T) {
+	engine, cat := loadEngine(t)
+	var probe Rule
+	if err := yaml.Unmarshal([]byte(`id: probe
+kind: finding
+confidence: low
+when:
+  forced_tool: true
+  streaming: false
+candidate:
+  strategy: none
+  note: a probe, not a shipped rule
+tripwire: None
+`), &probe); err != nil {
+		t.Fatal(err)
+	}
+	if err := probe.validate(); err != nil {
+		t.Fatal(err)
+	}
+	engine.Rules = append(engine.Rules, probe)
+	fires := func(shape scan.Shape) bool {
+		report := &scan.Report{Sites: []scan.Site{site("claude-sonnet-5", scan.ArchetypeChat, shape)}}
+		for _, f := range engine.Evaluate(report, cat) {
+			if f.RuleID == "probe" {
+				return true
+			}
+		}
+		return false
+	}
+	if !fires(scan.Shape{ForcedTool: true}) {
+		t.Error("the probe missed a forced tool call that does not stream")
+	}
+	if fires(scan.Shape{ForcedTool: true, Streaming: true}) {
+		t.Error("the probe fired on the streaming call its predicate excludes")
+	}
+	if fires(scan.Shape{}) {
+		t.Error("the probe fired on a call with no forced tool")
 	}
 }
 
