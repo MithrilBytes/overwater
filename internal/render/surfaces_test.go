@@ -210,3 +210,33 @@ func TestSARIFLog(t *testing.T) {
 		t.Errorf("location = %s:%d, want jobs/summarize.js:7", loc.ArtifactLocation.URI, loc.Region.StartLine)
 	}
 }
+
+// A consumer percent decodes artifactLocation.uri and splits it on '#',
+// so a raw path lets the scanned repo aim the alert: "%2e%2e%2f" decodes
+// back to "../" and a '#' leaves only "vendor" as the path. An ordinary
+// path has nothing to escape and comes through as itself.
+func TestSARIFEscapesURI(t *testing.T) {
+	cases := []struct {
+		name string
+		file string
+		want string
+	}{
+		{"plain", "jobs/summarize.js", `"uri": "jobs/summarize.js"`},
+		{"traversal", "%2e%2e%2f%2e%2e%2fsrc%2fmain.py", `"uri": "%252e%252e%252f%252e%252e%252fsrc%252fmain.py"`},
+		{"fragment", "vendor#..%2f.github%2fworkflows%2fci.yml", `"uri": "vendor%23..%252f.github%252fworkflows%252fci.yml"`},
+		{"control byte", "a\nb.py", `"uri": "a%0Ab.py"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := sampleFinding()
+			f.File = tc.file
+			out, err := SARIF([]rules.Finding{f}, Meta{CatalogVersion: "2026-08-05", CallsPerMonth: 10000})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(out), tc.want) {
+				t.Errorf("SARIF = %s, want it to carry %s", out, tc.want)
+			}
+		})
+	}
+}

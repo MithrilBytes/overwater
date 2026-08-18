@@ -131,7 +131,7 @@ func block(f rules.Finding) string {
 	if f.Evidence != "" {
 		head += ": " + f.Evidence
 	}
-	fmt.Fprintf(&b, "Call site: %s:%d (%s; %s confidence)\n", f.File, f.Line, head, f.Confidence)
+	fmt.Fprintf(&b, "Call site: %s:%d (%s; %s confidence)\n", escapePath(f.File), f.Line, head, f.Confidence)
 	fmt.Fprintf(&b, "Current:   %s\n", current(f))
 	fmt.Fprintf(&b, "Candidate: %s\n", f.CandidateText)
 	fmt.Fprintf(&b, "Tripwire:  %s\n", f.Tripwire)
@@ -140,6 +140,23 @@ func block(f rules.Finding) string {
 	} else {
 		for _, flag := range f.Flags {
 			fmt.Fprintf(&b, "Flag:      %s\n", flag)
+		}
+	}
+	return b.String()
+}
+
+// escapePath defuses the one string on a finding the scanned repo
+// controls. A POSIX filename may hold ESC, newlines and backticks, so a
+// bare path can drive the terminal cursor or close the MODELS.md fence
+// and write a verdict of the repo's choosing; percent escaping those
+// bytes leaves an ordinary path byte for byte unchanged.
+func escapePath(p string) string {
+	var b strings.Builder
+	for i := 0; i < len(p); i++ {
+		if c := p[i]; c < 0x20 || c == 0x7f || c == '`' {
+			fmt.Fprintf(&b, "%%%02X", c)
+		} else {
+			b.WriteByte(c)
 		}
 	}
 	return b.String()

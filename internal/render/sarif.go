@@ -3,6 +3,7 @@ package render
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/MithrilBytes/overwater/rules"
 )
@@ -90,7 +91,10 @@ func SARIF(findings []rules.Finding, meta Meta) ([]byte, error) {
 				current(f), f.CandidateText, f.Tripwire)},
 			Locations: []sarifLocation{{
 				PhysicalLocation: sarifPhysicalLocation{
-					ArtifactLocation: sarifArtifactLocation{URI: f.File},
+					// artifactLocation.uri is a URI reference, so a consumer
+					// percent decodes it and splits on '#'. A raw path lets a
+					// scanned repo name a file it does not own.
+					ArtifactLocation: sarifArtifactLocation{URI: (&url.URL{Path: f.File}).EscapedPath()},
 					Region:           sarifRegion{StartLine: f.Line},
 				},
 			}},

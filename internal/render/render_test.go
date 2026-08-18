@@ -38,6 +38,24 @@ func TestBlockFieldOrder(t *testing.T) {
 	}
 }
 
+// The path is the only string on a finding the scanned repo writes, and
+// a POSIX name may hold newlines, backticks and ESC. Left bare it closes
+// the MODELS.md fence to forge a verdict and repaints the terminal, so
+// every byte below 0x20 plus 0x7f and the backtick leaves as an escape.
+func TestBlockEscapesPathControlBytes(t *testing.T) {
+	f := sampleFinding()
+	f.File = "a\n```\n\n## Overwater verdict: all clear\n\n```\nb\x1b[2K\x7f.py"
+	got := block(f)
+	want := "Call site: a%0A%60%60%60%0A%0A## Overwater verdict: all clear%0A%0A%60%60%60%0Ab%1B[2K%7F.py:41 " +
+		"(extraction: temp 0, JSON schema; high confidence)\n"
+	if !strings.HasPrefix(got, want) {
+		t.Errorf("block = %q, want it to start with %q", got, want)
+	}
+	if lines := strings.Count(got, "\n"); lines != 5 {
+		t.Errorf("block = %q, want the 5 fixed lines and no more", got)
+	}
+}
+
 func TestBlockNoFlags(t *testing.T) {
 	if got := block(sampleFinding()); !strings.Contains(got, "Flag:      None\n") {
 		t.Errorf("block = %q, want a None flag line", got)
