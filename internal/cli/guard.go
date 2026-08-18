@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/MithrilBytes/overwater/internal/baseline"
@@ -14,6 +16,43 @@ func defaultBaselinePath(path string) string {
 		return ".overwater.json"
 	}
 	return path
+}
+
+// dropBaselineFile removes the findings a baseline makes about itself.
+// The walker skips .overwater.json by name, but a baseline kept
+// anywhere else inside the tree it guards is read as source: its
+// entries name model ids, those come back as findings, and recording
+// them writes more entries still, so the ratchet grows by a finding a
+// run and the build can never go green. A merged multi root run carries
+// no single root to resolve the path against, and prefixes its findings
+// with the root name, so it is left alone.
+func dropBaselineFile(findings []rules.Finding, root, baselinePath string) []rules.Finding {
+	if root == "" || baselinePath == "" {
+		return findings
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return findings
+	}
+	absBaseline, err := filepath.Abs(baselinePath)
+	if err != nil {
+		return findings
+	}
+	rel, err := filepath.Rel(absRoot, absBaseline)
+	if err != nil {
+		return findings
+	}
+	rel = filepath.ToSlash(rel)
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return findings // outside the scanned tree, so never walked
+	}
+	kept := make([]rules.Finding, 0, len(findings))
+	for _, f := range findings {
+		if f.File != rel {
+			kept = append(kept, f)
+		}
+	}
+	return kept
 }
 
 // guardOpts carries everything guardExit needs beyond the findings.
@@ -63,6 +102,7 @@ func nagAged(findings []rules.Finding, bl *baseline.File, o guardOpts, stderr io
 // guardExit applies the failure policy. Anything wrong with the
 // baseline itself is exit 2, never 1.
 func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
+	findings = dropBaselineFile(findings, o.root, o.baselinePath)
 	if o.update {
 		return recordBaseline(findings, o, stderr)
 	}
@@ -90,7 +130,12 @@ func guardExit(findings []rules.Finding, o guardOpts, stderr io.Writer) int {
 	// fail-on new
 	if o.baselinePath == "" {
 		if o.failOnSet {
-			fmt.Fprintln(stderr, "overwater: --fail-on new needs --baseline; run once with --update-baseline to record one")
+			// Recording is only half the remedy: --update-baseline writes
+			// the default path but nothing reads it back without
+			// --baseline, so a message naming only the first half sends
+			// the user around the same exit 2 again.
+			bl := defaultBaselinePath("")
+			fmt.Fprintf(stderr, "overwater: --fail-on new needs --baseline; run once with --update-baseline to record %s, then pass --baseline %s\n", bl, bl)
 			return ExitError
 		}
 		// Advisor mode: no baseline, no explicit policy, no failure.

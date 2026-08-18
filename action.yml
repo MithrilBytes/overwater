@@ -9,11 +9,11 @@ inputs:
     required: false
     default: "."
   baseline:
-    description: Baseline file for the ratchet; empty scans without one
+    description: Baseline file for the ratchet; empty reports without failing
     required: false
     default: ""
   fail-on:
-    description: "Failure policy: new, any, or none"
+    description: "Failure policy: new, any, or none; new needs a baseline"
     required: false
     default: new
   incremental:
@@ -68,9 +68,10 @@ runs:
       id: scan
       shell: bash
       # Inputs reach the script only through env: a value interpolated
-      # into the script text would be re parsed as shell. The fences are
-      # four backticks so a repo controlled path containing ``` cannot
-      # break out of the report block.
+      # into the script text would be re parsed as shell. Tool output is
+      # escaped into <pre> rather than fenced: a scanned path may hold a
+      # newline followed by backticks, and no fence is long enough to
+      # outrun a repository that picks the next length.
       env:
         INPUT_PATH: ${{ inputs.path }}
         INPUT_BASELINE: ${{ inputs.baseline }}
@@ -78,9 +79,16 @@ runs:
         INPUT_INCREMENTAL: ${{ inputs.incremental }}
       run: |
         set -uo pipefail
-        args=(scan --fail-on "$INPUT_FAIL_ON")
+        # --fail-on new has nothing to be new against without a
+        # baseline, and the baseline input defaults to empty, so naming
+        # the policy anyway exits 2 on a correct scan of a clean repo.
+        args=(scan)
         if [ -n "$INPUT_BASELINE" ]; then
-          args+=(--baseline "$INPUT_BASELINE")
+          args+=(--baseline "$INPUT_BASELINE" --fail-on "$INPUT_FAIL_ON")
+        elif [ "$INPUT_FAIL_ON" != "new" ]; then
+          args+=(--fail-on "$INPUT_FAIL_ON")
+        else
+          echo "overwater: no baseline input, so this run only reports; set one to fail on new findings" >&2
         fi
         if [ "$INPUT_INCREMENTAL" = "true" ]; then
           args+=(--incremental)
@@ -95,17 +103,21 @@ runs:
         cat "$out"
         cat "$errout" >&2
         report="${RUNNER_TEMP}/overwater-report.md"
+        # Nothing inside a <pre> block is Markdown, so once & < > are
+        # escaped a scanned path has no way to close the block or to
+        # render anything of its own in the comment.
+        escape() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' "$1"; }
         {
           echo "## overwater"
           echo
-          echo '````'
-          cat "$out"
-          echo '````'
+          echo '<pre>'
+          escape "$out"
+          echo '</pre>'
           if [ -s "$errout" ]; then
             echo
-            echo '````'
-            cat "$errout"
-            echo '````'
+            echo '<pre>'
+            escape "$errout"
+            echo '</pre>'
           fi
         } > "$report"
         cat "$report" >> "$GITHUB_STEP_SUMMARY"

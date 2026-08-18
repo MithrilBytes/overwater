@@ -115,6 +115,48 @@ func TestRatchetLifecycle(t *testing.T) {
 	}
 }
 
+// A baseline kept inside the tree it guards, under any name but the
+// default, used to be walked as source: its own entries name model ids,
+// those came back as findings, and recording them wrote more entries
+// still, so the ratchet grew by a finding a run and the build could
+// never go green.
+func TestBaselineInsideTreeIsNotScanned(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, "ci"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "legacy.js", legacyCall)
+	bl := filepath.Join(repo, "ci", "overwater-baseline.json")
+
+	if code, _, stderr := runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("record exit = %d, stderr = %q", code, stderr)
+	}
+	code, _, stderr := runScanArgs(t, "-baseline", bl, repo)
+	if code != ExitClean {
+		t.Fatalf("scan exit = %d, want %d; the baseline was scanned as source (stderr %q)", code, ExitClean, stderr)
+	}
+
+	// Re-recording converges instead of growing an entry a run.
+	if code, _, stderr = runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("re-record exit = %d, stderr = %q", code, stderr)
+	}
+	raw, err := os.ReadFile(bl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recorded struct {
+		Findings []struct {
+			File string `json:"file"`
+		} `json:"findings"`
+	}
+	if err := json.Unmarshal(raw, &recorded); err != nil {
+		t.Fatal(err)
+	}
+	if len(recorded.Findings) != 1 || recorded.Findings[0].File != "legacy.js" {
+		t.Fatalf("baseline holds %+v, want only the legacy.js finding", recorded.Findings)
+	}
+}
+
 // A git mv changes no behaviour, so it must not fail the build: the
 // baselined findings follow the file to its new path, while a genuinely
 // new call in the same tree still trips the ratchet.
@@ -304,6 +346,36 @@ func TestFailOnNewNeedsBaseline(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "needs --baseline") {
 		t.Errorf("stderr = %q, want a pointer at --baseline", stderr)
+	}
+}
+
+// The remedy has two halves and the message has to name both: recording
+// writes the default path, but nothing reads it back without --baseline,
+// so a user who does exactly what the message says lands on the same
+// exit 2 again.
+func TestFailOnNewNamesTheWholeRemedy(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeRepoFile(t, repo, "classify.js", classifyCall)
+
+	code, _, stderr := runScanArgs(t, "-fail-on", "new", repo)
+	if code != ExitError {
+		t.Fatalf("exit = %d, want %d", code, ExitError)
+	}
+	if !strings.Contains(stderr, "--update-baseline") || !strings.Contains(stderr, "then pass --baseline") {
+		t.Errorf("stderr = %q, want both halves named; recording alone still exits 2", stderr)
+	}
+
+	// And the sequence it names has to work.
+	bl := filepath.Join(dir, ".overwater.json")
+	if code, _, stderr = runScanArgs(t, "-baseline", bl, "-update-baseline", repo); code != ExitClean {
+		t.Fatalf("record exit = %d, stderr = %q", code, stderr)
+	}
+	if code, _, stderr = runScanArgs(t, "-baseline", bl, "-fail-on", "new", repo); code != ExitClean {
+		t.Fatalf("exit = %d after following the message, want %d; stderr = %q", code, ExitClean, stderr)
 	}
 }
 

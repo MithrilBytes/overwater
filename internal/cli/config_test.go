@@ -135,6 +135,55 @@ func TestConfigUnknownField(t *testing.T) {
 	}
 }
 
+func TestConfigExcludeMatches(t *testing.T) {
+	cfg := &repoConfig{Exclude: []string{"*.json", "reports", "fixtures/*.py", "third_party/"}}
+	cases := []struct {
+		file string
+		want bool
+	}{
+		{"registry.json", true},              // a bare glob matches at the root
+		{"api/models/registry.json", true},   // and at any depth
+		{"reports/scan/out.txt", true},       // a bare name matches a directory segment
+		{"fixtures/legacy.py", true},         // a slashed pattern matches the whole path
+		{"fixtures/sub/legacy.py", false},    // and only the whole path
+		{"third_party/vendor/call.py", true}, // a named directory covers its tree
+		{"src/classify.py", false},
+	}
+	for _, tc := range cases {
+		if got := cfg.excluded(tc.file); got != tc.want {
+			t.Errorf("excluded(%q) = %v, want %v", tc.file, got, tc.want)
+		}
+	}
+	var absent *repoConfig
+	if absent.excluded("registry.json") {
+		t.Error("a repo with no config excludes nothing")
+	}
+}
+
+// A pattern that silently matches nothing is worse than no pattern: the
+// repo believes the file is excluded and the findings keep arriving.
+func TestConfigExcludeRejectsBadPattern(t *testing.T) {
+	code, _, stderr := scanRepo(t, repoWith(t, "exclude: [\"[\"]\n"))
+	if code != ExitError || !strings.Contains(stderr, `exclude pattern "["`) {
+		t.Errorf("code %d, stderr %q, want exit 2 naming the bad pattern", code, stderr)
+	}
+	code, _, stderr = scanRepo(t, repoWith(t, "exclude: [\"**/*.json\"]\n"))
+	if code != ExitError || !strings.Contains(stderr, "** is not special") {
+		t.Errorf("code %d, stderr %q, want exit 2 pointing at the bare form", code, stderr)
+	}
+	code, _, stderr = scanRepo(t, repoWith(t, "exclude: [\"\"]\n"))
+	if code != ExitError || !strings.Contains(stderr, "empty pattern") {
+		t.Errorf("code %d, stderr %q, want exit 2 for an empty pattern", code, stderr)
+	}
+}
+
+func TestConfigExcludeLoads(t *testing.T) {
+	code, _, stderr := scanRepo(t, repoWith(t, "exclude:\n  - registries/*.json\n  - reports\n"))
+	if code == ExitError {
+		t.Fatalf("exit = %d, stderr = %q; a valid exclude list must load", code, stderr)
+	}
+}
+
 func TestConfigUnknownThreshold(t *testing.T) {
 	code, _, stderr := scanRepo(t, repoWith(t, "thresholds:\n  deprecated-model:\n    min_carrots: 3\n"))
 	if code != ExitError || !strings.Contains(stderr, "min_carrots") {
