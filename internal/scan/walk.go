@@ -15,8 +15,8 @@ import (
 func notebookToPython(data []byte) []byte {
 	var nb struct {
 		Cells []struct {
-			CellType string   `json:"cell_type"`
-			Source   []string `json:"source"`
+			CellType string          `json:"cell_type"`
+			Source   json.RawMessage `json:"source"`
 		} `json:"cells"`
 	}
 	if err := json.Unmarshal(data, &nb); err != nil {
@@ -30,7 +30,7 @@ func notebookToPython(data []byte) []byte {
 		b.WriteString("# cell ")
 		b.WriteString(strings.TrimSpace(string(rune('0' + i%10))))
 		b.WriteString("\n")
-		for _, line := range cell.Source {
+		for _, line := range cellSource(cell.Source) {
 			b.WriteString(line)
 			if !strings.HasSuffix(line, "\n") {
 				b.WriteString("\n")
@@ -38,6 +38,23 @@ func notebookToPython(data []byte) []byte {
 		}
 	}
 	return []byte(b.String())
+}
+
+// cellSource reads nbformat's multiline_string: the list of lines, or
+// the single string they join to. Both spellings are legal and both are
+// written, and typing the field as the list alone failed the unmarshal
+// for the whole document, so one markdown cell written the other way
+// discarded every code cell with it.
+func cellSource(raw json.RawMessage) []string {
+	var lines []string
+	if json.Unmarshal(raw, &lines) == nil {
+		return lines
+	}
+	var one string
+	if json.Unmarshal(raw, &one) == nil {
+		return []string{one}
+	}
+	return nil
 }
 
 // file is one walked source. data is a string, not the []byte it was
@@ -65,6 +82,8 @@ var skipDirs = map[string]bool{
 	".git":           true,
 	"node_modules":   true,
 	"vendor":         true,
+	"third_party":    true,
+	"Pods":           true,
 	"dist":           true,
 	"build":          true,
 	".next":          true,
@@ -99,12 +118,34 @@ var skipFiles = map[string]bool{
 
 const maxFileSize = 512 * 1024
 
+// What the scanner keeps of a notebook is the flattened code, and the
+// code is the small part of the file: one saved plot output is a base64
+// image past maxFileSize on its own, so holding the raw .ipynb to that
+// cap hid every notebook that had ever been run. The flattened source
+// is still capped at maxFileSize below; this bounds only the read.
+const maxNotebookSize = 8 * 1024 * 1024
+
 // walk lists every scannable file under root. Incremental scans load
 // the full set too; the analyzer, not the walker, decides which files
 // produce sites, so full and incremental runs resolve alike.
 func walk(root string) ([]file, error) {
+	// WalkDir lstats its root, so a symlinked root arrives at the
+	// callback as a symlink, is dropped like any other, and the scan
+	// reports a repository it never opened. The rule below is about
+	// links inside the tree, which have real paths of their own to be
+	// reached by; the root is the caller's argument and has none.
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		return nil, err
+	}
+	walkRoot := root
+	if rootInfo.IsDir() {
+		if resolved, err := filepath.EvalSymlinks(root); err == nil {
+			walkRoot = resolved
+		}
+	}
 	var files []file
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(walkRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if d == nil {
 				return err // the root itself is missing or unreadable
@@ -113,7 +154,7 @@ func walk(root string) ([]file, error) {
 			return nil
 		}
 		if d.IsDir() {
-			if path != root && skipDirs[d.Name()] {
+			if path != walkRoot && skipDirs[d.Name()] {
 				return filepath.SkipDir
 			}
 			return nil
@@ -129,13 +170,18 @@ func walk(root string) ([]file, error) {
 		if !d.Type().IsRegular() {
 			return nil
 		}
-		rel, err := filepath.Rel(root, path)
+		rel, err := filepath.Rel(walkRoot, path)
 		if err != nil {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
+		notebook := strings.HasSuffix(d.Name(), ".ipynb")
+		limit := int64(maxFileSize)
+		if notebook {
+			limit = maxNotebookSize
+		}
 		info, err := d.Info()
-		if err != nil || info.Size() > maxFileSize {
+		if err != nil || info.Size() > limit {
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -145,11 +191,21 @@ func walk(root string) ([]file, error) {
 		if bytes.IndexByte(data, 0) >= 0 {
 			return nil // binary
 		}
-		if strings.HasSuffix(d.Name(), ".ipynb") {
+		if notebook {
 			data = notebookToPython(data)
+			if len(data) > maxFileSize {
+				return nil
+			}
 		}
 		files = append(files, file{path: rel, data: string(normalizeNewlines(data))})
 		return nil
 	})
-	return files, err
+	if err != nil {
+		return nil, err
+	}
+	// Reading nothing is not the same as finding nothing, but it is not
+	// an error either: an incremental run whose candidates were all
+	// deleted legitimately scans zero files. The caller says so out
+	// loud rather than reporting a clean bill of health in silence.
+	return files, nil
 }

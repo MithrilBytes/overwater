@@ -273,3 +273,18 @@ func TestUsageListsEveryCommand(t *testing.T) {
 		}
 	}
 }
+
+// A root the scanner never opened must not read as a root with nothing
+// wrong. The walk no longer treats it as operational, because a deleted
+// incremental candidate legitimately scans nothing, so the guarantee is
+// that the run says so.
+func TestScanOverZeroFilesSaysSo(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"scan", t.TempDir()}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit = %d, stderr = %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "no files to scan") {
+		t.Errorf("stderr = %q, want it to say no files were scanned", stderr.String())
+	}
+}

@@ -56,3 +56,18 @@ func TestEnclosingFuncName(t *testing.T) {
 		t.Errorf("enclosing function = %q, want summarizeAll", name)
 	}
 }
+
+// The leftward walk stops at extentMaxBytes. An opener that far back
+// could never produce an extent anyway, since matchClose gives up at
+// the same distance, and walking on to byte zero costs a full prefix
+// scan per ascent level per reference.
+func TestEnclosingOpenStopsAtTheBound(t *testing.T) {
+	near := "(" + strings.Repeat(" ", extentMaxBytes-10) + "x"
+	if _, ok := enclosingOpen(near, len(near)); !ok {
+		t.Error("an opener inside the bound was not found")
+	}
+	far := "(" + strings.Repeat(" ", extentMaxBytes+10) + "x"
+	if _, ok := enclosingOpen(far, len(far)); ok {
+		t.Error("an opener past the bound was walked back to; the scan is quadratic in references per file again")
+	}
+}

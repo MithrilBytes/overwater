@@ -114,7 +114,7 @@ func FuzzAnalyzeFile(f *testing.F) {
 		}
 		fl := file{path: p, data: content}
 		a := newAnalyzer([]file{fl})
-		sites, _ := a.analyzeFile(fl, names)
+		sites, _, _ := a.analyzeFile(fl, names)
 		for _, s := range sites {
 			if s.Line < 1 || s.Col < 0 {
 				t.Fatalf("site out of bounds: %+v", s)

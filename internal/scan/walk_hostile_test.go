@@ -97,3 +97,70 @@ func TestWalkMissingRootErrors(t *testing.T) {
 		t.Error("walk of a missing root returned nil error")
 	}
 }
+
+// A symlinked root is the caller's own argument, not a link inside the
+// tree, and it is resolved before the walk. It used to be dropped like
+// any other symlink, so a CI job pointed at a linked workspace scanned
+// nothing and reported a clean repository, and scan link and scan link/
+// gave opposite verdicts on the same bytes.
+func TestWalkResolvesSymlinkedRoot(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real")
+	if err := os.MkdirAll(filepath.Join(target, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(target, "src", "app.py"), []byte("model = \"gpt-4o\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "rootlink")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := walk(link)
+	if err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	// Reported in the caller's spelling: paths stay relative to the root
+	// as given, never to the path it resolved to.
+	if len(files) != 1 || files[0].path != "src/app.py" {
+		var got []string
+		for _, f := range files {
+			got = append(got, f.path)
+		}
+		t.Errorf("walked %v, want src/app.py", got)
+	}
+
+	r, err := Analyze(link, mustCatalog(t))
+	if err != nil {
+		t.Fatalf("analyze: %v", err)
+	}
+	if len(r.Sites) != 1 || r.Sites[0].File != "src/app.py" {
+		t.Errorf("sites = %+v, want the one call in src/app.py", r.Sites)
+	}
+	if r.Root != link {
+		t.Errorf("report root = %q, want the root as the caller spelled it (%q)", r.Root, link)
+	}
+}
+
+// A walk that admits nothing is not an error: an incremental run whose
+// candidates were all deleted scans zero files and is right to. What it
+// must not do is arrive at the verdict indistinguishable from a scan
+// that read the repository and found it clean, so the count is carried
+// out and the caller announces it.
+func TestWalkOverZeroFilesIsCountedNotFailed(t *testing.T) {
+	files, err := walk(t.TempDir())
+	if err != nil {
+		t.Fatalf("walk over an empty tree: %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("walked %d files in an empty tree", len(files))
+	}
+	r, err := Analyze(t.TempDir(), mustCatalog(t))
+	if err != nil {
+		t.Fatalf("analyze: %v", err)
+	}
+	if r.Scanned != 0 {
+		t.Errorf("report scanned = %d, want 0", r.Scanned)
+	}
+}

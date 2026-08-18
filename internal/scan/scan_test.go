@@ -1,7 +1,9 @@
 package scan
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/MithrilBytes/overwater/catalog"
@@ -162,5 +164,25 @@ func TestAnalyzeCleanApp(t *testing.T) {
 		if site.Shape.MaxTokens == nil {
 			t.Errorf("%s:%d should have max_tokens set", site.File, site.Line)
 		}
+	}
+}
+
+// A file can be almost entirely model references, and describing a site
+// is milliseconds of shape, extent and classification work, so one
+// generated file under the size cap used to cost a minute of a runner.
+// The analysis stops at maxSitesPerFile and names the file it stopped
+// in, so the file reads as under analyzed rather than cheap.
+func TestSitesPerFileAreCapped(t *testing.T) {
+	var src strings.Builder
+	for i := 0; i < maxSitesPerFile+40; i++ {
+		fmt.Fprintf(&src, "m%d = call(model=\"gpt-4o\")\n", i)
+	}
+	r := analyzeTemp(t, map[string]string{"registry.py": src.String()})
+	if len(r.Sites) != maxSitesPerFile {
+		t.Errorf("got %d sites from %d references, want the cap of %d",
+			len(r.Sites), maxSitesPerFile+40, maxSitesPerFile)
+	}
+	if len(r.Truncated) != 1 || r.Truncated[0] != "registry.py" {
+		t.Errorf("truncated = %v, want registry.py named", r.Truncated)
 	}
 }

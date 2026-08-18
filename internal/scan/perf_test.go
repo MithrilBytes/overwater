@@ -36,7 +36,7 @@ func TestFileFactsRunOncePerFile(t *testing.T) {
 	names := mustCatalog(t).Names()
 	sites := 0
 	for _, f := range files {
-		found, _ := a.analyzeFile(f, names)
+		found, _, _ := a.analyzeFile(f, names)
 		sites += len(found)
 	}
 	if sites < 60 {

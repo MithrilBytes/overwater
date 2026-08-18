@@ -18,6 +18,14 @@ const (
 	lookbackMaxBytes = 2000
 )
 
+// maxSitesPerFile caps how many references in one file are described in
+// full. Describing a site is milliseconds of shape, extent and
+// classification work, and a file admitted by maxFileSize can be almost
+// entirely references, so without a ceiling one generated or hostile
+// file costs a minute of a runner. First party call site density is
+// nowhere near this: a file past it is a model registry, not a caller.
+const maxSitesPerFile = 400
+
 // Case insensitive so Go's Model: and C#'s Model = count too.
 var reModelKey = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9_"])(?:"model"|model)\s*[:=]`)
 
@@ -41,10 +49,15 @@ func callExtent(all, prose string, hit int) (int, int, bool) {
 }
 
 // enclosingOpen walks left from a position to the nearest bracket that
-// is still open there.
+// is still open there, reaching back no further than extentMaxBytes. An
+// opener beyond that cannot yield an extent anyway, since matchClose
+// gives up at the same distance and so never reaches the hit; what the
+// bound removes is the walk to byte zero, run once per ascent level per
+// reference, which is the quadratic the constants above exist to stop.
 func enclosingOpen(s string, from int) (int, bool) {
 	depth := 0
-	for i := from - 1; i >= 0; i-- {
+	limit := max(0, from-extentMaxBytes)
+	for i := from - 1; i >= limit; i-- {
 		switch s[i] {
 		case ')', ']', '}':
 			depth++
