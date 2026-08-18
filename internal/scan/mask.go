@@ -50,6 +50,7 @@ type langFamily struct {
 	blockComment bool
 	backtick     bool
 	rawBacktick  bool // backtick strings take backslash literally (Go)
+	rustRaw      bool // r#"..."# strings, where the hash is a delimiter (Rust)
 	triples      bool
 	quotes       bool
 }
@@ -62,12 +63,19 @@ func familyFor(p string) langFamily {
 		// Shell strings are often the payload (curl -d '{...}'), so
 		// string interiors stay visible to the shape layer.
 		return langFamily{hashComment: true}
-	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
+	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".astro":
+		// Single file components are a script block in a template, and
+		// the script is the part that calls a model.
 		return langFamily{slashComment: true, blockComment: true, backtick: true, quotes: true}
 	case ".go":
 		return langFamily{slashComment: true, blockComment: true, backtick: true, rawBacktick: true, quotes: true}
-	case ".java", ".kt", ".c", ".h", ".cpp", ".cc", ".cs", ".php", ".scala", ".swift":
+	case ".rs":
+		return langFamily{slashComment: true, blockComment: true, rustRaw: true, quotes: true}
+	case ".java", ".kt", ".kts", ".c", ".h", ".cpp", ".cc", ".cs", ".php", ".scala", ".swift", ".gradle", ".groovy":
 		return langFamily{slashComment: true, blockComment: true, quotes: true}
+	case ".tf", ".tfvars", ".hcl":
+		// HCL takes both comment spellings, so neither family alone.
+		return langFamily{hashComment: true, slashComment: true, blockComment: true, quotes: true}
 	case ".md", ".markdown":
 		return langFamily{}
 	case ".json":
@@ -170,6 +178,15 @@ func scanSpans(s string, fam langFamily) []span {
 			end, closed := findClose(s, i+1, "`", fam.rawBacktick)
 			spans = append(spans, stringSpan(i, end, 1, closed))
 			i = end
+		case fam.rustRaw && (c == 'r' || c == 'b'):
+			open, close := rustRawDelims(s, i)
+			if open == 0 {
+				i++
+				break
+			}
+			end, closed := findClose(s, i+open, close, true)
+			spans = append(spans, rawStringSpan(i, end, open, len(close), closed))
+			i = end
 		case fam.quotes && (c == '"' || c == '\''):
 			end, closed := quoteEnd(s, i)
 			spans = append(spans, stringSpan(i, end, 1, closed))
@@ -211,15 +228,45 @@ func lineEnd(s string, i int) int {
 // Interiors are clamped so start <= interiorStart <= interiorEnd <= end
 // always holds, even for strings truncated at end of input.
 func stringSpan(start, end, delim int, closed bool) span {
-	is := min(start+delim, end)
+	return rawStringSpan(start, end, delim, delim, closed)
+}
+
+// rawStringSpan is stringSpan for a literal whose opening delimiter
+// carries a prefix the closing one does not, which of these languages
+// only Rust's r#"..."# does.
+func rawStringSpan(start, end, open, close int, closed bool) span {
+	is := min(start+open, end)
 	ie := end
 	if closed {
-		ie = end - delim
+		ie = end - close
 	}
 	if ie < is {
 		ie = is
 	}
 	return span{spanString, start, end, is, ie}
+}
+
+// rustRawDelims reports the opening and closing delimiters of a Rust
+// raw string at i, r"...", r#"..."# and their br byte string forms, or
+// a zero length opener when there is none. The hash count is chosen
+// per literal and belongs to both ends, so the caller needs the closing
+// marker itself rather than a length.
+func rustRawDelims(s string, i int) (open int, close string) {
+	j := i
+	if s[j] == 'b' {
+		j++
+	}
+	if j >= len(s) || s[j] != 'r' {
+		return 0, ""
+	}
+	hashes := 0
+	for j++; j < len(s) && s[j] == '#'; j++ {
+		hashes++
+	}
+	if j >= len(s) || s[j] != '"' {
+		return 0, ""
+	}
+	return j + 1 - i, `"` + strings.Repeat("#", hashes)
 }
 
 // findClose scans for the closing marker and reports whether it was
