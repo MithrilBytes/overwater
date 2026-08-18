@@ -42,10 +42,13 @@ func builderStyle(p string) bool {
 	return false
 }
 
-// normKey folds case and underscores so max_tokens, maxTokens, and
-// MaxTokens all land on one name.
+var keySeparators = strings.NewReplacer("_", "", "-", "")
+
+// normKey folds case and word separators so max_tokens, maxTokens,
+// MaxTokens and the kebab case max-tokens Spring AI writes all land on
+// one name.
 func normKey(k string) string {
-	return strings.ReplaceAll(strings.ToLower(k), "_", "")
+	return keySeparators.Replace(strings.ToLower(k))
 }
 
 // prop resolves a property by any of the given names, first name in the
@@ -126,21 +129,21 @@ func propNumber(info *callInfo, names ...string) (float64, bool) {
 }
 
 // applyCallInfo overrides the regex read shape for the fields the
-// property list decides outright. Schema and embedding evidence only
-// widen, since both can also come from resolved references the
+// property list decides outright. Every field is set only, as effort,
+// retries, dimensions and image detail already were: a wrapper the
+// reader does not know, Bedrock's inferenceConfig above all, is not
+// evidence that the parameter is absent, and clearing it threw away a
+// cap the regex layer had already read. Schema and embedding evidence
+// only widen, since both can also come from resolved references the
 // properties cannot see.
 func applyCallInfo(s *Shape, info *callInfo) {
 	if v, ok := propNumber(info, "temperature"); ok {
 		s.Temperature = &v
-	} else {
-		s.Temperature = nil
 	}
 	if v, ok := propNumber(info,
 		"max_tokens", "max_output_tokens", "max_completion_tokens", "maxTokens"); ok {
 		iv := int(v)
 		s.MaxTokens = &iv
-	} else {
-		s.MaxTokens = nil
 	}
 	_, s.Tools = prop(info, "tools")
 	choice, _ := prop(info, "tool_choice")

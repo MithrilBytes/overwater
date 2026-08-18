@@ -29,6 +29,18 @@ func nameChar(b byte) bool {
 		(b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }
 
+// fallbackNameChar is the same boundary test without the dot, for the
+// unknown model path. Bedrock joins region, vendor and id with dots
+// (us.anthropic.claude-opus-4-5-20251101-v1:0), so a dot to the left
+// ends a prefix rather than continuing a name, and counting it as a
+// name character hid every Bedrock id the catalog has no hand written
+// alias for: a cross region profile, a -v2:0 revision, anything newer
+// than the catalog. The catalog path cannot drop it, since those
+// aliases carry dots themselves and have to match as whole keys.
+func fallbackNameChar(b byte) bool {
+	return b != '.' && nameChar(b)
+}
+
 // Model looking strings that are not in the catalog get reported at low
 // confidence instead of being ignored.
 //
@@ -149,10 +161,10 @@ func findModelRefs(relPath, data string, names map[string]*catalog.Model) []Site
 			// in the middle of a hyphenated identifier and the pattern
 			// finds a model inside sk-proj-command-secret or
 			// my-claude-code-plugin. The catalog path above already
-			// guards its left edge with nameChar; this one has to as
-			// well, or every hyphenated name that happens to contain a
-			// family prefix becomes a call site.
-			if loc[0] > 0 && nameChar(line[loc[0]-1]) {
+			// guards its left edge; this one has to as well, or every
+			// hyphenated name that happens to contain a family prefix
+			// becomes a call site.
+			if loc[0] > 0 && fallbackNameChar(line[loc[0]-1]) {
 				continue
 			}
 			ref := strings.TrimRight(line[loc[0]:loc[1]], ".-")

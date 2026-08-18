@@ -148,10 +148,12 @@ func TestImageDetailHighNested(t *testing.T) {
 }
 
 // .overwater.yaml is skipped like .overwater.json: our own config names
-// model ids without being a call site.
+// model ids without being a call site. The sibling keeps the walk from
+// admitting nothing at all, which is operational rather than clean.
 func TestWalkSkipsOverwaterConfig(t *testing.T) {
 	r := analyzeTemp(t, map[string]string{
 		".overwater.yaml": "disable: [deprecated-model]\n# migrating off gpt-5.1\n",
+		"app.py":          "def main():\n    print(\"hello\")\n",
 	})
 	if len(r.Sites) != 0 {
 		t.Errorf("got %d sites from .overwater.yaml, want 0: %+v", len(r.Sites), r.Sites)
