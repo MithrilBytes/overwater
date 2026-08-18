@@ -8,3 +8,4 @@ context_window: 128000
 tier: mid
 released: "2024-08-30"
 source: https://cohere.com/pricing
+capabilities: [tools, structured_output]

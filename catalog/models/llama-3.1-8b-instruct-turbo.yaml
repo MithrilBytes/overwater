@@ -8,3 +8,4 @@ context_window: 131072
 tier: small
 released: "2024-07-23"
 source: https://www.together.ai/pricing
+capabilities: [tools, structured_output]

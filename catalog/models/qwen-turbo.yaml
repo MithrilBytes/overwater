@@ -6,3 +6,4 @@ context_window: 131072
 tier: small
 released: "2025-01-25"
 source: https://www.alibabacloud.com/help/en/model-studio/models
+capabilities: [tools, structured_output]

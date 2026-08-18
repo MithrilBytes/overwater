@@ -6,3 +6,4 @@ context_window: 131072
 tier: mid
 released: "2025-07-28"
 source: https://docs.z.ai/guides/overview/pricing
+capabilities: [tools, structured_output]

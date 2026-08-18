@@ -11,4 +11,4 @@ source: https://platform.openai.com/docs/pricing
 batch_multiplier: 0.5
 cache_read_per_mtok: 0.125
 cache_write_per_mtok: 1.25
-capabilities: [vision, tools, caching, structured_output]
+capabilities: [vision, tools, caching, structured_output, reasoning]

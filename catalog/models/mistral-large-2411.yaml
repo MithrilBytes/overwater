@@ -7,5 +7,7 @@ output_per_mtok: 6.00
 context_window: 131072
 tier: frontier
 released: "2024-11-18"
+deprecated: "2026-05-31"
 source: https://mistral.ai/pricing
 batch_multiplier: 0.5
+capabilities: [tools, structured_output]

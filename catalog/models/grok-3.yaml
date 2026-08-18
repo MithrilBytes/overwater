@@ -5,4 +5,6 @@ output_per_mtok: 15.00
 context_window: 131072
 tier: frontier
 released: "2025-02-19"
+deprecated: "2026-05-15"
 source: https://docs.x.ai/docs/models
+capabilities: [tools, structured_output]

@@ -7,4 +7,6 @@ output_per_mtok: 2.50
 context_window: 131072
 tier: frontier
 released: "2025-07-11"
+deprecated: "2026-05-25"
 source: https://platform.moonshot.ai/docs/pricing/chat
+capabilities: [tools, structured_output]

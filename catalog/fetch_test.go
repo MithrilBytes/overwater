@@ -149,6 +149,41 @@ func TestStaleBoundaries(t *testing.T) {
 	}
 }
 
+// Prices refresh on a schedule the model list does not share, so the
+// two dates age separately and each warns on its own.
+func TestStaleRosterAgesApartFromPrices(t *testing.T) {
+	fresh := "2026-01-01"
+	dated, err := time.Parse("2006-01-02", fresh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := dated.Add(StaleAfter)
+
+	t.Run("roster only", func(t *testing.T) {
+		c := &Catalog{Version: fresh, RosterVerified: "2025-01-01", Models: []Model{validModel()}}
+		warn := Stale(c, now)
+		if !strings.Contains(warn, "2025-01-01") || !strings.Contains(warn, "refresh") {
+			t.Errorf("Stale() = %q, want the roster date and refresh hint", warn)
+		}
+		if strings.Contains(warn, "prices are from") {
+			t.Errorf("Stale() = %q, want current prices left out of it", warn)
+		}
+	})
+	t.Run("both", func(t *testing.T) {
+		c := &Catalog{Version: "2025-06-01", RosterVerified: "2025-01-01", Models: []Model{validModel()}}
+		warn := Stale(c, now)
+		if !strings.Contains(warn, "2025-06-01") || !strings.Contains(warn, "2025-01-01") {
+			t.Errorf("Stale() = %q, want both dates named", warn)
+		}
+	})
+	t.Run("no roster date", func(t *testing.T) {
+		c := &Catalog{Version: fresh, Models: []Model{validModel()}}
+		if warn := Stale(c, now); warn != "" {
+			t.Errorf("Stale() = %q, want silence when the catalog dates no roster", warn)
+		}
+	})
+}
+
 func TestCachePathEnvOverride(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("OVERWATER_CACHE_DIR", dir)

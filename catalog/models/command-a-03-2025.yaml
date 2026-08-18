@@ -8,3 +8,4 @@ context_window: 256000
 tier: frontier
 released: "2025-03-13"
 source: https://cohere.com/pricing
+capabilities: [tools, structured_output]

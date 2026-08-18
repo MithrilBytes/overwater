@@ -8,3 +8,4 @@ context_window: 256000
 tier: frontier
 released: "2025-07-09"
 source: https://docs.x.ai/docs/models
+capabilities: [vision, tools, structured_output]

@@ -8,3 +8,4 @@ context_window: 2000000
 tier: mid
 released: "2025-09-19"
 source: https://docs.x.ai/docs/models
+capabilities: [vision, tools, structured_output]

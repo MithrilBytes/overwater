@@ -47,9 +47,12 @@ type Model struct {
 }
 
 // Capabilities a model entry may declare. Rule files validate their
-// model_capability predicates against this same list.
+// model_capability predicates against this same list. reasoning is the
+// odd one out: it does not say what the call may ask for, it says the
+// model bills a hidden chain on the output leg, so an entry carrying it
+// cannot be priced off the visible answer alone.
 var Capabilities = []string{
-	"vision", "tools", "caching", "structured_output", "audio", "dimensions",
+	"vision", "tools", "caching", "structured_output", "audio", "dimensions", "reasoning",
 }
 
 // HasCapability reports whether the entry declares a capability.
@@ -58,10 +61,14 @@ func (m Model) HasCapability(c string) bool {
 }
 
 // Catalog is the emitted artifact. Version is the date the prices were
-// last verified, not a release number.
+// last verified, not a release number. RosterVerified dates the model
+// list itself: prices refresh nightly and the roster does not, so one
+// date for both lets a catalog missing a year of releases still report
+// itself fresh. Empty when the catalog records no roster date.
 type Catalog struct {
-	Version string  `json:"version"`
-	Models  []Model `json:"models"`
+	Version        string  `json:"version"`
+	RosterVerified string  `json:"roster_verified,omitempty"`
+	Models         []Model `json:"models"`
 }
 
 const dateLayout = "2006-01-02"
@@ -111,12 +118,18 @@ func (m Model) validate() error {
 }
 
 // Validate checks every entry and the catalog level invariants: a dated
-// version, at least one model, and globally unique names across ids and
-// aliases. An empty model list is an empty detection dictionary; a
-// cache carrying one would blind every scan.
+// version, a roster date that parses when one is carried, at least one
+// model, and globally unique names across ids and aliases. An empty
+// model list is an empty detection dictionary; a cache carrying one
+// would blind every scan.
 func (c *Catalog) Validate() error {
 	if _, err := time.Parse(dateLayout, c.Version); err != nil {
 		return fmt.Errorf("catalog version %q is not a YYYY-MM-DD date", c.Version)
+	}
+	if c.RosterVerified != "" {
+		if _, err := time.Parse(dateLayout, c.RosterVerified); err != nil {
+			return fmt.Errorf("catalog roster_verified %q is not a YYYY-MM-DD date", c.RosterVerified)
+		}
 	}
 	if len(c.Models) == 0 {
 		return fmt.Errorf("catalog %s has no models", c.Version)
@@ -137,12 +150,19 @@ func (c *Catalog) Validate() error {
 }
 
 // LoadDir reads a catalog source directory: models/*.yaml entries plus a
-// VERSION file holding the price date. Entries are validated and sorted
-// by id so the emitted JSON is deterministic.
+// VERSION file holding the price date and an optional ROSTER file holding
+// the date the model list was last reconciled with the providers. Entries
+// are validated and sorted by id so the emitted JSON is deterministic.
 func LoadDir(dir string) (*Catalog, error) {
 	rawVersion, err := os.ReadFile(filepath.Join(dir, "VERSION"))
 	if err != nil {
 		return nil, fmt.Errorf("read catalog version: %w", err)
+	}
+	// ROSTER is optional: a catalog dir predating it still prices, it
+	// just cannot say how old its model list is.
+	rawRoster, err := os.ReadFile(filepath.Join(dir, "ROSTER"))
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("read catalog roster date: %w", err)
 	}
 	paths, err := filepath.Glob(filepath.Join(dir, "models", "*.yaml"))
 	if err != nil {
@@ -169,7 +189,11 @@ func LoadDir(dir string) (*Catalog, error) {
 		models = append(models, m)
 	}
 	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
-	c := &Catalog{Version: strings.TrimSpace(string(rawVersion)), Models: models}
+	c := &Catalog{
+		Version:        strings.TrimSpace(string(rawVersion)),
+		RosterVerified: strings.TrimSpace(string(rawRoster)),
+		Models:         models,
+	}
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}

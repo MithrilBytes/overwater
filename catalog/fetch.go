@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -112,15 +113,31 @@ func Effective() (*Catalog, string, error) {
 	return emb, "", nil
 }
 
-// Stale returns a warning when the catalog's price date has aged past
-// StaleAfter, empty otherwise. Never an error: stale prices still scan.
+// Stale returns a warning when the catalog's price date, or the roster
+// date when it carries one, has aged past StaleAfter; empty otherwise.
+// The two age apart, so both are checked: a nightly price refresh keeps
+// the version current while the model list behind it goes a year
+// without a new entry. Never an error: a stale catalog still scans.
 func Stale(c *Catalog, now time.Time) string {
-	v, err := time.Parse(dateLayout, c.Version)
-	if err != nil {
+	var aged []string
+	if agedPast(c.Version, now) {
+		aged = append(aged, fmt.Sprintf("prices are from %s", c.Version))
+	}
+	if agedPast(c.RosterVerified, now) {
+		aged = append(aged, fmt.Sprintf("the model list was last checked against the providers %s", c.RosterVerified))
+	}
+	if len(aged) == 0 {
 		return ""
 	}
-	if now.Sub(v) > StaleAfter {
-		return fmt.Sprintf("prices are from %s; refresh with: overwater catalog refresh", c.Version)
+	return strings.Join(aged, "; ") + "; refresh with: overwater catalog refresh"
+}
+
+// agedPast reports whether a catalog date is older than StaleAfter. An
+// absent or unparseable date says nothing rather than warning.
+func agedPast(date string, now time.Time) bool {
+	d, err := time.Parse(dateLayout, date)
+	if err != nil {
+		return false
 	}
-	return ""
+	return now.Sub(d) > StaleAfter
 }

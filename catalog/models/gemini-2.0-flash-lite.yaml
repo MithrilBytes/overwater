@@ -7,5 +7,7 @@ output_per_mtok: 0.30
 context_window: 1048576
 tier: small
 released: "2025-02-25"
+deprecated: "2026-06-01"
 source: https://ai.google.dev/gemini-api/docs/pricing
 batch_multiplier: 0.5
+capabilities: [vision, tools, structured_output]

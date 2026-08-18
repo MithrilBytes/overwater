@@ -9,3 +9,4 @@ tier: mid
 released: "2025-05-07"
 source: https://mistral.ai/pricing
 batch_multiplier: 0.5
+capabilities: [vision, tools, structured_output]
