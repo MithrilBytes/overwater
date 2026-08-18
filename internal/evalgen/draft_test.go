@@ -73,6 +73,47 @@ func TestDraftPromptsCapsAtTen(t *testing.T) {
 	}
 }
 
+// A drafted row carries the shape the call site was read at, so the
+// script replays that call instead of a bare 512 token chat.
+func TestDraftShape(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		line    int
+		want    string
+	}{
+		{"nothing to read at the call", "call(model, PROMPT)\n", 1, `{}`},
+		{
+			"the site's own output cap",
+			"resp = create(max_tokens=1024)\n", 1, `{"max_tokens":1024}`,
+		},
+		{
+			"an underscored cap",
+			"resp = create(max_output_tokens=2_048)\n", 1, `{"max_tokens":2048}`,
+		},
+		{
+			"temperature rides in params",
+			"resp = create(temperature=0.2)\n", 1,
+			`{"params":{"temperature":0.2}}`,
+		},
+		{
+			"a cap eight lines off is another call's",
+			strings.Repeat("\n", 8) + "resp = create(max_tokens=1024)\n", 1, `{}`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := json.Marshal(draftShape(tc.content, tc.line))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.want {
+				t.Errorf("draftShape = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
 // One jsonl per script name; findings without a candidate, unreadable
 // files, and literal free files are all skipped.
 func TestDraftPromptSets(t *testing.T) {
@@ -82,7 +123,7 @@ func TestDraftPromptSets(t *testing.T) {
 		t.Fatal(err)
 	}
 	prompt := "Summarize the ticket for the support dashboard, tersely."
-	src := `PROMPT = """` + prompt + `"""` + "\ncall(model, PROMPT)\n"
+	src := `PROMPT = """` + prompt + `"""` + "\ncall(model, PROMPT, max_tokens=1024)\n"
 	if err := os.WriteFile(filepath.Join(root, "app", "main.py"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -117,10 +158,14 @@ func TestDraftPromptSets(t *testing.T) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		var row struct {
-			Prompt string `json:"prompt"`
+			Prompt    string `json:"prompt"`
+			MaxTokens int    `json:"max_tokens"`
 		}
 		if err := json.Unmarshal(scanner.Bytes(), &row); err != nil {
 			t.Fatalf("bad JSONL line: %v", err)
+		}
+		if row.MaxTokens != 1024 {
+			t.Errorf("row max_tokens = %d, want the call site's 1024", row.MaxTokens)
 		}
 		prompts = append(prompts, row.Prompt)
 	}

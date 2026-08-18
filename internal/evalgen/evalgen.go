@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/MithrilBytes/overwater/catalog"
+	"github.com/MithrilBytes/overwater/internal/scan"
 	"github.com/MithrilBytes/overwater/rules"
 )
 
@@ -99,7 +100,9 @@ func scriptName(f rules.Finding) string {
 // can estimate spend with no fetch; a candidate the catalog does not
 // know prices as zero rather than failing the write. The tripwire is
 // baked in twice: raw for the header comment a human reads, and quoted
-// for the constant the exit gate prints.
+// for the constant the exit gate prints. The archetype comes along as
+// the one shape fact a finding carries, so a vision site's script can
+// refuse a prompt set that would exercise a call the site never makes.
 func fill(tpl string, f rules.Finding, name string, current, candidate *catalog.Model) string {
 	compat := openAICompat[current.Provider]
 	var candIn, candOut float64
@@ -124,6 +127,7 @@ func fill(tpl string, f rules.Finding, name string, current, candidate *catalog.
 		"{{CURRENT_OUT}}", pyNumber(current.OutputPerMtok),
 		"{{CANDIDATE_IN}}", pyNumber(candIn),
 		"{{CANDIDATE_OUT}}", pyNumber(candOut),
+		"{{SITE_SENDS_IMAGE}}", pyBool(f.Archetype == scan.ArchetypeVision),
 	)
 	return r.Replace(tpl)
 }
@@ -132,6 +136,14 @@ func fill(tpl string, f rules.Finding, name string, current, candidate *catalog.
 // number.
 func pyNumber(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+// pyBool renders a shape fact as a Python literal.
+func pyBool(v bool) string {
+	if v {
+		return "True"
+	}
+	return "False"
 }
 
 // pyString quotes text as a Python literal. The tripwire is prose from

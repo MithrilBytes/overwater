@@ -48,7 +48,8 @@ def check_tripwire(measured):
 `
 
 // chatDecls holds the constants every chat script bakes in: the two
-// model ids, their catalog prices, and the judge prompt.
+// model ids, their catalog prices, what the call site's shape demands
+// of the prompt rows, and the judge prompt.
 const chatDecls = `
 CURRENT = "{{CURRENT}}"
 CANDIDATE = "{{CANDIDATE}}"
@@ -58,6 +59,16 @@ CURRENT_IN = {{CURRENT_IN}}
 CURRENT_OUT = {{CURRENT_OUT}}
 CANDIDATE_IN = {{CANDIDATE_IN}}
 CANDIDATE_OUT = {{CANDIDATE_OUT}}
+
+# The output cap a row that does not carry the call site's own falls
+# back to. A row that names max_tokens wins: two models compared under
+# a cap neither one runs with are two models nobody measured.
+DEFAULT_MAX_TOKENS = 512
+
+# The scanned call site sends an image. Rows that carry none would
+# compare the models on a call your code never makes, which is exactly
+# the failure this eval exists to catch, so the run refuses instead.
+SITE_SENDS_IMAGE = {{SITE_SENDS_IMAGE}}
 
 JUDGE_PROMPT = """Two models answered the same prompt. Are the two
 answers equivalent for the task? Start your reply with yes or no.
@@ -73,8 +84,9 @@ Answer B:
 ` + tripwireDecls
 
 // chatMain is the scoring half shared by every chat template. The
-// provider half must define make_client() and ask(client, model,
-// system, prompt); ask returns the reply text, the latency in
+// provider half must define make_client() and ask(client, model, row);
+// row carries the prompt, the optional system prompt, and the call
+// site's shape, and ask returns the reply text, the latency in
 // milliseconds, and the input and output token counts.
 const chatMain = `
 
@@ -122,6 +134,9 @@ def main():
     if len(rows) < 30:
         print("warning: only %d prompts; agreement on a small set is"
               " a smoke test, not evidence" % len(rows))
+    if SITE_SENDS_IMAGE and not any(row.get("image_url") for row in rows):
+        fail("the call site sends an image and no row carries an"
+             " image_url, so this run would not exercise it")
     client = make_client()
     cur_stats = {"ms": [], "in": 0, "out": 0}
     cand_stats = {"ms": [], "in": 0, "out": 0}
@@ -129,11 +144,9 @@ def main():
     exact = 0
     judged = 0
     for i, row in enumerate(rows):
-        a, ms, tokens_in, tokens_out = ask(
-            client, CURRENT, row.get("system", ""), row["prompt"])
+        a, ms, tokens_in, tokens_out = ask(client, CURRENT, row)
         track(cur_stats, ms, tokens_in, tokens_out)
-        b, ms, tokens_in, tokens_out = ask(
-            client, CANDIDATE, row.get("system", ""), row["prompt"])
+        b, ms, tokens_in, tokens_out = ask(client, CANDIDATE, row)
         track(cand_stats, ms, tokens_in, tokens_out)
         if a == b:
             exact += 1
@@ -143,8 +156,11 @@ def main():
         print("  %s: %r" % (CURRENT, a[:160]))
         print("  %s: %r" % (CANDIDATE, b[:160]))
         if judge:
+            # The judge answers in prose, so it gets a bare row: the
+            # site's schema or tool list would gag its yes or no.
             verdict, ms, tokens_in, tokens_out = ask(
-                client, judge, "", JUDGE_PROMPT % (row["prompt"], a, b))
+                client, judge,
+                {"prompt": JUDGE_PROMPT % (row["prompt"], a, b)})
             track(judge_stats, ms, tokens_in, tokens_out)
             if says_yes(verdict):
                 judged += 1
@@ -196,8 +212,12 @@ const anthropicTemplate = `#!/usr/bin/env python3
 #   python3 {{SCRIPT}} prompts.jsonl [judge-model]
 #
 # prompts.jsonl holds one JSON object per line:
-#   {"prompt": "the user message", "system": "optional system prompt"}
-# Use real production prompts; invented ones prove nothing.
+#   {"prompt": "the user message", "system": "optional system prompt",
+#    "image_url": "https://... or a data: URI", "max_tokens": 1024,
+#    "params": {"response_format": ..., "tools": ..., "temperature": 0}}
+# Use real production prompts; invented ones prove nothing. Give the
+# rows the shape your call site has: params reach the SDK verbatim, and
+# a row that drops them measures a call your code never makes.
 #
 # The optional judge-model is asked, on each disagreement, whether the
 # two answers are equivalent for the task; judged agreement then prints
@@ -215,14 +235,29 @@ def make_client():
     return anthropic.Anthropic()
 
 
-def ask(client, model, system, prompt):
+def image_block(url):
+    """A data URI carries its own media type and bytes; a link carries
+    the address the API fetches."""
+    if url.startswith("data:"):
+        head, _, data = url[5:].partition(",")
+        return {"type": "image", "source": {"type": "base64",
+                                            "media_type": head.split(";")[0],
+                                            "data": data}}
+    return {"type": "image", "source": {"type": "url", "url": url}}
+
+
+def ask(client, model, row):
+    content = [{"type": "text", "text": row["prompt"]}]
+    if row.get("image_url"):
+        content.insert(0, image_block(row["image_url"]))
     kwargs = {
         "model": model,
-        "max_tokens": 512,
-        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": row.get("max_tokens", DEFAULT_MAX_TOKENS),
+        "messages": [{"role": "user", "content": content}],
     }
-    if system:
-        kwargs["system"] = system
+    if row.get("system"):
+        kwargs["system"] = row["system"]
+    kwargs.update(row.get("params", {}))
     start = time.monotonic()
     message = client.messages.create(**kwargs)
     ms = (time.monotonic() - start) * 1000.0
@@ -253,8 +288,12 @@ const openaiTemplate = `#!/usr/bin/env python3
 #   python3 {{SCRIPT}} prompts.jsonl [judge-model]
 #
 # prompts.jsonl holds one JSON object per line:
-#   {"prompt": "the user message", "system": "optional system prompt"}
-# Use real production prompts; invented ones prove nothing.
+#   {"prompt": "the user message", "system": "optional system prompt",
+#    "image_url": "https://... or a data: URI", "max_tokens": 1024,
+#    "params": {"response_format": ..., "tools": ..., "temperature": 0}}
+# Use real production prompts; invented ones prove nothing. Give the
+# rows the shape your call site has: params reach the SDK verbatim, and
+# a row that drops them measures a call your code never makes.
 #
 # The optional judge-model is asked, on each disagreement, whether the
 # two answers are equivalent for the task; judged agreement then prints
@@ -272,17 +311,23 @@ def make_client():
     return OpenAI()
 
 
-def ask(client, model, system, prompt):
+def ask(client, model, row):
     messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+    if row.get("system"):
+        messages.append({"role": "system", "content": row["system"]})
+    content = [{"type": "text", "text": row["prompt"]}]
+    if row.get("image_url"):
+        content.append(
+            {"type": "image_url", "image_url": {"url": row["image_url"]}})
+    messages.append({"role": "user", "content": content})
+    kwargs = {
+        "model": model,
+        "max_completion_tokens": row.get("max_tokens", DEFAULT_MAX_TOKENS),
+        "messages": messages,
+    }
+    kwargs.update(row.get("params", {}))
     start = time.monotonic()
-    resp = client.chat.completions.create(
-        model=model,
-        max_completion_tokens=512,
-        messages=messages,
-    )
+    resp = client.chat.completions.create(**kwargs)
     ms = (time.monotonic() - start) * 1000.0
     usage = getattr(resp, "usage", None)
     tokens_in = getattr(usage, "prompt_tokens", 0) or 0
@@ -310,8 +355,12 @@ const compatTemplate = `#!/usr/bin/env python3
 #   python3 {{SCRIPT}} prompts.jsonl [judge-model]
 #
 # prompts.jsonl holds one JSON object per line:
-#   {"prompt": "the user message", "system": "optional system prompt"}
-# Use real production prompts; invented ones prove nothing.
+#   {"prompt": "the user message", "system": "optional system prompt",
+#    "image_url": "https://... or a data: URI", "max_tokens": 1024,
+#    "params": {"response_format": ..., "tools": ..., "temperature": 0}}
+# Use real production prompts; invented ones prove nothing. Give the
+# rows the shape your call site has: params reach the SDK verbatim, and
+# a row that drops them measures a call your code never makes.
 #
 # The optional judge-model is asked, on each disagreement, whether the
 # two answers are equivalent for the task; judged agreement then prints
@@ -333,17 +382,23 @@ def make_client():
     return OpenAI(base_url="{{BASE_URL}}", api_key=key)
 
 
-def ask(client, model, system, prompt):
+def ask(client, model, row):
     messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+    if row.get("system"):
+        messages.append({"role": "system", "content": row["system"]})
+    content = [{"type": "text", "text": row["prompt"]}]
+    if row.get("image_url"):
+        content.append(
+            {"type": "image_url", "image_url": {"url": row["image_url"]}})
+    messages.append({"role": "user", "content": content})
+    kwargs = {
+        "model": model,
+        "max_tokens": row.get("max_tokens", DEFAULT_MAX_TOKENS),
+        "messages": messages,
+    }
+    kwargs.update(row.get("params", {}))
     start = time.monotonic()
-    resp = client.chat.completions.create(
-        model=model,
-        max_tokens=512,
-        messages=messages,
-    )
+    resp = client.chat.completions.create(**kwargs)
     ms = (time.monotonic() - start) * 1000.0
     usage = getattr(resp, "usage", None)
     tokens_in = getattr(usage, "prompt_tokens", 0) or 0
@@ -368,14 +423,19 @@ const googleTemplate = `#!/usr/bin/env python3
 #   python3 {{SCRIPT}} prompts.jsonl [judge-model]
 #
 # prompts.jsonl holds one JSON object per line:
-#   {"prompt": "the user message", "system": "optional system prompt"}
-# Use real production prompts; invented ones prove nothing.
+#   {"prompt": "the user message", "system": "optional system prompt",
+#    "image_url": "https://... or a data: URI", "max_tokens": 1024,
+#    "params": {"response_format": ..., "tools": ..., "temperature": 0}}
+# Use real production prompts; invented ones prove nothing. Give the
+# rows the shape your call site has: params reach the SDK verbatim, and
+# a row that drops them measures a call your code never makes.
 #
 # The optional judge-model is asked, on each disagreement, whether the
 # two answers are equivalent for the task; judged agreement then prints
 # next to exact agreement.
 
 import json
+import mimetypes
 import sys
 import time
 import traceback
@@ -387,13 +447,28 @@ def make_client():
     return genai.Client()
 
 
-def ask(client, model, system, prompt):
-    config = {"max_output_tokens": 512}
-    if system:
-        config["system_instruction"] = system
+def image_part(url):
+    """A data URI carries its own media type and bytes; a link is
+    fetched by URI, and the API names the type either way."""
+    if url.startswith("data:"):
+        head, _, data = url[5:].partition(",")
+        return {"inline_data": {"mime_type": head.split(";")[0], "data": data}}
+    media = mimetypes.guess_type(url)[0] or "image/jpeg"
+    return {"file_data": {"file_uri": url, "mime_type": media}}
+
+
+def ask(client, model, row):
+    config = {"max_output_tokens": row.get("max_tokens", DEFAULT_MAX_TOKENS)}
+    if row.get("system"):
+        config["system_instruction"] = row["system"]
+    config.update(row.get("params", {}))
+    parts = [{"text": row["prompt"]}]
+    if row.get("image_url"):
+        parts.insert(0, image_part(row["image_url"]))
     start = time.monotonic()
     resp = client.models.generate_content(
-        model=model, contents=prompt, config=config)
+        model=model, contents=[{"role": "user", "parts": parts}],
+        config=config)
     ms = (time.monotonic() - start) * 1000.0
     usage = getattr(resp, "usage_metadata", None)
     tokens_in = getattr(usage, "prompt_token_count", 0) or 0
@@ -417,8 +492,12 @@ const cohereTemplate = `#!/usr/bin/env python3
 #   python3 {{SCRIPT}} prompts.jsonl [judge-model]
 #
 # prompts.jsonl holds one JSON object per line:
-#   {"prompt": "the user message", "system": "optional system prompt"}
-# Use real production prompts; invented ones prove nothing.
+#   {"prompt": "the user message", "system": "optional system prompt",
+#    "image_url": "https://... or a data: URI", "max_tokens": 1024,
+#    "params": {"response_format": ..., "tools": ..., "temperature": 0}}
+# Use real production prompts; invented ones prove nothing. Give the
+# rows the shape your call site has: params reach the SDK verbatim, and
+# a row that drops them measures a call your code never makes.
 #
 # The optional judge-model is asked, on each disagreement, whether the
 # two answers are equivalent for the task; judged agreement then prints
@@ -440,13 +519,23 @@ def make_client():
     return cohere.ClientV2(api_key=key)
 
 
-def ask(client, model, system, prompt):
+def ask(client, model, row):
     messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+    if row.get("system"):
+        messages.append({"role": "system", "content": row["system"]})
+    content = [{"type": "text", "text": row["prompt"]}]
+    if row.get("image_url"):
+        content.append(
+            {"type": "image_url", "image_url": {"url": row["image_url"]}})
+    messages.append({"role": "user", "content": content})
+    kwargs = {
+        "model": model,
+        "max_tokens": row.get("max_tokens", DEFAULT_MAX_TOKENS),
+        "messages": messages,
+    }
+    kwargs.update(row.get("params", {}))
     start = time.monotonic()
-    resp = client.chat(model=model, messages=messages, max_tokens=512)
+    resp = client.chat(**kwargs)
     ms = (time.monotonic() - start) * 1000.0
     parts = []
     for block in resp.message.content or []:

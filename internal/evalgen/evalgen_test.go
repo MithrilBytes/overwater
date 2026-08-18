@@ -157,6 +157,30 @@ func TestGenerateChatScripts(t *testing.T) {
 	}
 }
 
+// Every chat template has to hand the call site's shape to the SDK. A
+// script that always caps at 512 and always sends bare text compares
+// the two models on a call the scanned code never makes.
+func TestChatScriptsCarryTheCallShape(t *testing.T) {
+	for _, provider := range []string{
+		"anthropic", "openai", "deepseek", "google", "cohere",
+	} {
+		t.Run(provider, func(t *testing.T) {
+			body := generateOne(t, chatFinding(provider))
+			for _, want := range []string{
+				"DEFAULT_MAX_TOKENS = 512",
+				"SITE_SENDS_IMAGE = False",
+				`row.get("max_tokens", DEFAULT_MAX_TOKENS)`,
+				`row.get("image_url")`,
+				`row.get("params", {})`,
+			} {
+				if !strings.Contains(body, want) {
+					t.Errorf("script is missing %q", want)
+				}
+			}
+		})
+	}
+}
+
 func TestGenerateEmbeddingScript(t *testing.T) {
 	f := rules.Finding{
 		RuleID:         "cheaper-embedding",

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MithrilBytes/overwater/internal/scan"
 	"github.com/MithrilBytes/overwater/rules"
 )
 
@@ -43,6 +44,37 @@ class _Messages:
         if answer == "raise":
             raise RuntimeError("the provider is down")
         return _Message({"anthropic-big": "yes"}.get(kwargs["model"], answer))
+
+
+class Anthropic:
+    def __init__(self):
+        self.messages = _Messages()
+`
+
+// stubShapeEcho prints the shape of the call it was handed, so a run
+// can be checked against the call site the eval was generated for.
+const stubShapeEcho = `class _Block:
+    def __init__(self, text):
+        self.text = text
+
+
+class _Usage:
+    input_tokens = 3
+    output_tokens = 4
+
+
+class _Message:
+    def __init__(self, text):
+        self.content = [_Block(text)]
+        self.usage = _Usage()
+
+
+class _Messages:
+    def create(self, **kwargs):
+        print("shape: max_tokens=%s tools=%s parts=%s"
+              % (kwargs["max_tokens"], "tools" in kwargs,
+                 [part["type"] for part in kwargs["messages"][0]["content"]]))
+        return _Message("yes")
 
 
 class Anthropic:
@@ -216,6 +248,74 @@ func TestChatScriptExitsOnTripwire(t *testing.T) {
 				prompts: chatPrompts,
 				arg:     tc.arg,
 				env:     "STUB_CANDIDATE=" + tc.stubEnv,
+			}.run(t)
+			if code != tc.wantCode {
+				t.Errorf("exit = %d, want %d\n%s", code, tc.wantCode, out)
+			}
+			if !strings.Contains(out, tc.wantOut) {
+				t.Errorf("output is missing %q\n%s", tc.wantOut, out)
+			}
+		})
+	}
+}
+
+// The eval only exercises the call site if the row's shape reaches the
+// API: the cap the site set, the tools it passed, the image it sent.
+func TestChatScriptSendsTheRowShape(t *testing.T) {
+	prompts := `{"prompt": "one", "max_tokens": 1024,` +
+		` "image_url": "data:image/png;base64,AAAA",` +
+		` "params": {"tools": [{"name": "extract"}]}}` + "\n"
+	code, out := scriptRun{
+		finding: chatFinding("anthropic"),
+		stub:    stubShapeEcho,
+		stubAs:  "anthropic.py",
+		prompts: prompts,
+		arg:     "prompts.jsonl",
+		env:     "STUB_CANDIDATE=yes",
+	}.run(t)
+	if code != 0 {
+		t.Errorf("exit = %d, want 0\n%s", code, out)
+	}
+	want := "shape: max_tokens=1024 tools=True parts=['image', 'text']"
+	if !strings.Contains(out, want) {
+		t.Errorf("output is missing %q\n%s", want, out)
+	}
+}
+
+// A vision call site whose rows carry no image is not a comparison of
+// that site, so the script refuses to answer rather than printing an
+// agreement number about a call the code never makes.
+func TestChatScriptRefusesAVisionSiteWithoutImages(t *testing.T) {
+	cases := []struct {
+		name     string
+		prompts  string
+		wantCode int
+		wantOut  string
+	}{
+		{
+			name:     "no row carries an image",
+			prompts:  chatPrompts,
+			wantCode: 2,
+			wantOut:  "no row carries an image_url",
+		},
+		{
+			name:     "the rows carry the site's image",
+			prompts:  `{"prompt": "one", "image_url": "https://example.test/a.png"}` + "\n",
+			wantCode: 0,
+			wantOut:  "agreement is 100.0%, trips below 97%: held",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := chatFinding("anthropic")
+			f.Archetype = scan.ArchetypeVision
+			code, out := scriptRun{
+				finding: f,
+				stub:    stubAnthropic,
+				stubAs:  "anthropic.py",
+				prompts: tc.prompts,
+				arg:     "prompts.jsonl",
+				env:     "STUB_CANDIDATE=yes",
 			}.run(t)
 			if code != tc.wantCode {
 				t.Errorf("exit = %d, want %d\n%s", code, tc.wantCode, out)

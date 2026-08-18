@@ -5,19 +5,33 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/MithrilBytes/overwater/rules"
 )
 
 // Prompt drafting: seed a prompts.jsonl from string literals near the
-// call site. Local reads only.
+// call site, shaped the way the call site is. Local reads only.
 
 var reLiteral = regexp.MustCompile("`[^`]{20,600}`|\"[^\"\\n]{20,600}\"|'[^'\\n]{20,600}'")
+
+// The script reproduces the call site's shape from the row, so a
+// drafted row carries the two values a literal read can recover
+// honestly. A response schema or a tool list cannot be rebuilt from a
+// window of text, and a guess there would be worse than the omission.
+var (
+	reDraftMaxTokens   = regexp.MustCompile(`(?i)["']?max_?(?:output_?|completion_?)?tokens["']?\s*[:=]\s*([0-9][0-9_]*)`)
+	reDraftTemperature = regexp.MustCompile(`(?i)["']?temperature["']?\s*[:=]\s*([0-9]*\.?[0-9]+)`)
+)
 
 const (
 	draftWindowLines = 40
 	draftMaxPrompts  = 10
+	// The shape belongs to the call, not to its neighborhood, so it is
+	// read from a tighter span than the prompts are: at forty lines the
+	// cap of the next call down reads as this one's.
+	draftShapeLines = 6
 )
 
 // draftPrompts pulls distinct string literals from a window around the
@@ -44,6 +58,29 @@ func draftPrompts(content string, line int) []string {
 	return prompts
 }
 
+// draftShape pulls the call parameters the generated script replays
+// from a row: the site's own output cap, and its temperature under the
+// params key the script hands to the SDK verbatim.
+func draftShape(content string, line int) map[string]any {
+	lines := strings.Split(content, "\n")
+	start := max(0, line-1-draftShapeLines)
+	end := min(len(lines), line+draftShapeLines)
+	window := strings.Join(lines[start:end], "\n")
+
+	shape := map[string]any{}
+	if m := reDraftMaxTokens.FindStringSubmatch(window); m != nil {
+		if v, err := strconv.Atoi(strings.ReplaceAll(m[1], "_", "")); err == nil && v > 0 {
+			shape["max_tokens"] = v
+		}
+	}
+	if m := reDraftTemperature.FindStringSubmatch(window); m != nil {
+		if v, err := strconv.ParseFloat(m[1], 64); err == nil {
+			shape["params"] = map[string]any{"temperature": v}
+		}
+	}
+	return shape
+}
+
 // DraftPromptSets writes one <script>.prompts.jsonl per finding that got
 // an eval script, drafted from literals near its call site. Unreadable
 // files and files with no literals are skipped silently.
@@ -61,9 +98,14 @@ func DraftPromptSets(root string, findings []rules.Finding, dir string) ([]strin
 		if len(prompts) == 0 {
 			continue
 		}
+		shape := draftShape(string(raw), f.Line)
 		var b strings.Builder
 		for _, p := range prompts {
-			line, err := json.Marshal(map[string]string{"prompt": p})
+			row := map[string]any{"prompt": p}
+			for k, v := range shape {
+				row[k] = v
+			}
+			line, err := json.Marshal(row)
 			if err != nil {
 				return written, err
 			}

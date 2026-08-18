@@ -6,21 +6,31 @@ import (
 	"strings"
 )
 
+// The hosted gateways (Bedrock, Vertex, OpenRouter) and the agent
+// frameworks belong here as much as the first party clients do: a repo
+// that reaches a frontier model through one of them spends the same
+// money, and layer 1 is the only layer that sees it before a call site
+// resolves.
 var npmSDKs = []string{
-	"@ai-sdk/anthropic", "@ai-sdk/google", "@ai-sdk/openai",
-	"@anthropic-ai/sdk", "@google/genai", "@google/generative-ai",
-	"@langchain/anthropic", "@langchain/openai", "@mistralai/mistralai",
-	"ai", "cohere-ai", "openai", "voyageai",
+	"@ai-sdk/amazon-bedrock", "@ai-sdk/anthropic", "@ai-sdk/google",
+	"@ai-sdk/google-vertex", "@ai-sdk/openai", "@anthropic-ai/sdk",
+	"@google/genai", "@google/generative-ai", "@langchain/anthropic",
+	"@langchain/openai", "@mistralai/mistralai", "@openai/agents",
+	"@openrouter/ai-sdk-provider", "ai", "cohere-ai", "openai",
+	"voyageai",
 }
 
 var pypiSDKs = []string{
-	"anthropic", "cohere", "google-genai", "google-generativeai",
-	"langchain-anthropic", "langchain-openai", "litellm", "mistralai",
-	"openai", "voyageai",
+	"anthropic", "cohere", "google-cloud-aiplatform", "google-genai",
+	"google-generativeai", "instructor", "langchain-anthropic",
+	"langchain-aws", "langchain-google-genai", "langchain-openai",
+	"litellm", "mistralai", "openai", "openai-agents", "pydantic-ai",
+	"voyageai",
 }
 
 var goSDKs = []string{
 	"github.com/anthropics/anthropic-sdk-go",
+	"github.com/aws/aws-sdk-go-v2/service/bedrockruntime",
 	"github.com/openai/openai-go",
 	"github.com/sashabaranov/go-openai",
 	"google.golang.org/genai",
@@ -64,6 +74,36 @@ func scanManifest(relPath, data string) []SDK {
 		return substringManifest(relPath, data, "swiftpm", swiftSDKs, true)
 	}
 	return nil
+}
+
+// SDKsWithoutSites names the SDKs declared in a manifest whose tree
+// resolved no model reference. Layer 1 seeing a dependency while layers
+// 2 through 4 see nothing is the shape of a miss, not of a repo that
+// makes no calls, and saying so is the same contract as an unpriced
+// call: silence would read as a clean bill of health.
+func (r *Report) SDKsWithoutSites() []SDK {
+	var out []SDK
+	for _, sdk := range r.SDKs {
+		if !hasSiteUnder(r.Sites, path.Dir(sdk.File)) {
+			out = append(out, sdk)
+		}
+	}
+	return out
+}
+
+// hasSiteUnder scopes the question to the manifest's own tree, so in a
+// monorepo a package that resolved nothing is not excused by a sibling
+// that did. A root manifest owns every file.
+func hasSiteUnder(sites []Site, dir string) bool {
+	if dir == "." {
+		return len(sites) > 0
+	}
+	for _, s := range sites {
+		if strings.HasPrefix(s.File, dir+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func substringManifest(relPath, data, ecosystem string, names []string, fold bool) []SDK {
