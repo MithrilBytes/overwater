@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -128,6 +129,48 @@ func TestUnpricedCallsRespectFileRules(t *testing.T) {
 	}
 	if len(report.Unpriced) != 0 {
 		t.Errorf("unpriced = %+v, want none from docs or tests", report.Unpriced)
+	}
+}
+
+// The evidence is printed on stderr, which CI puts in the job log and
+// in a pull request comment. The lines that match these patterns are
+// the lines that carry credentials, so the evidence is what matched and
+// nothing around it: the bearer token, the --api-key argument and the
+// gateway host below all used to be reprinted verbatim.
+func TestUnpricedEvidenceCarriesNoCredentials(t *testing.T) {
+	dir := writeTree(t, map[string]string{
+		"run.sh": "#!/bin/bash\n" +
+			"curl -H \"Authorization: Bearer sk-curl-FAKE-5555\" https://api.openai.com/v1/chat/completions\n" +
+			// The key sits before the flag that triggers the match, where
+			// the pattern's lazy quantifier reaches straight over it.
+			"claude --api-key sk-ant-FAKE-4444 --print < prompt.txt\n",
+		"config.yaml": "endpoint: https://llm-gw.internal.acme.corp/v1/chat/completions?api-key=hunter2\n",
+	})
+	report, err := Analyze(dir, mustCatalog(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Unpriced) != 3 {
+		t.Fatalf("unpriced = %+v, want three calls", report.Unpriced)
+	}
+	for _, u := range report.Unpriced {
+		for _, secret := range []string{"sk-curl-FAKE-5555", "sk-ant-FAKE-4444", "hunter2",
+			"Authorization", "--api-key", "acme.corp"} {
+			if strings.Contains(u.Evidence, secret) {
+				t.Errorf("%s:%d evidence = %q, want no %q", u.File, u.Line, u.Evidence, secret)
+			}
+		}
+	}
+	want := map[string]string{
+		"config.yaml:1": "/v1/chat/completions",
+		"run.sh:2":      "/v1/chat/completions",
+		"run.sh:3":      "claude --print",
+	}
+	for _, u := range report.Unpriced {
+		key := u.File + ":" + strconv.Itoa(u.Line)
+		if got := want[key]; got != u.Evidence {
+			t.Errorf("%s evidence = %q, want %q", key, u.Evidence, got)
+		}
 	}
 }
 

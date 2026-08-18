@@ -57,6 +57,33 @@ func TestTestFilesNeverEmitSites(t *testing.T) {
 	}
 }
 
+// An env file is reported at its reader, whichever way it is spelled.
+// The two predicates disagreed: emitsSites tested the dotfile prefix
+// only, so secrets.env and prod.env were swept for calls and quoted
+// line by line while the identical .env line was suppressed. That is
+// the ordinary layout for per environment files, and their lines are
+// connection URLs with the password in them.
+func TestEnvFilesNeverEmitSitesByEitherSpelling(t *testing.T) {
+	const body = "SUMMARY_MODEL=gpt-5.1\n" +
+		"LLM_GATEWAY=https://svc:hunter2@gw.internal.corp/v1/chat/completions\n"
+	dir := writeTree(t, map[string]string{
+		".env":        body,
+		"secrets.env": body,
+		"prod.env":    body,
+		"app.js":      "const m = process.env.SUMMARY_MODEL;\n",
+	})
+	report, err := Analyze(dir, mustCatalog(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Unpriced) != 0 {
+		t.Errorf("unpriced = %+v, want none; an env file line is never quoted", report.Unpriced)
+	}
+	if len(report.Sites) != 1 || report.Sites[0].File != "app.js" {
+		t.Fatalf("sites = %+v, want only the reader in app.js", report.Sites)
+	}
+}
+
 // A test file still informs the layers it always did; it just does not
 // report a site of its own. A test that calls a wrapper is a caller.
 func TestTestFilesRemainContext(t *testing.T) {

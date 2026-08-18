@@ -192,6 +192,12 @@ type rootResult struct {
 	// carry. They are priced at nothing and so produce no findings,
 	// which without a word here reads as a clean bill of health.
 	unrecognized []string
+	// unrecognizedConfig says the same about values traced out of a
+	// config file, by the key that held them rather than by the value.
+	unrecognizedConfig []string
+	// scanned is how many files the walk admitted, so a root the
+	// scanner never opened does not read as a root with nothing wrong.
+	scanned int
 	// unpriced are calls that spend tokens without naming a model at
 	// all: an HTTP endpoint whose model is a runtime variable, or an
 	// agent CLI invocation. Same contract, same reason.
@@ -214,10 +220,12 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice)
 		return rootResult{}, err
 	}
 	res := rootResult{
-		findings:     eng.Evaluate(report, p.cat),
-		unmatched:    eng.UnmatchedVolumeKeys(report, p.cat),
-		unrecognized: unrecognizedModels(report),
-		unpriced:     report.Unpriced,
+		findings:           eng.Evaluate(report, p.cat),
+		unmatched:          eng.UnmatchedVolumeKeys(report, p.cat),
+		unrecognized:       unrecognizedModels(report),
+		unrecognizedConfig: unrecognizedConfigKeys(report),
+		unpriced:           report.Unpriced,
+		scanned:            report.Scanned,
 	}
 	if pl.cfg != nil && pl.cfg.BudgetMonthlyUSD > 0 {
 		if total := eng.TotalMonthlyUSD(report, p.cat); total > pl.cfg.BudgetMonthlyUSD {
@@ -238,6 +246,7 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 	var overBudgets []string
 	misses := map[string]int{}
 	unknown := map[string]bool{}
+	unknownConfig := map[string]bool{}
 	var unpriced []scan.UnpricedCall
 	for _, pl := range plans {
 		res, err := p.scanRoot(pl, only, vol)
@@ -253,6 +262,9 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 		for _, name := range res.unrecognized {
 			unknown[name] = true
 		}
+		for _, where := range res.unrecognizedConfig {
+			unknownConfig[where] = true
+		}
 		unpriced = append(unpriced, res.unpriced...)
 		rf := res.findings
 		if multi {
@@ -263,9 +275,12 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 			fmt.Fprintf(stderr, "%s: %d findings\n", pl.root, len(rf))
 		}
 		findings = append(findings, rf...)
+		if res.scanned == 0 {
+			fmt.Fprintf(stderr, "overwater: %s: no files to scan\n", pl.root)
+		}
 	}
 	p.reportUnmatched(misses, len(plans), stderr)
-	reportUnrecognized(unknown, p.cat.Version, stderr)
+	reportUnrecognized(unknown, unknownConfig, p.cat.Version, stderr)
 	reportUnpriced(unpriced, stderr)
 	return findings, overBudgets, nil
 }
@@ -310,12 +325,13 @@ func plural(n int, one, many string) string {
 const maxUnpricedNamed = 5
 
 // unrecognizedModels lists the distinct model looking strings in a
-// report that the catalog does not carry.
+// report that the catalog does not carry. A string traced out of a
+// config file is not one of them; see unrecognizedConfigKeys.
 func unrecognizedModels(report *scan.Report) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, s := range report.Sites {
-		if s.Known || s.Ref == "" || seen[s.Ref] {
+		if s.Known || s.Ref == "" || s.ViaConfig != "" || seen[s.Ref] {
 			continue
 		}
 		seen[s.Ref] = true
@@ -325,29 +341,65 @@ func unrecognizedModels(report *scan.Report) []string {
 	return out
 }
 
+// unrecognizedConfigKeys names where an unresolved value came from,
+// as "path KEY", for the sites config tracing built (scan.Site.ViaConfig).
+//
+// The value itself is never repeated. It was read out of a config file
+// by nothing stronger than a key that mentions MODEL or DEPLOYMENT and
+// a value holding a digit or a dash, which is also an exact description
+// of MODEL_API_KEY, MODEL_ENDPOINT and DEPLOYMENT_TOKEN. This note is
+// printed on stderr, and the action puts stderr in the job log, the
+// step summary and a pull request comment, none of which mask a value
+// that was never registered as an Actions secret. The key and its file
+// are enough for the operator to go and look.
+func unrecognizedConfigKeys(report *scan.Report) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range report.Sites {
+		if s.Known || s.ViaConfig == "" || seen[s.ViaConfig] {
+			continue
+		}
+		seen[s.ViaConfig] = true
+		out = append(out, s.ViaConfig)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // reportUnrecognized says which model strings were found but could not
 // be priced. Silence here is the worst answer available: a repository
 // pinning a model the catalog has never heard of otherwise gets the same
 // "keep the models you have" as a repository that is genuinely fine.
-func reportUnrecognized(names map[string]bool, catalogVersion string, stderr io.Writer) {
-	if len(names) == 0 {
-		return
+func reportUnrecognized(names, viaConfig map[string]bool, catalogVersion string, stderr io.Writer) {
+	if len(names) > 0 {
+		list := cappedNames(names)
+		fmt.Fprintf(stderr, "overwater: not in catalog %s, so not priced: %s\n",
+			catalogVersion, strings.Join(list, ", "))
+		// Upstream usually knows these already, and the reverse diff turns
+		// them into entries to add rather than a shrug.
+		fmt.Fprintf(stderr, "  look them up: overwater catalog diff -reverse -only %s <litellm.json>\n",
+			strings.Join(list, ","))
 	}
+	if len(viaConfig) > 0 {
+		// Where the value sits, not what it says, and so no reverse diff
+		// line: there is no id here to look up, only a place to read.
+		fmt.Fprintf(stderr, "overwater: config values not in catalog %s, so not priced: %s\n",
+			catalogVersion, strings.Join(cappedNames(viaConfig), ", "))
+	}
+}
+
+// cappedNames sorts a set for printing and folds the tail into a count.
+func cappedNames(set map[string]bool) []string {
 	var list []string
-	for name := range names {
+	for name := range set {
 		list = append(list, name)
 	}
 	sort.Strings(list)
 	if len(list) > maxUnrecognizedNamed {
 		list = append(list[:maxUnrecognizedNamed:maxUnrecognizedNamed],
-			fmt.Sprintf("and %d more", len(names)-maxUnrecognizedNamed))
+			fmt.Sprintf("and %d more", len(set)-maxUnrecognizedNamed))
 	}
-	fmt.Fprintf(stderr, "overwater: not in catalog %s, so not priced: %s\n",
-		catalogVersion, strings.Join(list, ", "))
-	// Upstream usually knows these already, and the reverse diff turns
-	// them into entries to add rather than a shrug.
-	fmt.Fprintf(stderr, "  look them up: overwater catalog diff -reverse -only %s <litellm.json>\n",
-		strings.Join(list, ","))
+	return list
 }
 
 // A repository can name a lot of models it does not call; the point is

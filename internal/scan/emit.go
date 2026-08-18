@@ -57,10 +57,22 @@ func emitsSites(p string) bool {
 	if docExts[strings.ToLower(path.Ext(p))] {
 		return false
 	}
-	if strings.HasPrefix(path.Base(p), ".env") {
+	if isEnvFile(p) {
 		return false // traceConfigModels reports these at their reader
 	}
 	return !isTestPath(p)
+}
+
+// isEnvFile reports whether p holds environment variables, by dotfile
+// prefix or by extension: .env, .env.local, secrets.env, prod.env. One
+// predicate for both callers, because they guard the same thing from
+// opposite sides. A spelling emitsSites did not recognise but
+// isConfigFile did was an env file swept for calls and quoted line by
+// line on stderr, which is where the values reach a pull request
+// comment.
+func isEnvFile(p string) bool {
+	base := path.Base(p)
+	return strings.HasPrefix(base, ".env") || path.Ext(base) == ".env"
 }
 
 func isConfigPath(p string) bool {

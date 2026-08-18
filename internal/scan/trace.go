@@ -63,11 +63,11 @@ func (a *analyzer) nearbyStrings(p string, r region) []string {
 }
 
 func isConfigFile(p string) bool {
-	if strings.HasPrefix(path.Base(p), ".env") {
+	if isEnvFile(p) {
 		return true
 	}
 	switch path.Ext(p) {
-	case ".env", ".yaml", ".yml", ".toml", ".ini", ".properties":
+	case ".yaml", ".yml", ".toml", ".ini", ".properties":
 		return true
 	}
 	return false

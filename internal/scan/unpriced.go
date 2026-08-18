@@ -33,10 +33,18 @@ import (
 // UnpricedCall is a call site that spends tokens with no model this
 // scanner can resolve. It carries no price, no archetype and no rule.
 type UnpricedCall struct {
-	File     string // slash separated, relative to the repo root
-	Line     int
-	Kind     string // endpoint or agent-cli
-	Evidence string // the trimmed source line, for the reader to judge
+	File string // slash separated, relative to the repo root
+	Line int
+	Kind string // endpoint or agent-cli
+	// Evidence is what the pattern matched, never the line it matched
+	// in. The lines that match are exactly the lines that carry
+	// credentials: a curl to a completions endpoint carries its
+	// Authorization header, an agent CLI invocation carries --api-key,
+	// a gateway URL carries its api-key parameter. This text is printed
+	// on stderr, and the action puts stderr in the job log, the step
+	// summary and a pull request comment. File, Line and Kind are the
+	// honest part of the signal; the reader can open the line itself.
+	Evidence string
 }
 
 // Provider inference paths. A URL is the one part of an HTTP call that
@@ -76,18 +84,23 @@ func findUnpricedCalls(relPath, masked string, priced map[int]bool) []UnpricedCa
 		if priced[lineNo] || strings.TrimSpace(line) == "" {
 			continue
 		}
-		kind := ""
-		switch {
-		case endpointRE.MatchString(line):
-			kind = "endpoint"
-		case execish && agentCLIRE.MatchString(line):
-			kind = "agent-cli"
-		default:
+		kind, evidence := "", ""
+		if m := endpointRE.FindString(line); m != "" {
+			kind, evidence = "endpoint", m
+		} else if execish {
+			// The CLI and the flag that triggered the match, not the span
+			// between them: the lazy quantifier will happily swallow an
+			// --api-key argument that sits before the flag.
+			if m := agentCLIRE.FindStringSubmatch(line); m != nil {
+				kind, evidence = "agent-cli", m[1]+" "+m[2]
+			}
+		}
+		if kind == "" {
 			continue
 		}
-		trimmed := truncateRunes(strings.TrimSpace(line), unpricedEvidenceMax)
 		out = append(out, UnpricedCall{
-			File: relPath, Line: lineNo, Kind: kind, Evidence: trimmed,
+			File: relPath, Line: lineNo, Kind: kind,
+			Evidence: truncateRunes(evidence, unpricedEvidenceMax),
 		})
 	}
 	return out

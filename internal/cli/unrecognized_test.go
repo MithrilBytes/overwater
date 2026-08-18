@@ -36,6 +36,32 @@ def ask(q):
 	}
 }
 
+// A config value that resolved to nothing is not a model id, it is
+// whatever the file holds. Config tracing accepts any key mentioning
+// MODEL or DEPLOYMENT whose value carries a digit or a dash, which
+// describes MODEL_API_KEY and DEPLOYMENT_TOKEN exactly, and this note
+// reaches the job log, the step summary and a pull request comment,
+// where GitHub masks only values registered as Actions secrets. So the
+// note names the key and leaves the value where it found it.
+func TestUnrecognizedConfigValueIsNamedByKey(t *testing.T) {
+	const canary = "b1f0a9e7-DEADBEEF-cafe-4242-fake-token"
+	dir := t.TempDir()
+	writeRepoFile(t, dir, ".env", "MODEL_API_KEY="+canary+"\n")
+	writeRepoFile(t, dir, "main.go", "package main\n\n"+
+		"func token() string { return os.Getenv(\"MODEL_API_KEY\") }\n")
+
+	code, stdout, stderr := runScanArgs(t, dir)
+	if code != ExitClean {
+		t.Fatalf("exit = %d, want clean; stderr = %q", code, stderr)
+	}
+	if strings.Contains(stderr, canary) || strings.Contains(stdout, canary) {
+		t.Errorf("the .env value was republished: stderr = %q, stdout = %q", stderr, stdout)
+	}
+	if !strings.Contains(stderr, ".env MODEL_API_KEY") {
+		t.Errorf("stderr = %q, want the key that holds the value named", stderr)
+	}
+}
+
 // Silence when every model is known, or the note becomes wallpaper.
 func TestKnownModelsProduceNoNote(t *testing.T) {
 	for _, fixture := range []string{"clean-app", "ts-chat-firehose", "py-extraction"} {
