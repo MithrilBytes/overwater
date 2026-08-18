@@ -59,8 +59,9 @@ func TestModelVolumeSplits(t *testing.T) {
 	}
 }
 
-// The more specific key wins, and it does not change what the other
-// sites on that model split.
+// The more specific key wins, and the site it names drops out of the
+// split: it is priced from its own count, so a share left in its name
+// is a share the other sites on that model never see.
 func TestSiteKeyBeatsModelKey(t *testing.T) {
 	engine, cat := loadEngine(t)
 	a := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})
@@ -76,8 +77,38 @@ func TestSiteKeyBeatsModelKey(t *testing.T) {
 	if got[0].Volume != 7 {
 		t.Errorf("one.py volume = %d, want the site key's 7", got[0].Volume)
 	}
-	if got[1].Volume != 30000 {
-		t.Errorf("two.py volume = %d, want its share of the model key", got[1].Volume)
+	if got[1].Volume != 60000 {
+		t.Errorf("two.py volume = %d, want the whole model key: one.py answers for itself", got[1].Volume)
+	}
+}
+
+// A split that does not come out even keeps the odd calls: they go to
+// the first sites in report order rather than off the report.
+func TestModelVolumePlacesTheRemainder(t *testing.T) {
+	engine, cat := loadEngine(t)
+	var sites []scan.Site
+	for i, file := range []string{"one.py", "two.py", "three.py"} {
+		s := site("claude-opus-5", scan.ArchetypeExtraction, scan.Shape{})
+		s.File, s.Line = file, i+1
+		sites = append(sites, s)
+	}
+	engine.Volumes = mustParseVolumes(t, `{"models": {"claude-opus-5": 100000}}`)
+	got := engine.Evaluate(&scan.Report{Sites: sites}, cat)
+	if len(got) != 3 {
+		t.Fatalf("got %+v, want three findings", got)
+	}
+	byFile := map[string]int{}
+	total := 0
+	for _, f := range got {
+		byFile[f.File] = f.Volume
+		total += f.Volume
+	}
+	want := map[string]int{"one.py": 33334, "two.py": 33333, "three.py": 33333}
+	if !reflect.DeepEqual(byFile, want) {
+		t.Errorf("split = %v, want %v", byFile, want)
+	}
+	if total != 100000 {
+		t.Errorf("the three sites split %d calls, want the 100000 the file measures", total)
 	}
 }
 

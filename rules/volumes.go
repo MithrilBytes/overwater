@@ -112,13 +112,15 @@ type volume struct {
 }
 
 // siteVolumes binds a volumes file to one report. A model key spreads
-// its count evenly over every priced site on that model; the
-// denominator is settled before any site is priced, so visit order
-// does not change it.
+// its count evenly over the priced sites on that model that no site
+// key already answers for; the denominator is settled before any site
+// is priced, so visit order does not change it.
 type siteVolumes struct {
-	e         *Engine
-	v         *Volumes
-	shares    map[string]int
+	e *Engine
+	v *Volumes
+	// shares is model key, then site key, to that site's slice of the
+	// count. Keyed by both because two models can sit on one line.
+	shares    map[string]map[string]int
 	unmatched []string
 }
 
@@ -131,23 +133,41 @@ func (e *Engine) bindVolumes(report *scan.Report, cat *catalog.Catalog) *siteVol
 		return sv
 	}
 	names := cat.Names()
-	counts := map[string]int{}
+	drawn := map[string][]string{}
+	used := map[string]bool{}
 	hitSites := map[string]bool{}
 	for _, site := range report.Sites {
 		m := names[site.Ref]
 		if !site.Known || m == nil {
 			continue
 		}
+		key := sv.modelKey(site, m)
+		if key != "" {
+			used[key] = true
+		}
+		// A site named in the file is priced from its own count and
+		// never reads a share, so leaving it in the denominator would
+		// shrink everyone else's for nothing.
 		if _, ok := sv.v.Sites[siteKey(site)]; ok {
 			hitSites[siteKey(site)] = true
+			continue
 		}
-		if key := sv.modelKey(site, m); key != "" {
-			counts[key]++
+		if key != "" {
+			drawn[key] = append(drawn[key], siteKey(site))
 		}
 	}
-	sv.shares = make(map[string]int, len(counts))
-	for key, n := range counts {
-		sv.shares[key] = sv.v.Models[key] / n
+	sv.shares = make(map[string]map[string]int, len(drawn))
+	for key, sites := range drawn {
+		// The odd calls an even split cannot place go to the first
+		// sites in report order rather than off the report entirely.
+		share, odd := sv.v.Models[key]/len(sites), sv.v.Models[key]%len(sites)
+		sv.shares[key] = make(map[string]int, len(sites))
+		for i, s := range sites {
+			sv.shares[key][s] = share
+			if i < odd {
+				sv.shares[key][s]++
+			}
+		}
 	}
 	for key := range sv.v.Sites {
 		if !hitSites[key] {
@@ -155,7 +175,7 @@ func (e *Engine) bindVolumes(report *scan.Report, cat *catalog.Catalog) *siteVol
 		}
 	}
 	for key := range sv.v.Models {
-		if counts[key] == 0 {
+		if !used[key] {
 			sv.unmatched = append(sv.unmatched, fmt.Sprintf("no call site uses model %s", key))
 		}
 	}
@@ -189,7 +209,9 @@ func (sv *siteVolumes) forSite(site scan.Site, m *catalog.Model) volume {
 			return volume{calls: n, source: VolumeMeasured}
 		}
 		if key := sv.modelKey(site, m); key != "" {
-			return volume{calls: sv.shares[key], source: VolumeMeasured}
+			if n, ok := sv.shares[key][siteKey(site)]; ok {
+				return volume{calls: n, source: VolumeMeasured}
+			}
 		}
 	}
 	if site.VolumeOverride > 0 {
@@ -204,11 +226,14 @@ func (sv *siteVolumes) forSite(site scan.Site, m *catalog.Model) volume {
 
 // callers is how many of a helper's callers this call site is priced
 // for. A helper with a fixed model answers for all of them. A helper
-// whose model is a parameter answers only for the callers taking its
-// default; the rest pass a model of their own and are already priced
-// where they sit, so counting them here would bill them twice. A
-// resolution fan_in.multiply_when does not name counts as one, and so
-// does a default no caller takes.
+// whose model is a parameter answers for the callers the scanner
+// tallied against its default string: the ones taking the default, and
+// the ones writing that same string at the call, which the tally does
+// not separate. The second group is a call site of its own as well, so
+// that shape is billed twice until scan.CallerModel counts the two
+// apart. Callers passing any other model are priced where they sit and
+// stay out of this count. A resolution fan_in.multiply_when does not
+// name counts as one, and so does a default no caller takes.
 func (e *Engine) callers(site scan.Site) int {
 	if !slices.Contains(e.Est.FanIn.MultiplyWhen, site.FanInStatus) {
 		return 1
