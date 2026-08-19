@@ -285,12 +285,12 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
 
       <div class="chan"><dt>Script</dt><dd>
         <div class="cmd"><span class="prompt">$</span>
-          <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.4.1</span></code>
+          <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.6.0</span></code>
           <button class="copy" data-copy="#c-sh">copy</button></div></dd></div>
 
       <div class="chan"><dt>Container</dt><dd>
         <div class="cmd"><span class="prompt">$</span>
-          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-version>v2.4.1</span> scan /src</code>
+          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-version>v2.6.0</span> scan /src</code>
           <button class="copy" data-copy="#c-img">copy</button></div></dd></div>
 
       <div class="chan"><dt>Nix</dt><dd>
@@ -299,8 +299,10 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
           <button class="copy" data-copy="#c-nix">copy</button></div></dd></div>
     </dl>
     <p class="sub" style="margin-top:14px">Release binaries for macOS, Linux, and Windows ship with
-    a <code>SHA256SUMS</code> file and build provenance attestation. The install script verifies the
-    checksum for you.</p>
+    a <code>SHA256SUMS</code> file and a signed build provenance attestation. The install script
+    checks the digest, and checks the attestation too where <code>gh</code> is available. That
+    second check is the one that survives someone who can replace the binary and the digest
+    together, so the GitHub Action fails closed on it rather than trusting a checksum.</p>
     <p class="sub">Homebrew, scoop, and winget manifests are generated into the repository on every
     release, but none of the three is published yet: there is no tap, no bucket, and nothing
     submitted to winget-pkgs. Until they are, install by one of the routes above.</p>
@@ -410,7 +412,19 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
   <section>
     <h2>Releases</h2>
     <dl>
-      <div class="rel"><dt>v2.4 <span class="now">current</span></dt><dd>Layer 2 was measured
+      <div class="rel"><dt>v2.6 <span class="now">current</span></dt><dd>The Action verifies build
+        provenance instead of a checksum committed into <code>action.yml</code>. A digest cannot
+        exist until the artifacts are built, so every earlier tag shipped the previous release's
+        digests and only the floating <code>v2</code> resolved. A version is knowable in advance,
+        so a tag names its own release now and an exact pin works.</dd></div>
+      <div class="rel"><dt>v2.5</dt><dd>The tool audited against itself for security, currency and
+        whether it works on repositories nobody wrote for it. A config value bound to a model key
+        was reprinted verbatim on stderr, which the Action pastes into a PR comment. A scanned
+        filename could close the fence around the report. A symlinked root read nothing and called
+        it clean. Bedrock ids were invisible and Converse lost its temperature. Reasoning models
+        were priced as though thinking were free. Three rules added, and layer 1 finally
+        speaks.</dd></div>
+      <div class="rel"><dt>v2.4</dt><dd>Layer 2 was measured
         against 128 real repositories and had been treating any catalog id in any file as a call.
         Of the ones calling no LLM, 19 reported findings before and 9 do now. A monorepo scan
         went from 242 seconds to 8. Every rule has an end to end fixture, the ratchet survives a

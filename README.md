@@ -19,11 +19,13 @@ go install github.com/MithrilBytes/overwater/cmd/overwater@latest
 ```
 
 Release binaries for macOS, Linux, and Windows ship with a SHA256SUMS
-file. The installer verifies it for you:
+file and a signed build provenance attestation. The installer checks the
+digest, and checks the attestation too when `gh` is available, which is
+the half that survives someone replacing both the binary and the digest:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.4.1
+sh install.sh v2.6.0
 ```
 
 ## Usage
@@ -302,10 +304,14 @@ price-watch PR cuts the next patch and releases it on its own, so a
 price the catalog accepts reaches the binaries without a human picking a
 version.
 
-Each release then pins itself. The workflow that built it downloads its
-own `SHA256SUMS`, writes the checksums into `action.yml` and the package
-manifests, commits that to `main`, and moves the floating `v2` tag to
-it. Nothing about a release is done by hand.
+Each release pins itself, in two halves that move at different times.
+`action.yml` names the version and nothing else, so it is bumped and
+committed before the tag; the release refuses to build if the tree it is
+cutting names a different version than the tag. The package manifests
+need digests, and a digest cannot exist until the artifacts do, so the
+job that runs after the release writes those from the bytes it just
+built, commits them to `main`, and moves the floating `v2` tag. Nothing
+about a release is done by hand.
 
 A price change used to carry a fourth component, `v2.2.1.1`, so a
 catalog refresh would read differently from a code change. It does read
@@ -350,8 +356,30 @@ version. Applying a price carries the cache rates with it, which
 providers publish as multiples of base input and the previous version
 left describing the old price.
 
-**v2.4** is the current line, and it came out of pointing the scanner at
-128 real public repositories instead of fixtures.
+**v2.6** is the current line. The Action verifies build provenance
+rather than a checksum committed into `action.yml`. A digest cannot
+exist before the artifacts are built, so every earlier tag shipped the
+previous release's digests and only the floating `v2` resolved
+correctly; a version is knowable in advance, so from v2.6.0 on a tag
+names its own release and `@v2.6.0` is a real pin.
+
+**v2.5** came out of auditing the tool against itself across security,
+currency and whether it works on repositories nobody wrote for it.
+
+A config value bound to a model key was republished verbatim on stderr,
+which the Action pastes into a PR comment, so a committed `.env` secret
+was being reprinted where more people could see it. A scanned
+repository's filename reached the report unescaped and could close the
+fence around it. A symlinked scan root read zero files and reported a
+clean bill of health. Dotted Bedrock model ids were invisible, and the
+structural parser was discarding a temperature the regex layer had
+already recovered. Reasoning models were priced as though thinking were
+free. Three rules were added, the Action's own defaults no longer fail
+every run, and layer 1 says when a manifest declares an SDK that no call
+site accounts for.
+
+**v2.4** came out of pointing the scanner at 128 real public
+repositories instead of fixtures.
 
 Layer 2 had been treating any catalog id in any file as a call, and it
 was wrong far more often than the corpus showed. Comments, docstrings,
