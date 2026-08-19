@@ -198,6 +198,11 @@ type rootResult struct {
 	// scanned is how many files the walk admitted, so a root the
 	// scanner never opened does not read as a root with nothing wrong.
 	scanned int
+	// sdksMissed are SDKs a manifest declares where the scan resolved no
+	// call site at all. Layer 1 knows the repository talks to a model;
+	// saying so is the difference between "nothing to fix" and "we could
+	// not find what we know is there".
+	sdksMissed []scan.SDK
 	// unpriced are calls that spend tokens without naming a model at
 	// all: an HTTP endpoint whose model is a runtime variable, or an
 	// agent CLI invocation. Same contract, same reason.
@@ -220,12 +225,15 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice)
 		return rootResult{}, err
 	}
 	res := rootResult{
-		findings:           eng.Evaluate(report, p.cat),
+		findings:           dropExcluded(pl.cfg, eng.Evaluate(report, p.cat)),
 		unmatched:          eng.UnmatchedVolumeKeys(report, p.cat),
 		unrecognized:       unrecognizedModels(report),
 		unrecognizedConfig: unrecognizedConfigKeys(report),
 		unpriced:           report.Unpriced,
 		scanned:            report.Scanned,
+	}
+	if len(report.Sites) == 0 {
+		res.sdksMissed = report.SDKs
 	}
 	if pl.cfg != nil && pl.cfg.BudgetMonthlyUSD > 0 {
 		if total := eng.TotalMonthlyUSD(report, p.cat); total > pl.cfg.BudgetMonthlyUSD {
@@ -278,11 +286,44 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 		if res.scanned == 0 {
 			fmt.Fprintf(stderr, "overwater: %s: no files to scan\n", pl.root)
 		}
+		reportMissedSDKs(res.sdksMissed, stderr)
 	}
 	p.reportUnmatched(misses, len(plans), stderr)
 	reportUnrecognized(unknown, unknownConfig, p.cat.Version, stderr)
 	reportUnpriced(unpriced, stderr)
 	return findings, overBudgets, nil
+}
+
+// dropExcluded removes findings in files the repo config excludes. The
+// only other lever is disable, which is repo wide, so a generated file
+// that merely names model ids used to cost the rule everywhere.
+func dropExcluded(cfg *repoConfig, findings []rules.Finding) []rules.Finding {
+	if cfg == nil || len(cfg.Exclude) == 0 {
+		return findings
+	}
+	kept := findings[:0]
+	for _, f := range findings {
+		if !cfg.excluded(f.File) {
+			kept = append(kept, f)
+		}
+	}
+	return kept
+}
+
+// reportMissedSDKs says when a manifest declares an LLM SDK and the scan
+// resolved no call site. Layer 1 reads those manifests and had nowhere
+// to put the answer, so a repository whose calls the scanner cannot see
+// was indistinguishable from one that makes none.
+func reportMissedSDKs(sdks []scan.SDK, stderr io.Writer) {
+	if len(sdks) == 0 {
+		return
+	}
+	names := map[string]bool{}
+	for _, s := range sdks {
+		names[s.Name] = true
+	}
+	fmt.Fprintf(stderr, "overwater: %s declared but no call site found: %s\n",
+		plural(len(names), "an SDK is", "SDKs are"), strings.Join(cappedNames(names), ", "))
 }
 
 // reportUnpriced names calls that spend tokens with no model to price.
