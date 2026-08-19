@@ -41,13 +41,13 @@ runs:
       # release's SHA256SUMS.
       run: |
         set -euo pipefail
-        version="v2.4.1"
+        version="v2.5.0"
         case "${RUNNER_OS}_${RUNNER_ARCH}" in
-          Linux_X64)     bin="overwater_linux_amd64"       sha="efddd4ab9b99f5d0d39d095c51dbf8b271b9f4dcc3667e1f02e03524c61bffa7" ;;
-          Linux_ARM64)   bin="overwater_linux_arm64"       sha="486c5500f561bd52b1d11adf07e55adf80b4d26770f6fb10dd966380c0355b5b" ;;
-          macOS_X64)     bin="overwater_darwin_amd64"      sha="a32a8acd258d7ad9732b7d34dcc3c322620291ed8c7c41fae2696a99d1574c32" ;;
-          macOS_ARM64)   bin="overwater_darwin_arm64"      sha="95c04b116a896851e043fd610dc3d656461475cb91551093273803edc2d0f5cd" ;;
-          Windows_X64)   bin="overwater_windows_amd64.exe" sha="28e76077e56194f4b90ea9f7d79827aed0286204304ad4f32a002e0699b75965" ;;
+          Linux_X64)     bin="overwater_linux_amd64"       sha="21fbb52036338cdfd8437ca589fc333770505e3cb9fcb67acf1917b3c81d39ad" ;;
+          Linux_ARM64)   bin="overwater_linux_arm64"       sha="d1acbaad0bfe7e0727d59889e9803be0e9e4984dac6b8d450f2f6c47ce91bc2f" ;;
+          macOS_X64)     bin="overwater_darwin_amd64"      sha="c2a7e22d3b3b7421c3227c4a49358cc275a8b9d9183459111032d365ac2f0743" ;;
+          macOS_ARM64)   bin="overwater_darwin_arm64"      sha="3750245524adfb0a5e56cd8f6e9e453e88d8b95911745dd7e365e28c9270bc05" ;;
+          Windows_X64)   bin="overwater_windows_amd64.exe" sha="886758e271b26e96513e361c9168acd8bf5bff55087c9f2fa0227df6ee9640c7" ;;
           *)
             echo "unsupported runner: ${RUNNER_OS}/${RUNNER_ARCH}" >&2
             exit 2
