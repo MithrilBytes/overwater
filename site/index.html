@@ -333,6 +333,9 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
         <code>go.mod</code>, <code>Gemfile</code>, <code>pom.xml</code>, <code>build.gradle</code>,
         <code>*.csproj</code>, <code>composer.json</code>, <code>Cargo.toml</code>,
         <code>Package.swift</code>.</p>
+        <p>When a manifest declares an SDK and no call site resolves anywhere in the repository,
+        that is said on stderr. The scanner knows the code talks to a model, so silence there
+        would be the difference between nothing to fix and nothing found.</p>
       </div>
       <div class="layer">
         <div class="n">02</div><h3>Model strings</h3>

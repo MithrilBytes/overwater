@@ -166,6 +166,7 @@ operational error. They are never conflated.
 volume: 40000
 budget_monthly_usd: 2500
 disable: [uncached-system-prompt]
+exclude: ["*.generated.ts", "reports/"]
 thresholds:
   retry-amplification:
     min_retries: 5
@@ -173,6 +174,14 @@ thresholds:
 
 A config applies to its own repository and no other, in any argument or
 list order.
+
+`exclude` takes path globs. A pattern without a slash matches any one
+segment, so `*.json` reaches a model registry at any depth; a pattern
+with a slash matches the whole path or names a directory and covers the
+tree under it. It is the lever for a file that names model ids without
+calling them and cannot carry a pragma, such as generated code, a
+vendored fixture, or this tool's own reports. `disable` is the blunter
+instrument: it turns a rule off across the whole repository.
 
 ### Pragmas
 
@@ -244,7 +253,8 @@ The engine holds no numbers.
 `batch-on-realtime`, `pricey-embeddings`, `deprecated-model`,
 `effort-overkill`, `retry-amplification`, `hot-temperature-extraction`,
 `uncapped-embedding-dimensions`, `image-detail-high`,
-`duplicate-call-sites`.
+`duplicate-call-sites`, `frontier-agentic`, `uncached-tool-loop`,
+`thinking-budget-overkill`.
 
 ## Catalog
 

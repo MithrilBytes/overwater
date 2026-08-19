@@ -398,3 +398,61 @@ func TestReadmeUsesTheFloatingTag(t *testing.T) {
 		t.Error("README pins the Action to an exact version, which is stale by construction")
 	}
 }
+
+// The README lists the rules by name, and nothing kept that list honest.
+// It described twelve while fifteen shipped, which is the kind of drift
+// a reader has no way to detect: the page reads as authoritative and is
+// simply behind. The rule files on disk are the source of truth, so the
+// list is checked against them in both directions. Adding a rule without
+// documenting it fails here, and so does documenting one that no longer
+// ships.
+func TestReadmeListsEveryShippedRule(t *testing.T) {
+	entries, err := os.ReadDir(filepath.Join("..", "..", "rules"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	shipped := map[string]bool{}
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".yaml") || name == "estimates.yaml" {
+			continue // estimates.yaml holds the cost assumptions, not a rule
+		}
+		shipped[strings.TrimSuffix(name, ".yaml")] = true
+	}
+	if len(shipped) == 0 {
+		t.Fatal("found no rule files, so this test would pass vacuously")
+	}
+
+	readme := repoFile(t, "README.md")
+	section := readmeSection(t, readme, "### Rules")
+	listed := map[string]bool{}
+	for _, m := range regexp.MustCompile("`([a-z0-9-]+)`").FindAllStringSubmatch(section, -1) {
+		listed[m[1]] = true
+	}
+
+	for id := range shipped {
+		if !listed[id] {
+			t.Errorf("rules/%s.yaml ships and the README does not list it", id)
+		}
+	}
+	for id := range listed {
+		if !shipped[id] {
+			t.Errorf("the README lists %q and no such rule ships", id)
+		}
+	}
+}
+
+// readmeSection returns the body under a heading, up to the next heading
+// at the same level or above.
+func readmeSection(t *testing.T, src, heading string) string {
+	t.Helper()
+	start := strings.Index(src, heading)
+	if start < 0 {
+		t.Fatalf("README has no %q section", heading)
+	}
+	body := src[start+len(heading):]
+	if end := regexp.MustCompile(`(?m)^#{1,3} `).FindStringIndex(body); end != nil {
+		body = body[:end[0]]
+	}
+	return body
+}
