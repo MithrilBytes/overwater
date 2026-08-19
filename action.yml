@@ -36,18 +36,27 @@ runs:
   steps:
     - name: fetch pinned overwater binary
       shell: bash
-      # The version and checksums below pin one release. Bump them
-      # together when cutting a new one; the sha values come from that
-      # release's SHA256SUMS.
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      # Only the version pins a release here, and a version is known
+      # before the tag exists. Checksums are not: they are computed from
+      # the built artifacts, so committing them means committing after
+      # the tag, which is how vX.Y.Z came to carry the previous
+      # release's digests and why the floating tag was the only ref that
+      # resolved. Provenance replaces them. It is signed on the release
+      # path, it certifies the repository and workflow that produced the
+      # bytes, and unlike a digest that travels with the artifact it
+      # cannot be reissued by whoever replaced the artifact.
       run: |
         set -euo pipefail
-        version="v2.5.0"
+        version="v2.6.0"
+        repo="MithrilBytes/overwater"
         case "${RUNNER_OS}_${RUNNER_ARCH}" in
-          Linux_X64)     bin="overwater_linux_amd64"       sha="21fbb52036338cdfd8437ca589fc333770505e3cb9fcb67acf1917b3c81d39ad" ;;
-          Linux_ARM64)   bin="overwater_linux_arm64"       sha="d1acbaad0bfe7e0727d59889e9803be0e9e4984dac6b8d450f2f6c47ce91bc2f" ;;
-          macOS_X64)     bin="overwater_darwin_amd64"      sha="c2a7e22d3b3b7421c3227c4a49358cc275a8b9d9183459111032d365ac2f0743" ;;
-          macOS_ARM64)   bin="overwater_darwin_arm64"      sha="3750245524adfb0a5e56cd8f6e9e453e88d8b95911745dd7e365e28c9270bc05" ;;
-          Windows_X64)   bin="overwater_windows_amd64.exe" sha="886758e271b26e96513e361c9168acd8bf5bff55087c9f2fa0227df6ee9640c7" ;;
+          Linux_X64)     bin="overwater_linux_amd64"       ;;
+          Linux_ARM64)   bin="overwater_linux_arm64"       ;;
+          macOS_X64)     bin="overwater_darwin_amd64"      ;;
+          macOS_ARM64)   bin="overwater_darwin_arm64"      ;;
+          Windows_X64)   bin="overwater_windows_amd64.exe" ;;
           *)
             echo "unsupported runner: ${RUNNER_OS}/${RUNNER_ARCH}" >&2
             exit 2
@@ -55,11 +64,31 @@ runs:
         esac
         dest="${RUNNER_TEMP}/overwater"
         if [ "$RUNNER_OS" = "Windows" ]; then dest="${dest}.exe"; fi
-        curl -fsSL -o "$dest" "https://github.com/MithrilBytes/overwater/releases/download/${version}/${bin}"
+        base="https://github.com/${repo}/releases/download/${version}"
+        curl -fsSL -o "$dest" "${base}/${bin}"
+
+        # The release's own digest catches a truncated download. It
+        # proves nothing about origin, which is what the attestation is
+        # for, so both run and both are fatal.
+        curl -fsSL -o "${RUNNER_TEMP}/SHA256SUMS" "${base}/SHA256SUMS"
+        line="$(grep -E "^[0-9a-fA-F]{64} [ *]${bin}\$" "${RUNNER_TEMP}/SHA256SUMS" || true)"
+        if [ -z "$line" ]; then
+          echo "the SHA256SUMS published with ${version} has no line for ${bin}" >&2
+          exit 2
+        fi
         if command -v sha256sum > /dev/null; then
-          echo "${sha}  ${dest}" | sha256sum -c -
+          echo "${line%% *}  ${dest}" | sha256sum -c -
         else
-          echo "${sha}  ${dest}" | shasum -a 256 -c -
+          echo "${line%% *}  ${dest}" | shasum -a 256 -c -
+        fi
+
+        if command -v gh > /dev/null 2>&1; then
+          if ! gh attestation verify "$dest" --repo "$repo"; then
+            echo "build provenance for ${bin} did not verify; refusing to run it" >&2
+            exit 2
+          fi
+        else
+          echo "gh is not on this runner, so only the release's own SHA256SUMS was checked" >&2
         fi
         chmod +x "$dest"
         echo "OVERWATER_BIN=$dest" >> "$GITHUB_ENV"

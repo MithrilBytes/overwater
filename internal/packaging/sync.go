@@ -35,7 +35,7 @@ func Sync(dir, version string, sums map[string]string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", ActionPath, err)
 	}
-	pinned, err := PinAction(string(actionSrc), version, sums)
+	pinned, err := PinAction(string(actionSrc), version)
 	if err != nil {
 		return nil, err
 	}

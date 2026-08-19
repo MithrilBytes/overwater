@@ -30,6 +30,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # The Action fetches whatever version its own file names, and this
+      # tree is what @TAG resolves to. If the two disagree, everyone who
+      # pins that tag silently runs a different release, which is the
+      # failure this ordering exists to prevent. Bump action.yml and
+      # commit it before tagging; the digests still land afterwards
+      # because they cannot exist yet.
+      - name: the tag must name itself
+        run: |
+          set -euo pipefail
+          named="$(sed -n 's/^ *version="\(v[0-9][^"]*\)".*/\1/p' action.yml | head -1)"
+          if [ "$named" != "$TAG" ]; then
+            echo "action.yml names $named but this is $TAG;" >&2
+            echo "bump it on main and move the tag to that commit" >&2
+            exit 1
+          fi
       - run: go test ./...
       - name: build binaries
         run: |

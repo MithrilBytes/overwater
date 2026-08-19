@@ -4,18 +4,31 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
 
-// action.yml is the repository's record of which release is pinned: it
-// names a version and a sha256 per platform. The manifests describe the
-// same release, so they are checked against it. A bump that touches one
-// and not the other fails here, not in a user's package manager.
+// Two records of a version live in this tree and they are pinned at
+// different moments, which is the whole point of the ordering.
+//
+// action.yml names the release being cut. It is bumped and committed
+// before the tag, because the Action verifies build provenance rather
+// than a digest and a version is the one thing knowable in advance.
+//
+// The packaging manifests name the last release that actually built,
+// because Homebrew, scoop and winget need digests and a digest cannot
+// exist until the artifacts do. They are pinned by the job that runs
+// after the release.
+//
+// So between a bump and its release the two disagree by exactly one
+// version, and that is correct. What is never correct is action.yml
+// falling behind the manifests, which would mean a tag shipping an
+// older release than the packages do.
 
 var (
-	actionVersionRe = regexp.MustCompile(`version="(v[0-9]+\.[0-9]+\.[0-9]+)"`)
-	actionPinRe     = regexp.MustCompile(`bin="([^"]+)"\s+sha="([0-9a-f]{64})"`)
+	actionVersionRe   = regexp.MustCompile(`version="(v[0-9]+\.[0-9]+\.[0-9]+)"`)
+	manifestVersionRe = regexp.MustCompile(`releases/download/(v[0-9]+\.[0-9]+\.[0-9]+)/`)
 )
 
 func repoFile(t *testing.T, path string) string {
@@ -27,21 +40,83 @@ func repoFile(t *testing.T, path string) string {
 	return string(body)
 }
 
+// assetDigestRe pulls (asset, digest) out of any manifest that names a
+// release URL and the checksum for it. Homebrew writes them on adjacent
+// lines, scoop and winget as neighbouring fields, so one pattern with a
+// bounded gap covers all three.
+var assetDigestRe = regexp.MustCompile(
+	`(?is)releases/download/v[^/\s"']+/(overwater_[a-z0-9_]+(?:\.exe)?).{0,200}?([0-9a-fA-F]{64})`)
+
+// pinnedRelease reads which release the tree is pinned to. The version
+// comes from action.yml, which is the one file that names a release
+// without naming a digest. The digests come from the packaging
+// manifests, which is where they now live: action.yml stopped carrying
+// them so that a tag could carry its own pin, and no single manifest
+// covers every platform, so the union of them has to.
+// pinnedRelease is the release the packaging manifests describe: the
+// version they all name, and the digest each asset is pinned to. No
+// single manifest covers every platform, so the union of them has to.
 func pinnedRelease(t *testing.T) (string, map[string]string) {
 	t.Helper()
-	action := repoFile(t, "action.yml")
-	v := actionVersionRe.FindStringSubmatch(action)
-	if v == nil {
-		t.Fatal(`action.yml has no version="vX.Y.Z"; it is the record of which release is pinned`)
-	}
 	sums := make(map[string]string)
-	for _, m := range actionPinRe.FindAllStringSubmatch(action, -1) {
-		sums[m[1]] = m[2]
+	version := ""
+	for _, path := range []string{FormulaPath, ScoopPath, WingetInstallPath} {
+		src := repoFile(t, path)
+		v := manifestVersionRe.FindStringSubmatch(src)
+		if v == nil {
+			t.Fatalf("%s names no release download URL, so nothing says which release it pins", path)
+		}
+		if version == "" {
+			version = v[1]
+		} else if v[1] != version {
+			t.Fatalf("%s pins %s while an earlier manifest pins %s", path, v[1], version)
+		}
+		for _, m := range assetDigestRe.FindAllStringSubmatch(src, -1) {
+			sums[m[1]] = strings.ToLower(m[2])
+		}
 	}
-	if len(sums) != len(Assets) {
-		t.Fatalf("action.yml pins %d binaries, the manifests cover %d", len(sums), len(Assets))
+	for _, asset := range Assets {
+		if sums[asset] == "" {
+			t.Fatalf("no manifest in the tree pins %s, so nothing verifies that platform", asset)
+		}
 	}
-	return v[1], sums
+	return version, sums
+}
+
+// The ordering itself. action.yml is bumped first and the manifests
+// follow after the release builds, so action.yml may be one version
+// ahead and must never be behind.
+func TestActionIsNotBehindTheManifests(t *testing.T) {
+	manifests, _ := pinnedRelease(t)
+	v := actionVersionRe.FindStringSubmatch(repoFile(t, ActionPath))
+	if v == nil {
+		t.Fatal(`action.yml has no version="vX.Y.Z"; it is the record of which release it fetches`)
+	}
+	if semverLess(v[1], manifests) {
+		t.Errorf("action.yml fetches %s while the packages ship %s, so the Action is the stale one",
+			v[1], manifests)
+	}
+}
+
+// semverLess compares two vX.Y.Z strings numerically, so v2.10.0 sorts
+// above v2.9.0 rather than below it.
+func semverLess(a, b string) bool {
+	pa, pb := parseSemver(a), parseSemver(b)
+	for i := range pa {
+		if pa[i] != pb[i] {
+			return pa[i] < pb[i]
+		}
+	}
+	return false
+}
+
+func parseSemver(v string) [3]int {
+	var out [3]int
+	for i, part := range strings.SplitN(strings.TrimPrefix(v, "v"), ".", 3) {
+		n, _ := strconv.Atoi(part)
+		out[i] = n
+	}
+	return out
 }
 
 // The manifests in the tree must be exactly what sync-manifests emits

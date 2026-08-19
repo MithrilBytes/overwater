@@ -147,11 +147,15 @@ Record a baseline once, commit it, and only new findings fail:
 ```
 
 `@v2` is a floating tag that moves to whichever commit pins the current
-release. Use it rather than an exact version: the Action downloads a
-release binary checked against a sha256 written into `action.yml`, and
-those checksums cannot exist until that release has built, so a tag
-never carries its own pin. The release workflow writes the pin
-afterwards and moves `v2` to it.
+release, and an exact version such as `@v2.6.0` works too. It did not
+always: the Action used to check the binary against a sha256 written
+into `action.yml`, and a checksum cannot exist until the release has
+built, so every tag shipped the previous release's digests and only the
+floating tag resolved. The Action verifies build provenance instead,
+which is signed on the release path and certifies which workflow
+produced the bytes, so the only thing `action.yml` still pins is the
+version, and a version is knowable before the tag. Releases from v2.6.0
+on carry their own pin.
 
 Add `pr-comment: true` for a sticky verdict comment, which needs
 `pull-requests: write`. Add `incremental: true` on PR builds.

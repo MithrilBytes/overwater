@@ -387,15 +387,15 @@ func TestPriceReleaseInheritsThePin(t *testing.T) {
 	}
 }
 
-// The README hands readers the floating tag. An exact version there is
-// always one release behind on the pin, which is the bug this replaced.
+// The README's copy and paste example uses the floating tag, which is
+// the sensible default the way actions/checkout@v4 is. An exact version
+// is no longer wrong, only more work: it used to resolve to a tree
+// carrying the previous release's digests, and now that the Action pins
+// nothing but a version, a tag names its own release.
 func TestReadmeUsesTheFloatingTag(t *testing.T) {
 	src := repoFile(t, "README.md")
-	if !strings.Contains(src, "MithrilBytes/overwater@v2") {
-		t.Error("README does not tell readers to use the floating tag")
-	}
-	if regexp.MustCompile(`MithrilBytes/overwater@v[0-9]+\.[0-9]+`).MatchString(src) {
-		t.Error("README pins the Action to an exact version, which is stale by construction")
+	if !strings.Contains(src, "MithrilBytes/overwater@v2\n") {
+		t.Error("README does not hand readers the floating tag in its example")
 	}
 }
 
