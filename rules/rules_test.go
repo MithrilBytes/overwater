@@ -48,8 +48,8 @@ func TestLoadRulesAndEstimates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(e.Rules) != 14 {
-		t.Errorf("loaded %d rules, want the 14 shipped", len(e.Rules))
+	if len(e.Rules) != 15 {
+		t.Errorf("loaded %d rules, want the 15 shipped", len(e.Rules))
 	}
 	if e.Est.Volume.CallsPerMonth != 10000 {
 		t.Errorf("calls_per_month = %d, want 10000", e.Est.Volume.CallsPerMonth)
@@ -139,7 +139,7 @@ func TestEvaluateNodeCronSummarizer(t *testing.T) {
 			MonthlyUSD:     151,
 			Volume:         10000,
 			VolumeSource:   "estimate",
-			CandidateText:  "gpt-5-mini, current replacement in the same tier, ~$6/mo",
+			CandidateText:  "gpt-5-mini, current replacement in the same tier, ~$36/mo",
 			CandidateModel: "gpt-5-mini",
 			Tripwire:       "None; there is no configuration in which a retired model id keeps working",
 			Flags:          []string{"Unavailable after 2024-01-04; a correctness bug, not just a cost one"},
@@ -152,10 +152,10 @@ func TestEvaluateNodeCronSummarizer(t *testing.T) {
 			Archetype:     "summarization",
 			Evidence:      "cron scheduled",
 			Model:         "gpt-5.1",
-			MonthlyUSD:    48,
+			MonthlyUSD:    198,
 			Volume:        10000,
 			VolumeSource:  "estimate",
-			CandidateText: "gpt-5.1 through the batch endpoint at half price, ~$24/mo",
+			CandidateText: "gpt-5.1 through the batch endpoint at half price, ~$99/mo",
 			Tripwire:      "If results are needed in under an hour, stay put",
 		},
 	}
@@ -681,9 +681,10 @@ func TestRuleValidateRejects(t *testing.T) {
 // an eval measures carries none, and its script gates on nothing.
 func TestShippedTripwireChecks(t *testing.T) {
 	want := map[string]TripwireCheck{
-		"effort-overkill":     {Metric: "agreement", Compare: "below", Threshold: 97},
-		"frontier-extraction": {Metric: "agreement", Compare: "below", Threshold: 97},
-		"pricey-embeddings":   {Metric: "nearest_neighbor_agreement", Compare: "below", Threshold: 90},
+		"effort-overkill":          {Metric: "agreement", Compare: "below", Threshold: 97},
+		"thinking-budget-overkill": {Metric: "agreement", Compare: "below", Threshold: 97},
+		"frontier-extraction":      {Metric: "agreement", Compare: "below", Threshold: 97},
+		"pricey-embeddings":        {Metric: "nearest_neighbor_agreement", Compare: "below", Threshold: 90},
 	}
 	engine, _ := loadEngine(t)
 	for _, r := range engine.Rules {

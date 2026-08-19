@@ -83,3 +83,27 @@ func TestEstimatesRejectZeroSchemaOutput(t *testing.T) {
 		}
 	}
 }
+
+// Reasoning is billed at the output rate and neither max_tokens nor a
+// response schema bounds it, so a reasoning model must cost more per
+// call than a non reasoning one with identical prices. Before this was
+// wired the two came out equal, which read as thinking being free.
+func TestReasoningModelCostsMoreThanItsTwin(t *testing.T) {
+	e, _ := loadEngine(t)
+	plain := &catalog.Model{ID: "twin-plain", InputPerMtok: 1, OutputPerMtok: 4}
+	thinker := &catalog.Model{ID: "twin-reasoning", InputPerMtok: 1, OutputPerMtok: 4,
+		Capabilities: []string{"reasoning"}}
+	site := scan.Site{Archetype: scan.ArchetypeExtraction}
+
+	cheap := e.monthlyUSD(plain, site, 10000)
+	dear := e.monthlyUSD(thinker, site, 10000)
+	if dear <= cheap {
+		t.Errorf("reasoning model at $%.2f is not dearer than its twin at $%.2f", dear, cheap)
+	}
+	// The gap is exactly the assumption, at the output rate, so a change
+	// to reasoning_output moves this and nothing else.
+	want := float64(e.Est.Tokens.ReasoningOutput) * thinker.OutputPerMtok / 1e6 * 10000
+	if got := dear - cheap; got < want-0.01 || got > want+0.01 {
+		t.Errorf("gap = $%.2f, want $%.2f from reasoning_output=%d", got, want, e.Est.Tokens.ReasoningOutput)
+	}
+}

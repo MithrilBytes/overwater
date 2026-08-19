@@ -24,11 +24,12 @@ type Estimates struct {
 		CallsPerMonth int `yaml:"calls_per_month"`
 	} `yaml:"volume"`
 	Tokens struct {
-		CharsPerToken  int `yaml:"chars_per_token"`
-		DefaultInput   int `yaml:"default_input"`
-		DefaultOutput  int `yaml:"default_output"`
-		EmbeddingInput int `yaml:"embedding_input"`
-		SchemaOutput   struct {
+		CharsPerToken   int `yaml:"chars_per_token"`
+		DefaultInput    int `yaml:"default_input"`
+		DefaultOutput   int `yaml:"default_output"`
+		EmbeddingInput  int `yaml:"embedding_input"`
+		ReasoningOutput int `yaml:"reasoning_output"`
+		SchemaOutput    struct {
 			Envelope     int `yaml:"envelope"`
 			PerField     int `yaml:"per_field"`
 			PerEnumField int `yaml:"per_enum_field"`
@@ -58,6 +59,7 @@ type When struct {
 	MinInputPerMtok   float64  `yaml:"min_input_per_mtok"`
 	Effort            []string `yaml:"effort"`
 	MinRetries        int      `yaml:"min_retries"`
+	MinThinkingBudget int      `yaml:"min_thinking_budget"`
 	TemperatureAbove  *float64 `yaml:"temperature_above"`
 	ImageDetailHigh   *bool    `yaml:"image_detail_high"`
 	Tools             *bool    `yaml:"tools"`

@@ -5,7 +5,7 @@ month per call site; override with --volume.
 
 ```
 Call site: damage.py:20 (vision: JSON schema; low confidence)
-Current:   gpt-5.1 at ~$23/mo at estimated volume
+Current:   gpt-5.1 at ~$173/mo at estimated volume
 Candidate: same model with image detail auto or low; thumbnails do not need high detail
 Tripwire:  If small print in images stops parsing, stay put
 Flag:      Image detail pinned to high; thumbnails do not need high detail

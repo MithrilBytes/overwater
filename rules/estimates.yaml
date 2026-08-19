@@ -8,6 +8,12 @@ tokens:
   default_input: 500
   default_output: 400
   embedding_input: 10000
+  # A reasoning model bills its thinking at the output rate, and neither
+  # a response schema nor max_tokens bounds it: both cap the answer, not
+  # the reasoning that precedes it. So this is added to the output
+  # estimate rather than being capped by it, and pricing a reasoning
+  # model without it reads as though the thinking were free.
+  reasoning_output: 1500
   # A response schema caps what the call can emit: the JSON envelope
   # plus a field's worth per field, and an enum field is one label off
   # a fixed list rather than free text. Deliberately generous per

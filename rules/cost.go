@@ -35,7 +35,7 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site, calls int) float64
 		in, out = t.EmbeddingInput, 0
 	} else {
 		in = t.DefaultInput + site.Shape.SystemPromptChars/t.CharsPerToken
-		out = e.outputTokens(site)
+		out = e.outputTokens(site) + e.reasoningTokens(m)
 	}
 	perCall := (float64(in)*m.InputPerMtok + float64(out)*m.OutputPerMtok) / 1e6
 	return perCall * float64(calls)
@@ -48,13 +48,24 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site, calls int) float64
 func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site, calls int) float64 {
 	t := e.Est.Tokens
 	sys := float64(e.systemTokens(site))
-	out := e.outputTokens(site)
+	out := e.outputTokens(site) + e.reasoningTokens(m)
 	read := sys * e.Est.Cache.SteadyStateReadFraction
 	write := sys - read
 	perCall := (float64(t.DefaultInput)*m.InputPerMtok +
 		read*m.CacheReadPerMtok + write*m.CacheWritePerMtok +
 		float64(out)*m.OutputPerMtok) / 1e6
 	return perCall * float64(calls)
+}
+
+// reasoningTokens is what a reasoning model spends before it answers.
+// It is billed at the output rate and is not bounded by max_tokens or
+// by a response schema, so it is added to the output estimate rather
+// than capped by it. A model with no reasoning capability spends none.
+func (e *Engine) reasoningTokens(m *catalog.Model) int {
+	if m == nil || !m.HasCapability("reasoning") {
+		return 0
+	}
+	return e.Est.Tokens.ReasoningOutput
 }
 
 func (e *Engine) systemTokens(site scan.Site) int {
