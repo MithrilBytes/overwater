@@ -140,6 +140,10 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dup
 	if w.MinRetries > 0 && (site.Shape.MaxRetries == nil || *site.Shape.MaxRetries < w.MinRetries) {
 		return false
 	}
+	if w.MinThinkingBudget > 0 &&
+		(site.Shape.ThinkingBudget == nil || *site.Shape.ThinkingBudget < w.MinThinkingBudget) {
+		return false
+	}
 	if w.TemperatureAbove != nil && (site.Shape.Temperature == nil || *site.Shape.Temperature <= *w.TemperatureAbove) {
 		return false
 	}

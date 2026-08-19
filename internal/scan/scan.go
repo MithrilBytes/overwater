@@ -21,12 +21,17 @@ type SDK struct {
 // BatchContext and BatchAPI are file scoped, since a cron trigger and
 // the call it drives rarely sit on adjacent lines.
 type Shape struct {
-	Readable         bool
-	Temperature      *float64
-	MaxTokens        *int
-	MaxRetries       *int
-	Dimensions       *int
-	Effort           string
+	Readable    bool
+	Temperature *float64
+	MaxTokens   *int
+	MaxRetries  *int
+	Dimensions  *int
+	Effort      string
+	// ThinkingBudget is Anthropic's thinking.budget_tokens or Gemini's
+	// thinking_config.thinking_budget. It is a token count rather than
+	// an enum, so what counts as too much is a rule's threshold and not
+	// the scanner's business.
+	ThinkingBudget   *int
 	ImageDetailHigh  bool
 	JSONSchema       bool
 	SchemaEnumOnly   bool

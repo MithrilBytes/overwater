@@ -1,0 +1,23 @@
+# The same waste effort-overkill names, spelled the way Anthropic and
+# Gemini spell it. They take a token budget rather than an enum, so a
+# repository using either set nothing effort-overkill could read and the
+# rule was quiet on two providers out of three.
+#
+# The threshold is where a budget stops being a safety margin and starts
+# being the plan: 4096 is Anthropic's own documented starting point for
+# deliberate reasoning, well above what naming fields or picking a label
+# needs.
+id: thinking-budget-overkill
+kind: finding
+confidence: medium
+when:
+  archetype: [extraction, classification]
+  min_thinking_budget: 4096
+candidate:
+  strategy: none
+  note: same model with a smaller thinking budget; extraction and classification rarely need deliberate reasoning
+tripwire: If eval agreement drops below 97%, stay put
+tripwire_check:
+  metric: agreement
+  compare: below
+  threshold: 97
