@@ -456,3 +456,23 @@ func readmeSection(t *testing.T, src, heading string) string {
 	}
 	return body
 }
+
+// dogfood used the Action's download path, which fetches the last
+// release rather than the tree under test, so a change in the commit
+// being tested was not actually exercised. It also broke outright in
+// the window between an action.yml bump and its tag, when the version
+// the Action names has no release yet. It builds what it tests now.
+func TestDogfoodTestsThisTree(t *testing.T) {
+	src := repoFile(t, ".github", "workflows", "dogfood.yml")
+	if !strings.Contains(src, "go build -o") {
+		t.Error("dogfood does not build the binary it tests")
+	}
+	jobs := strings.Count(src, "uses: ./")
+	if jobs == 0 {
+		t.Fatal("dogfood no longer runs the Action at all")
+	}
+	if got := strings.Count(src, "binary: ${{ runner.temp }}/overwater"); got != jobs {
+		t.Errorf("%d dogfood jobs run the Action and %d pass it a built binary; "+
+			"the rest download the last release", jobs, got)
+	}
+}

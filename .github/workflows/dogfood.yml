@@ -9,11 +9,20 @@ permissions:
   contents: read
   pull-requests: write
 
+# Both jobs run the Action against a binary built from this tree, not
+# the one the Action would download. That is what dogfooding should mean
+# here: the download path fetches the last release, so a change in this
+# commit would not be under test, and between an action.yml bump and its
+# tag the named release does not exist at all.
 jobs:
   firehose-must-fail:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build -o "$RUNNER_TEMP/overwater" ./cmd/overwater
       - id: scan
         continue-on-error: true
         uses: ./
@@ -21,6 +30,7 @@ jobs:
           path: fixtures/ts-chat-firehose
           fail-on: any
           pr-comment: "true"
+          binary: ${{ runner.temp }}/overwater
       - name: the firehose fixture must exit 1
         run: test "${{ steps.scan.outcome }}" = "failure"
 
@@ -28,7 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go build -o "$RUNNER_TEMP/overwater" ./cmd/overwater
       - uses: ./
         with:
           path: fixtures/clean-app
           fail-on: any
+          binary: ${{ runner.temp }}/overwater

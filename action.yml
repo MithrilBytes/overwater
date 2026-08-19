@@ -26,6 +26,14 @@ inputs:
       caller to grant pull-requests write permission.
     required: false
     default: "false"
+  binary:
+    description: >-
+      Path to an already built overwater binary. Skips the download, so
+      this Action can be run against the tree it lives in rather than
+      against the last release. Used by this repository's own dogfood
+      workflow; there is no reason to set it otherwise.
+    required: false
+    default: ""
   github-token:
     description: Token used only for the PR comment
     required: false
@@ -38,6 +46,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
+        INPUT_BINARY: ${{ inputs.binary }}
       # Only the version pins a release here, and a version is known
       # before the tag exists. Checksums are not: they are computed from
       # the built artifacts, so committing them means committing after
@@ -49,6 +58,15 @@ runs:
       # cannot be reissued by whoever replaced the artifact.
       run: |
         set -euo pipefail
+        # A caller supplied binary is the tree's own build. The version
+        # below names a release that does not exist yet between the bump
+        # and the tag, which is the window this repository's own dogfood
+        # job runs in.
+        if [ -n "$INPUT_BINARY" ]; then
+          chmod +x "$INPUT_BINARY"
+          echo "OVERWATER_BIN=$INPUT_BINARY" >> "$GITHUB_ENV"
+          exit 0
+        fi
         version="v2.6.0"
         repo="MithrilBytes/overwater"
         case "${RUNNER_OS}_${RUNNER_ARCH}" in
