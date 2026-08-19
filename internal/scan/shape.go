@@ -14,8 +14,15 @@ var (
 	reMaxTokens   = regexp.MustCompile(`(?i)["']?max_?(?:output_?|completion_?)?tokens["']?\s*[:=]\s*([0-9][0-9_]*)`)
 	reEffort      = regexp.MustCompile(`(?i)["']?(?:reasoning_)?effort["']?\s*[:=]\s*["']?(minimal|low|medium|high|xhigh|max)\b`)
 	reRetries     = regexp.MustCompile(`(?i)\b(?:max_?)?retries["']?\s*[:=]\s*([0-9]+)`)
-	reDimensions  = regexp.MustCompile(`(?i)["']?dimensions["']?\s*[:=]\s*([0-9]+)`)
-	reDetailHigh  = regexp.MustCompile(`(?i)["']?detail["']?\s*[:=]\s*["']high["']`)
+	// Voyage and Cohere spell it output_dimension, Gemini spells it
+	// output_dimensionality. Reading only OpenAI's spelling meant a call
+	// that does cap its width looked uncapped.
+	reDimensions = regexp.MustCompile(`(?i)["']?(?:output_?)?dimension(?:s|ality)?["']?\s*[:=]\s*([0-9]+)`)
+	reDetailHigh = regexp.MustCompile(`(?i)["']?detail["']?\s*[:=]\s*["']high["']`)
+	// Anthropic and Gemini express reasoning depth as a token budget
+	// rather than OpenAI's enum, so effort alone saw two providers out
+	// of three set nothing at all.
+	reThinkBudget = regexp.MustCompile(`(?i)["']?(?:budget_?tokens|thinking_?budget)["']?\s*[:=]\s*([0-9][0-9_]*)`)
 )
 
 // Structured output: a response format, a Zod field, or an identifier
@@ -111,6 +118,11 @@ func (a *analyzer) extractShape(p string, r region) Shape {
 	if m := reDimensions.FindStringSubmatch(text); m != nil {
 		if v, err := strconv.Atoi(m[1]); err == nil {
 			s.Dimensions = &v
+		}
+	}
+	if m := reThinkBudget.FindStringSubmatch(text); m != nil {
+		if v, err := strconv.Atoi(strings.ReplaceAll(m[1], "_", "")); err == nil {
+			s.ThinkingBudget = &v
 		}
 	}
 	s.ImageDetailHigh = reDetailHigh.MatchString(text)

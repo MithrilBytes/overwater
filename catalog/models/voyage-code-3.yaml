@@ -6,3 +6,4 @@ context_window: 32000
 tier: embedding
 released: "2024-12-04"
 source: https://docs.voyageai.com/docs/pricing
+capabilities: [dimensions]

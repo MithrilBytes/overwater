@@ -527,6 +527,9 @@
       ],
       "input_per_mtok": 0.12,
       "output_per_mtok": 0,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 128000,
       "tier": "embedding",
       "released": "2025-04-15",
@@ -1509,6 +1512,9 @@
       "provider": "voyage",
       "input_per_mtok": 0.18,
       "output_per_mtok": 0,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 32000,
       "tier": "embedding",
       "released": "2025-01-07",
@@ -1519,6 +1525,9 @@
       "provider": "voyage",
       "input_per_mtok": 0.06,
       "output_per_mtok": 0,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 32000,
       "tier": "embedding",
       "released": "2025-05-20",
@@ -1529,6 +1538,9 @@
       "provider": "voyage",
       "input_per_mtok": 0.02,
       "output_per_mtok": 0,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 32000,
       "tier": "embedding",
       "released": "2025-05-20",
@@ -1539,6 +1551,9 @@
       "provider": "voyage",
       "input_per_mtok": 0.18,
       "output_per_mtok": 0,
+      "capabilities": [
+        "dimensions"
+      ],
       "context_window": 32000,
       "tier": "embedding",
       "released": "2024-12-04",
