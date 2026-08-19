@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -189,4 +190,46 @@ func TestRegionsBoundedInMinified(t *testing.T) {
 			}
 		}
 	}
+}
+
+// Every tsconfig used to be re-read and re-unmarshalled for each non
+// relative import, so a monorepo paid the parse once per lookup. They
+// are parsed once per pass now, the way the index and the env
+// candidates already were.
+func TestTsconfigsParseOncePerPass(t *testing.T) {
+	files := map[string]string{
+		"tsconfig.json":              `{"compilerOptions":{"baseUrl":".","paths":{"@lib/*":["src/lib/*"]}}}`,
+		"packages/web/tsconfig.json": `{"compilerOptions":{"baseUrl":".","paths":{"@web/*":["app/*"]}}}`,
+		"src/lib/llm.ts": "import OpenAI from \"openai\";\nexport const c = new OpenAI();\n" +
+			"export async function ask(p: string) {\n" +
+			"  return c.chat.completions.create({ model: \"gpt-5.1\", messages: p });\n}\n",
+	}
+	// Enough importers that a per lookup parse would be obvious.
+	for i := 0; i < 12; i++ {
+		files[fmt.Sprintf("src/app/caller%d.ts", i)] =
+			fmt.Sprintf("import { ask } from \"@lib/llm\";\nexport const r%d = ask(\"hi\");\n", i)
+	}
+	var fs []file
+	for _, name := range sortedFileNames(files) {
+		fs = append(fs, file{path: name, data: files[name]})
+	}
+	a := newAnalyzer(fs)
+	for i := 0; i < 12; i++ {
+		a.tsconfigResolve("@lib/llm")
+		a.tsconfigResolve("@web/thing")
+	}
+	if got := a.tsParses.Load(); got != 2 {
+		t.Errorf("parsed %d tsconfigs across 24 lookups, want the 2 in the tree", got)
+	}
+}
+
+// sortedFileNames keeps the analyzer's input in the walk order it would
+// see on disk, since alias resolution is order sensitive by design.
+func sortedFileNames(files map[string]string) []string {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

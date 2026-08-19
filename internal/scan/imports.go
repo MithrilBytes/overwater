@@ -72,40 +72,63 @@ func (a *analyzer) importTargets(p, name string) []string {
 	return targets
 }
 
+// tsAliases is one tsconfig's path map, flattened and ordered so a
+// lookup is a walk rather than a parse.
+type tsAliases struct {
+	base     string
+	patterns []string
+	targets  map[string][]string
+}
+
+// tsconfigs parses every tsconfig in the repository once per pass. It
+// used to be parsed once per lookup, which on a monorepo is every config
+// re-read for every non relative import in every file. Configs and
+// patterns are ordered here, so ambiguous aliases resolve the same way
+// on every run.
+func (a *analyzer) tsconfigs() []tsAliases {
+	a.tsOnce.Do(func() {
+		for _, known := range a.paths {
+			if path.Base(known) != "tsconfig.json" && path.Base(known) != "jsconfig.json" {
+				continue
+			}
+			var cfg struct {
+				CompilerOptions struct {
+					BaseURL string              `json:"baseUrl"`
+					Paths   map[string][]string `json:"paths"`
+				} `json:"compilerOptions"`
+			}
+			a.tsParses.Add(1)
+			if err := json.Unmarshal([]byte(jsonStripComments(a.byPath[known])), &cfg); err != nil {
+				continue
+			}
+			patterns := make([]string, 0, len(cfg.CompilerOptions.Paths))
+			for pattern := range cfg.CompilerOptions.Paths {
+				patterns = append(patterns, pattern)
+			}
+			sort.Strings(patterns)
+			a.tsCfgs = append(a.tsCfgs, tsAliases{
+				base:     path.Join(path.Dir(known), cfg.CompilerOptions.BaseURL),
+				patterns: patterns,
+				targets:  cfg.CompilerOptions.Paths,
+			})
+		}
+	})
+	return a.tsCfgs
+}
+
 // tsconfigResolve expands a non relative import spec through the
-// compilerOptions paths of every tsconfig.json in the repo. Configs and
-// patterns are visited in sorted order, so ambiguous aliases resolve the
-// same way on every run.
+// compilerOptions paths of every tsconfig.json in the repo.
 func (a *analyzer) tsconfigResolve(spec string) []string {
 	var out []string
-	for _, known := range a.paths {
-		if path.Base(known) != "tsconfig.json" && path.Base(known) != "jsconfig.json" {
-			continue
-		}
-		var cfg struct {
-			CompilerOptions struct {
-				BaseURL string              `json:"baseUrl"`
-				Paths   map[string][]string `json:"paths"`
-			} `json:"compilerOptions"`
-		}
-		if err := json.Unmarshal([]byte(jsonStripComments(a.byPath[known])), &cfg); err != nil {
-			continue
-		}
-		root := path.Dir(known)
-		base := path.Join(root, cfg.CompilerOptions.BaseURL)
-		patterns := make([]string, 0, len(cfg.CompilerOptions.Paths))
-		for pattern := range cfg.CompilerOptions.Paths {
-			patterns = append(patterns, pattern)
-		}
-		sort.Strings(patterns)
-		for _, pattern := range patterns {
+	for _, cfg := range a.tsconfigs() {
+		for _, pattern := range cfg.patterns {
 			prefix := strings.TrimSuffix(pattern, "*")
 			if !strings.HasPrefix(spec, prefix) {
 				continue
 			}
 			rest := strings.TrimPrefix(spec, prefix)
-			for _, sub := range cfg.CompilerOptions.Paths[pattern] {
-				out = append(out, path.Join(base, strings.TrimSuffix(sub, "*")+rest))
+			for _, sub := range cfg.targets[pattern] {
+				out = append(out, path.Join(cfg.base, strings.TrimSuffix(sub, "*")+rest))
 			}
 		}
 	}

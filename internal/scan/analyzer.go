@@ -36,6 +36,13 @@ type analyzer struct {
 	// envCompiles counts reader regexes built, so a test can prove they
 	// are built per config key and not per key per file.
 	envCompiles atomic.Int64
+	// The tsconfig path aliases, parsed once per pass and read only
+	// afterwards (imports.go).
+	tsOnce sync.Once
+	tsCfgs []tsAliases
+	// tsParses counts config files unmarshalled, so a test can prove
+	// they are parsed once per pass and not once per lookup.
+	tsParses atomic.Int64
 }
 
 func newAnalyzer(files []file) *analyzer {
