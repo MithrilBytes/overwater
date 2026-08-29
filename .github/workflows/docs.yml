@@ -1,0 +1,80 @@
+name: docs
+
+# The facts in README.md and site/index.html are derived from this
+# repository, and every one of them has gone stale at least once: the
+# rules list read as authoritative while three rules behind, and both
+# install examples sat a release back. sync-docs rewrites them here so
+# main is self healing, and TestDocsAreInSync tells a pull request the
+# same thing before it merges.
+on:
+  push:
+    branches: [main]
+    paths:
+      - rules/*.yaml
+      - action.yml
+      - catalog/catalog.json
+      - README.md
+      - site/index.html
+      - internal/docs/**
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+# A second push while this one is committing would race for main.
+concurrency:
+  group: docs-main
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: rewrite what is derived
+        run: |
+          set -euo pipefail
+          go run ./tools/sync-docs
+      - name: commit when something moved
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "docs already match the repository" >> "$GITHUB_STEP_SUMMARY"
+            echo "site=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Whether the page itself moved decides if a deploy is needed.
+          site=false
+          if ! git diff --quiet -- site/index.html; then site=true; fi
+          echo "site=$site" >> "$GITHUB_OUTPUT"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md site/index.html
+          git commit -m "docs: sync the generated facts"
+          git pull --rebase origin main
+          git push origin main
+          {
+            echo "### Docs synced"
+            echo
+            echo '```'
+            git show --stat --format= HEAD
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # A push made with GITHUB_TOKEN starts no workflow run, which is
+      # why the release pin commit never triggers CI. So the deploy that
+      # would normally follow a site change has to be asked for.
+      - name: publish the page when it changed
+        if: steps.sync.outputs.site == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main
