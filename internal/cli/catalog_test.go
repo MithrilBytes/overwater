@@ -41,8 +41,11 @@ func writeCatalogDir(t *testing.T) string {
 func TestCatalogDiffDrift(t *testing.T) {
 	dir := writeCatalogDir(t)
 	litellm := filepath.Join(t.TempDir(), "litellm.json")
+	// The window matches, so this is an ordinary repricing. A price that
+	// moves together with the window is held back instead, which
+	// TestCatalogDiffHoldsBackARepointedKey covers.
 	prices := `{
-  "test-model": {"input_cost_per_token": 2e-06, "output_cost_per_token": 4e-06, "max_input_tokens": 2000},
+  "test-model": {"input_cost_per_token": 2e-06, "output_cost_per_token": 4e-06, "max_input_tokens": 1000},
   "unrelated-model": {"input_cost_per_token": 1e-06}
 }`
 	if err := os.WriteFile(litellm, []byte(prices), 0o644); err != nil {
@@ -56,8 +59,7 @@ func TestCatalogDiffDrift(t *testing.T) {
 	}
 	for _, want := range []string{
 		"test-model: ours 1/2, litellm 2/4",
-		"note: test-model: context window ours 1000, litellm 2000",
-		"1 drifted, 1 notes, 1 not in litellm, 2 checked",
+		"1 drifted, 0 repointed, 0 notes, 1 not in litellm, 2 checked",
 	} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Errorf("stdout is missing %q:\n%s", want, stdout.String())
@@ -317,5 +319,43 @@ func TestCatalogDiffNoDrift(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "catalog.json")); !os.IsNotExist(err) {
 		t.Errorf("catalog.json written without drift (stat err %v)", err)
+	}
+}
+
+// A price that arrives with a new context window is upstream reusing an
+// id for a new generation, not a repricing. Taking it silently priced
+// mistral-medium-3 at Medium 3.5's rate, 3.75x high, and the nightly
+// job opened a PR for it. It must be reported and must not be applied,
+// including under -write.
+func TestCatalogDiffHoldsBackARepointedKey(t *testing.T) {
+	dir := writeCatalogDir(t)
+	litellm := filepath.Join(t.TempDir(), "litellm.json")
+	prices := `{
+  "test-model": {"input_cost_per_token": 2e-06, "output_cost_per_token": 4e-06, "max_input_tokens": 9000}
+}`
+	if err := os.WriteFile(litellm, []byte(prices), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"catalog", "diff", "-dir", dir, "-write", litellm}, &stdout, &stderr)
+	if code != ExitClean {
+		t.Fatalf("exit = %d, stderr = %q", code, stderr.String())
+	}
+	for _, want := range []string{
+		"repointed: test-model: ours 1/2, litellm 2/4",
+		"check whether the id still names our model",
+		"0 drifted, 1 repointed,",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("stdout is missing %q:\n%s", want, stdout.String())
+		}
+	}
+	entry, err := os.ReadFile(filepath.Join(dir, "models", "test-model.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(entry), "input_per_mtok: 1") {
+		t.Errorf("-write applied a repointed price:\n%s", entry)
 	}
 }

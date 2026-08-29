@@ -110,7 +110,7 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%d models priced upstream and absent here\n", len(unlisted))
 		return ExitClean
 	}
-	drifts, notes, missing := catalog.DiffLitellm(c, prices)
+	drifts, repointed, notes, missing := catalog.DiffLitellm(c, prices)
 	for _, d := range drifts {
 		// A missing upstream output price prints "?", never a zero that
 		// reads like a real price.
@@ -120,10 +120,22 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stdout, "%s: ours %g/%g, litellm %g/%s\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirsOut)
 	}
+	// Loud, and above the notes: this is the case where taking the
+	// number would be worse than doing nothing.
+	for _, d := range repointed {
+		theirsOut := "?"
+		if d.TheirsOutKnown {
+			theirsOut = strconv.FormatFloat(d.TheirsOut, 'g', -1, 64)
+		}
+		fmt.Fprintf(stdout, "repointed: %s: ours %g/%g, litellm %g/%s, and the context window moved too;"+
+			" check whether the id still names our model before taking the price\n",
+			d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirsOut)
+	}
 	for _, n := range notes {
 		fmt.Fprintf(stdout, "note: %s\n", n)
 	}
-	fmt.Fprintf(stdout, "%d drifted, %d notes, %d not in litellm, %d checked\n", len(drifts), len(notes), len(missing), len(c.Models))
+	fmt.Fprintf(stdout, "%d drifted, %d repointed, %d notes, %d not in litellm, %d checked\n",
+		len(drifts), len(repointed), len(notes), len(missing), len(c.Models))
 	if !*write || len(drifts) == 0 {
 		return ExitClean
 	}

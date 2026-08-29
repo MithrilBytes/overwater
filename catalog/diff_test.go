@@ -8,8 +8,9 @@ import (
 )
 
 const sampleLitellm = `{
-  "test-model": {"input_cost_per_token": 0.000002, "output_cost_per_token": 0.000008, "litellm_provider": "testco", "max_input_tokens": 9000},
+  "test-model": {"input_cost_per_token": 0.000002, "output_cost_per_token": 0.000008, "litellm_provider": "testco", "max_input_tokens": 1000},
   "testco/aliased-model": {"input_cost_per_token": 0.0000005, "output_cost_per_token": 0.000001},
+  "window-model": {"input_cost_per_token": 0.000001, "output_cost_per_token": 0.000002, "litellm_provider": "testco", "max_input_tokens": 9000},
   "sample_spec": {"input_cost_per_token": "not a number"}
 }`
 
@@ -40,7 +41,11 @@ func diffFixtureCatalog() *Catalog {
 	retired := validModel()
 	retired.ID = "old-model"
 	retired.Deprecated = "2025-01-01"
-	return &Catalog{Version: "2026-01-01", Models: []Model{drifted, matching, absent, retired}}
+	// Same price upstream, different window: a note and nothing more.
+	window := validModel()
+	window.ID = "window-model"
+	return &Catalog{Version: "2026-01-01",
+		Models: []Model{drifted, matching, absent, retired, window}}
 }
 
 func TestDiffLitellmTolerance(t *testing.T) {
@@ -48,7 +53,7 @@ func TestDiffLitellmTolerance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifts, notes, missing := DiffLitellm(diffFixtureCatalog(), prices)
+	drifts, _, notes, missing := DiffLitellm(diffFixtureCatalog(), prices)
 	if len(drifts) != 1 || drifts[0].ID != "test-model" {
 		t.Fatalf("drifts = %+v, want only test-model", drifts)
 	}
@@ -126,7 +131,7 @@ func TestDiffLitellmMissingOutput(t *testing.T) {
 	if p := prices["test-model"]; p.HasOutput {
 		t.Fatalf("parsed entry claims an output price it does not have: %+v", p)
 	}
-	drifts, _, _ := DiffLitellm(c, prices)
+	drifts, _, _, _ := DiffLitellm(c, prices)
 	if len(drifts) != 0 {
 		t.Fatalf("drifts = %+v, want none when only the absent output differs", drifts)
 	}
@@ -138,7 +143,7 @@ func TestDiffLitellmMissingOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifts, _, _ = DiffLitellm(c, prices)
+	drifts, _, _, _ = DiffLitellm(c, prices)
 	if len(drifts) != 1 || drifts[0].TheirsIn != 3 || drifts[0].TheirsOutKnown {
 		t.Fatalf("drifts = %+v, want one input-only drift with TheirsOutKnown false", drifts)
 	}
@@ -221,7 +226,7 @@ func TestDiffSkipsFloatingAliases(t *testing.T) {
 		"mistral/mistral-medium-latest": {Input: 1.5, Output: 7.5, HasOutput: true},
 		"mistral/mistral-medium-2505":   {Input: 0.40, Output: 2.00, HasOutput: true},
 	}
-	drifts, _, missing := DiffLitellm(c, prices)
+	drifts, _, _, missing := DiffLitellm(c, prices)
 	if len(drifts) != 0 {
 		t.Fatalf("drifts = %+v, want none; the pinned key agrees with us", drifts)
 	}
@@ -261,5 +266,47 @@ func TestApplyPricesScalesCacheRates(t *testing.T) {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("entry missing %q:\n%s", want, got)
 		}
+	}
+}
+
+// Upstream reuses a key when a family ships a new generation, and the
+// giveaway is that the context window moves with the price. LiteLLM
+// repointed mistral-medium-3 to Medium 3.5 at 1.5/7.5 over a 262144
+// window while the model this catalog describes stayed at 0.4/2 over
+// 131072 under its dated id. The nightly job applied the price and
+// opened a PR that would have overstated every call site by 3.75x.
+func TestRepointedKeyIsNotAppliedAsDrift(t *testing.T) {
+	m := validModel()
+	m.ID = "mistral-medium-3"
+	m.Provider = "mistral"
+	m.InputPerMtok, m.OutputPerMtok = 0.4, 2
+	m.ContextWindow = 131072
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+
+	repricedInPlace := LitellmPrices{
+		"mistral-medium-3": {Input: 0.5, Output: 2.5, HasOutput: true, MaxInput: 131072, Mode: "chat"},
+	}
+	drifts, repointed, _, _ := DiffLitellm(c, repricedInPlace)
+	if len(drifts) != 1 || len(repointed) != 0 {
+		t.Errorf("a price move at the same window is ordinary drift; got %d drift, %d repointed",
+			len(drifts), len(repointed))
+	}
+
+	newGenerationUnderTheSameKey := LitellmPrices{
+		"mistral-medium-3": {Input: 1.5, Output: 7.5, HasOutput: true, MaxInput: 262144, Mode: "chat"},
+	}
+	drifts, repointed, notes, _ := DiffLitellm(c, newGenerationUnderTheSameKey)
+	if len(drifts) != 0 {
+		t.Errorf("a price that moved with the window was offered as applyable drift: %+v", drifts)
+	}
+	if len(repointed) != 1 || repointed[0].ID != "mistral-medium-3" {
+		t.Fatalf("repointed = %+v, want the one entry held back", repointed)
+	}
+	if repointed[0].TheirsIn != 1.5 {
+		t.Errorf("held back entry lost the upstream price: %+v", repointed[0])
+	}
+	// The window disagreement still has to be said out loud.
+	if len(notes) == 0 {
+		t.Error("no note named the context window disagreement")
 	}
 }

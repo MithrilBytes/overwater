@@ -88,7 +88,16 @@ type Drift struct {
 // Deprecated entries keep their historical prices and are skipped.
 // Prices come back as applyable drift; context window and deprecation
 // disagreements come back as notes for a human, never auto applied.
-func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missing []string) {
+//
+// A price that moved together with the context window is returned as
+// repointed rather than as drift, and is never applied. Upstream reuses
+// a key when a family ships a new generation: mistral-medium-3 went to
+// 1.5/7.5 at a 262144 window while the model this catalog describes,
+// at 131072, stayed at 0.4/2 under its dated id. Taking that price
+// would have overstated every call site by 3.75x. One number moving is
+// a repricing; both moving is evidence the name now means something
+// else, and only a human can say which.
+func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts, repointed []Drift, notes, missing []string) {
 	for _, m := range c.Models {
 		if m.Deprecated != "" {
 			continue
@@ -109,14 +118,20 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missi
 			found = true
 			// Comparing against an absent output price would propose
 			// zeroing ours.
+			windowMoved := p.MaxInput > 0 && p.MaxInput != m.ContextWindow
 			outDrifts := p.HasOutput && differs(m.OutputPerMtok, p.Output)
 			if p.Input > 0 && (differs(m.InputPerMtok, p.Input) || outDrifts) {
-				drifts = append(drifts, Drift{
+				d := Drift{
 					ID: m.ID, OursIn: m.InputPerMtok, OursOut: m.OutputPerMtok,
 					TheirsIn: p.Input, TheirsOut: p.Output, TheirsOutKnown: p.HasOutput,
-				})
+				}
+				if windowMoved {
+					repointed = append(repointed, d)
+				} else {
+					drifts = append(drifts, d)
+				}
 			}
-			if p.MaxInput > 0 && p.MaxInput != m.ContextWindow {
+			if windowMoved {
 				notes = append(notes, fmt.Sprintf("%s: context window ours %d, litellm %d", m.ID, m.ContextWindow, p.MaxInput))
 			}
 			if p.Deprecation != "" {
@@ -128,7 +143,7 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts []Drift, notes, missi
 			missing = append(missing, m.ID)
 		}
 	}
-	return drifts, notes, missing
+	return drifts, repointed, notes, missing
 }
 
 // floatingAlias reports whether a name points at whatever generation is
