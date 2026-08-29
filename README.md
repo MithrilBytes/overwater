@@ -433,10 +433,10 @@ calls no LLM, 7 percent on a model dense one and 1 percent on a
 monorepo, and `unknownModelRE` costs more than the loop on the same
 lines. The dictionary is not the expensive half of layer 2.
 
-- [ ] `traceConfigModels` is 83 percent of a 242 second scan of
-      microsoft/vscode, `regexp.MustCompile` alone 30 percent of it. It
-      compiles up to seven regexes per file per config key and walks the
-      repository once per config line. This is the speed item.
+- [x] `traceConfigModels` was 83 percent of a 242 second scan of
+      microsoft/vscode, compiling up to seven regexes per file per
+      config key and walking the repository once per config line. That
+      scan takes 8 seconds now.
 - [ ] cap peak memory: 854MB on 16,888 files and 170MB of source, 5.0x
       walked bytes, from 1.16GB and 6.8x measured back to back on the
       same tree at the same wall clock. The three cheap copies are gone:
@@ -452,14 +452,17 @@ lines. The dictionary is not the expensive half of layer 2.
 
 Manifests for Homebrew, scoop, and winget, a nix flake, a distroless
 image on GHCR, release notes built from the commit log, and build
-provenance on every released binary all ship as of v2.2. The three
-manifests are generated into this repository and nothing publishes
-them, so `brew install overwater`, `scoop install overwater`, and
-`winget install MithrilBytes.Overwater` all fail today. What is left:
+provenance on every released binary all ship as of v2.2.
 
-- [ ] publish the Homebrew formula to a tap repository
-- [ ] publish the scoop manifest to a bucket repository
-- [ ] submit the winget manifests to microsoft/winget-pkgs
+The three manifests are generated into this repository on every release
+and deliberately published nowhere. A tap, a bucket and a winget-pkgs
+submission are each a second repository to keep current, and the install
+routes above already cover every platform the binaries are built for.
+So `brew install overwater`, `scoop install overwater`, and
+`winget install MithrilBytes.Overwater` do not work and are not meant
+to; the manifests exist so that publishing is a decision rather than a
+project, if that ever changes.
+
 - [x] build the container image for tags that price-release pushes
 
 ### Detection
@@ -469,8 +472,14 @@ them, so `brew install overwater`, `scoop install overwater`, and
       is the honest number: the rest were written to be classified.
 - [x] schema field counts bound the output token estimate
 - [x] machine readable tripwires that generated evals exit on
-- [ ] measured tokens per call, read from the same usage exports
-      `volumes import` already parses
+- [x] read the reasoning spend a call states rather than assuming one:
+      a pinned reasoning effort selects its rung of the ladder in
+      `estimates.yaml`, and a stated thinking budget can only lower the
+      figure. There is no honest single number to measure here, since
+      the provider documents the range as a few hundred to tens of
+      thousands and its one concrete figure is a suggested reserve.
+- [ ] measured tokens per call for everything else, read from the same
+      usage exports `volumes import` already parses
 
 Cost ranges instead of point estimates came off this list. The soft
 number is tokens per call, and the only ceilings the scanner can read

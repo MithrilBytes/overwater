@@ -304,8 +304,10 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
     second check is the one that survives someone who can replace the binary and the digest
     together, so the GitHub Action fails closed on it rather than trusting a checksum.</p>
     <p class="sub">Homebrew, scoop, and winget manifests are generated into the repository on every
-    release, but none of the three is published yet: there is no tap, no bucket, and nothing
-    submitted to winget-pkgs. Until they are, install by one of the routes above.</p>
+    release and deliberately published nowhere. Each would be a second repository to keep current,
+    and the routes above already cover every platform the binaries are built for, so
+    <code>brew install overwater</code> and its equivalents are not meant to work. The manifests
+    exist so that publishing stays a decision rather than a project.</p>
   </section>
 
   <section>
