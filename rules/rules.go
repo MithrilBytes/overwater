@@ -28,8 +28,11 @@ type Estimates struct {
 		DefaultInput    int `yaml:"default_input"`
 		DefaultOutput   int `yaml:"default_output"`
 		EmbeddingInput  int `yaml:"embedding_input"`
-		ReasoningOutput int `yaml:"reasoning_output"`
-		SchemaOutput    struct {
+		ReasoningOutput struct {
+			Default  int            `yaml:"default"`
+			ByEffort map[string]int `yaml:"by_effort"`
+		} `yaml:"reasoning_output"`
+		SchemaOutput struct {
 			Envelope     int `yaml:"envelope"`
 			PerField     int `yaml:"per_field"`
 			PerEnumField int `yaml:"per_enum_field"`

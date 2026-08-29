@@ -13,7 +13,26 @@ tokens:
   # the reasoning that precedes it. So this is added to the output
   # estimate rather than being capped by it, and pricing a reasoning
   # model without it reads as though the thinking were free.
-  reasoning_output: 1500
+  #
+  # There is no honest single number here. OpenAI documents the range as
+  # "a few hundred to tens of thousands" and its only concrete figure,
+  # 25000, is a suggested reserve rather than a typical spend. So this is
+  # a stated assumption, not a measurement, and the engine leans on it
+  # only where the code says nothing: a call that pins reasoning effort
+  # is costed from that, and one that names a thinking budget smaller
+  # than the assumption is costed from the budget.
+  #
+  # The ladder is ordered by what each setting is for. minimal is meant
+  # to be near zero, and the archetypes overwater prices are mostly the
+  # simple end of the range, which is why default sits low in it.
+  reasoning_output:
+    default: 1500
+    by_effort:
+      minimal: 200
+      low: 600
+      medium: 1500
+      high: 4000
+      max: 8000
   # A response schema caps what the call can emit: the JSON envelope
   # plus a field's worth per field, and an enum field is one label off
   # a fixed list rather than free text. Deliberately generous per

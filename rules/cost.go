@@ -35,7 +35,7 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site, calls int) float64
 		in, out = t.EmbeddingInput, 0
 	} else {
 		in = t.DefaultInput + site.Shape.SystemPromptChars/t.CharsPerToken
-		out = e.outputTokens(site) + e.reasoningTokens(m)
+		out = e.outputTokens(site) + e.reasoningTokens(m, site)
 	}
 	perCall := (float64(in)*m.InputPerMtok + float64(out)*m.OutputPerMtok) / 1e6
 	return perCall * float64(calls)
@@ -48,7 +48,7 @@ func (e *Engine) monthlyUSD(m *catalog.Model, site scan.Site, calls int) float64
 func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site, calls int) float64 {
 	t := e.Est.Tokens
 	sys := float64(e.systemTokens(site))
-	out := e.outputTokens(site) + e.reasoningTokens(m)
+	out := e.outputTokens(site) + e.reasoningTokens(m, site)
 	read := sys * e.Est.Cache.SteadyStateReadFraction
 	write := sys - read
 	perCall := (float64(t.DefaultInput)*m.InputPerMtok +
@@ -61,11 +61,25 @@ func (e *Engine) cachedMonthlyUSD(m *catalog.Model, site scan.Site, calls int) f
 // It is billed at the output rate and is not bounded by max_tokens or
 // by a response schema, so it is added to the output estimate rather
 // than capped by it. A model with no reasoning capability spends none.
-func (e *Engine) reasoningTokens(m *catalog.Model) int {
+//
+// The assumption in estimates.yaml is the fallback, not the first
+// answer. A call that pins reasoning effort is costed from that rung of
+// the ladder, and a stated thinking budget can only lower the result,
+// the same way max_tokens only ever lowers outputTokens: a budget is a
+// ceiling the call cannot pass, not a promise to spend it.
+func (e *Engine) reasoningTokens(m *catalog.Model, site scan.Site) int {
 	if m == nil || !m.HasCapability("reasoning") {
 		return 0
 	}
-	return e.Est.Tokens.ReasoningOutput
+	r := e.Est.Tokens.ReasoningOutput
+	tokens := r.Default
+	if byEffort, ok := r.ByEffort[site.Shape.Effort]; ok {
+		tokens = byEffort
+	}
+	if b := site.Shape.ThinkingBudget; b != nil && *b < tokens {
+		tokens = *b
+	}
+	return tokens
 }
 
 func (e *Engine) systemTokens(site scan.Site) int {

@@ -102,8 +102,48 @@ func TestReasoningModelCostsMoreThanItsTwin(t *testing.T) {
 	}
 	// The gap is exactly the assumption, at the output rate, so a change
 	// to reasoning_output moves this and nothing else.
-	want := float64(e.Est.Tokens.ReasoningOutput) * thinker.OutputPerMtok / 1e6 * 10000
+	want := float64(e.Est.Tokens.ReasoningOutput.Default) * thinker.OutputPerMtok / 1e6 * 10000
 	if got := dear - cheap; got < want-0.01 || got > want+0.01 {
-		t.Errorf("gap = $%.2f, want $%.2f from reasoning_output=%d", got, want, e.Est.Tokens.ReasoningOutput)
+		t.Errorf("gap = $%.2f, want $%.2f from reasoning_output default %d", got, want, e.Est.Tokens.ReasoningOutput.Default)
+	}
+}
+
+// There is no honest single number for reasoning spend, so the engine
+// leans on the assumption only where the call says nothing. Effort is
+// read when it is pinned, and a thinking budget can only lower the
+// figure, the way max_tokens only ever lowers the output estimate.
+func TestReasoningReadsTheCallBeforeTheAssumption(t *testing.T) {
+	e, _ := loadEngine(t)
+	m := &catalog.Model{ID: "thinker", InputPerMtok: 1, OutputPerMtok: 4,
+		Capabilities: []string{"reasoning"}}
+	r := e.Est.Tokens.ReasoningOutput
+
+	base := scan.Site{Archetype: scan.ArchetypeExtraction}
+	if got := e.reasoningTokens(m, base); got != r.Default {
+		t.Errorf("a call that says nothing = %d, want the default %d", got, r.Default)
+	}
+	for _, effort := range []string{"minimal", "low", "high", "max"} {
+		site := base
+		site.Shape.Effort = effort
+		if got, want := e.reasoningTokens(m, site), r.ByEffort[effort]; got != want {
+			t.Errorf("effort %q = %d, want %d from the ladder", effort, got, want)
+		}
+	}
+	// A budget under the assumption binds; one above it does not raise.
+	tight, loose := 300, 90000
+	site := base
+	site.Shape.ThinkingBudget = &tight
+	if got := e.reasoningTokens(m, site); got != tight {
+		t.Errorf("a %d token budget = %d, want the budget to bind", tight, got)
+	}
+	site.Shape.ThinkingBudget = &loose
+	if got := e.reasoningTokens(m, site); got != r.Default {
+		t.Errorf("a %d token budget = %d, want it not to raise the estimate", loose, got)
+	}
+	// A model that does not reason spends nothing whatever the call says.
+	plain := &catalog.Model{ID: "plain", InputPerMtok: 1, OutputPerMtok: 4}
+	site.Shape.Effort = "max"
+	if got := e.reasoningTokens(plain, site); got != 0 {
+		t.Errorf("a non reasoning model = %d, want 0", got)
 	}
 }
