@@ -67,7 +67,7 @@ runs:
           echo "OVERWATER_BIN=$INPUT_BINARY" >> "$GITHUB_ENV"
           exit 0
         fi
-        version="v2.6.0"
+        version="v2.7.0"
         repo="MithrilBytes/overwater"
         case "${RUNNER_OS}_${RUNNER_ARCH}" in
           Linux_X64)     bin="overwater_linux_amd64"       ;;
