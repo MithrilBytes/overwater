@@ -25,7 +25,7 @@ the half that survives someone replacing both the binary and the digest:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.6.0
+sh install.sh v2.7.0
 ```
 
 ## Usage
@@ -276,6 +276,13 @@ references them, and the deprecated-model rule needs their dates.
 Contributors update a price by editing one file. A nightly job diffs the
 catalog against LiteLLM and opens a PR when a provider moves a price.
 
+A price that moves together with the context window is reported as
+repointed and never applied. Upstream reuses an id when a family ships a
+new generation: `mistral-medium-3` went to 1.5/7.5 over a 262144 window
+while the model this catalog describes stayed at 0.4/2 over 131072 under
+its dated id. One number moving is a repricing; both moving means the
+name now points somewhere else, and only a person can say which.
+
 The same file answers the other question. `catalog diff -reverse` lists
 models LiteLLM prices that this catalog does not carry, collapsing the
 routes upstream lists them under, so a scan that could not price
@@ -356,7 +363,15 @@ version. Applying a price carries the cache rates with it, which
 providers publish as multiples of base input and the previous version
 left describing the old price.
 
-**v2.6** is the current line. The Action verifies build provenance
+**v2.7** is the current line. `catalog diff` holds back a price that
+arrives with a new context window, since that is upstream reusing an id
+rather than repricing a model. The reasoning estimate reads what a call
+states before falling back on an assumption: a pinned reasoning effort
+selects its rung, and a stated thinking budget can only lower the
+figure. Dogfood builds the tree it tests instead of downloading the
+previous release.
+
+**v2.6** verified build provenance
 rather than a checksum committed into `action.yml`. A digest cannot
 exist before the artifacts are built, so every earlier tag shipped the
 previous release's digests and only the floating `v2` resolved

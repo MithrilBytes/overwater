@@ -476,3 +476,42 @@ func TestDogfoodTestsThisTree(t *testing.T) {
 			"the rest download the last release", jobs, got)
 	}
 }
+
+// The install examples name a release, and nothing kept them current:
+// both pages still said v2.6.0 after v2.7.0 shipped. The site rewrites
+// its copy from the releases API at load, so the baked value is what a
+// reader sees when that call fails or scripts are off, which makes it
+// worth being right rather than approximately right.
+//
+// action.yml is the tree's own record of the release being cut, and the
+// release refuses to build when it disagrees with the tag, so checking
+// against it ties the docs to the same anchor.
+func TestInstallExamplesNameTheCurrentRelease(t *testing.T) {
+	m := regexp.MustCompile(`version="(v[0-9]+\.[0-9]+\.[0-9]+)"`).
+		FindStringSubmatch(repoFile(t, "action.yml"))
+	if m == nil {
+		t.Fatal(`action.yml has no version="vX.Y.Z" to check the docs against`)
+	}
+	version := m[1]
+
+	readme := repoFile(t, "README.md")
+	if !strings.Contains(readme, "sh install.sh "+version) {
+		t.Errorf("README's install example does not name %s", version)
+	}
+	if other := regexp.MustCompile(`sh install\.sh (v[0-9]+\.[0-9]+\.[0-9]+)`).
+		FindAllStringSubmatch(readme, -1); len(other) != 1 || other[0][1] != version {
+		t.Errorf("README install examples = %v, want exactly one naming %s", other, version)
+	}
+
+	site := repoFile(t, "site", "index.html")
+	baked := regexp.MustCompile(`data-version>(v[0-9]+\.[0-9]+\.[0-9]+)<`).
+		FindAllStringSubmatch(site, -1)
+	if len(baked) == 0 {
+		t.Fatal("the site has no baked [data-version] value to fall back on")
+	}
+	for _, b := range baked {
+		if b[1] != version {
+			t.Errorf("a site install example is baked at %s, want %s", b[1], version)
+		}
+	}
+}
