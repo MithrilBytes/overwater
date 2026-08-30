@@ -2,8 +2,8 @@ id: grok-4
 provider: xai
 aliases:
   - grok-4-0709
-input_per_mtok: 3.00
-output_per_mtok: 15.00
+input_per_mtok: 1.25
+output_per_mtok: 2.5
 context_window: 256000
 tier: frontier
 released: "2025-07-09"
