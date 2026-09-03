@@ -46,6 +46,22 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # The Action names the release it fetches, and release.yml
+          # refuses to build a tag whose tree names a different one. That
+          # check is what makes an exact version pinnable, and it means
+          # the bump has to land before the tag rather than after it, the
+          # way the digests still do. Without this the tag would push and
+          # the release would then fail, leaving a tag with no release.
+          sed -i "s/^\( *version=\)\"v[0-9][^\"]*\"/\1\"$next\"/" action.yml
+          # The install examples name the release too, and a test holds
+          # them to whatever action.yml says.
+          go run ./tools/sync-docs
+          if ! git diff --quiet; then
+            git add action.yml README.md site/index.html
+            git commit -m "chore: name $next in the action before the tag lands"
+            git pull --rebase origin main
+            git push origin main
+          fi
           git tag "$next"
           git push origin "$next"
           echo "tag=$next" >> "$GITHUB_OUTPUT"
