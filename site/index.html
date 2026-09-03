@@ -285,12 +285,12 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
 
       <div class="chan"><dt>Script</dt><dd>
         <div class="cmd"><span class="prompt">$</span>
-          <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.7.0</span></code>
+          <code id="c-sh">curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh &amp;&amp; sh install.sh <span data-version>v2.8.0</span></code>
           <button class="copy" data-copy="#c-sh">copy</button></div></dd></div>
 
       <div class="chan"><dt>Container</dt><dd>
         <div class="cmd"><span class="prompt">$</span>
-          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-version>v2.7.0</span> scan /src</code>
+          <code id="c-img">docker run --rm -v "$PWD:/src" ghcr.io/mithrilbytes/overwater:<span data-version>v2.8.0</span> scan /src</code>
           <button class="copy" data-copy="#c-img">copy</button></div></dd></div>
 
       <div class="chan"><dt>Nix</dt><dd>
@@ -414,7 +414,13 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
   <section>
     <h2>Releases</h2>
     <dl>
-      <div class="rel"><dt>v2.7 <span class="now">current</span></dt><dd>A price that arrives with a
+      <div class="rel"><dt>v2.8 <span class="now">current</span></dt><dd>The facts on this page and
+        in the README are generated from the repository: the rule list, and the release the install
+        examples name. A workflow runs the generator on main so the pages heal themselves rather
+        than waiting for someone to notice. Counts inside wrapped prose and numbers inside release
+        notes are left alone, because rewriting either would reflow a paragraph or rewrite
+        history.</dd></div>
+      <div class="rel"><dt>v2.7</dt><dd>A price that arrives with a
         new context window is held back rather than applied: upstream reuses an id when a family
         ships a new generation, and taking the number would have priced one model at another's
         rate. The reasoning estimate reads what a call states, a pinned effort or a thinking

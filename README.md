@@ -25,7 +25,7 @@ the half that survives someone replacing both the binary and the digest:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.7.0
+sh install.sh v2.8.0
 ```
 
 ## Usage
@@ -364,7 +364,17 @@ version. Applying a price carries the cache rates with it, which
 providers publish as multiples of base input and the previous version
 left describing the old price.
 
-**v2.7** is the current line. `catalog diff` holds back a price that
+**v2.8** is the current line. The facts in this file and on the project
+page are generated from the repository by `tools/sync-docs`: the rule
+list, and the release the install examples name. A workflow runs it on
+main so the pages heal themselves, and a test says so on a pull request
+first. Counts inside wrapped prose and numbers inside release notes are
+deliberately left alone, since rewriting either would reflow a paragraph
+or rewrite history. The automated price release also bumps the Action
+before it tags, which it had to start doing once a tag began carrying
+its own pin.
+
+**v2.7** made `catalog diff` hold back a price that
 arrives with a new context window, since that is upstream reusing an id
 rather than repricing a model. The reasoning estimate reads what a call
 states before falling back on an assumption: a pinned reasoning effort
