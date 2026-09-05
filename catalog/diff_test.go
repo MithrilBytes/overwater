@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const sampleLitellm = `{
@@ -53,7 +54,8 @@ func TestDiffLitellmTolerance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifts, _, notes, missing := DiffLitellm(diffFixtureCatalog(), prices)
+	d := DiffLitellm(diffFixtureCatalog(), prices, DiffOptions{MaxMove: 0})
+	drifts, notes, missing := d.Drifts, d.Notes, d.Missing
 	if len(drifts) != 1 || drifts[0].ID != "test-model" {
 		t.Fatalf("drifts = %+v, want only test-model", drifts)
 	}
@@ -131,7 +133,7 @@ func TestDiffLitellmMissingOutput(t *testing.T) {
 	if p := prices["test-model"]; p.HasOutput {
 		t.Fatalf("parsed entry claims an output price it does not have: %+v", p)
 	}
-	drifts, _, _, _ := DiffLitellm(c, prices)
+	drifts := DiffLitellm(c, prices, DiffOptions{MaxMove: 0}).Drifts
 	if len(drifts) != 0 {
 		t.Fatalf("drifts = %+v, want none when only the absent output differs", drifts)
 	}
@@ -143,7 +145,7 @@ func TestDiffLitellmMissingOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	drifts, _, _, _ = DiffLitellm(c, prices)
+	drifts = DiffLitellm(c, prices, DiffOptions{MaxMove: 0}).Drifts
 	if len(drifts) != 1 || drifts[0].TheirsIn != 3 || drifts[0].TheirsOutKnown {
 		t.Fatalf("drifts = %+v, want one input-only drift with TheirsOutKnown false", drifts)
 	}
@@ -226,7 +228,8 @@ func TestDiffSkipsFloatingAliases(t *testing.T) {
 		"mistral/mistral-medium-latest": {Input: 1.5, Output: 7.5, HasOutput: true},
 		"mistral/mistral-medium-2505":   {Input: 0.40, Output: 2.00, HasOutput: true},
 	}
-	drifts, _, _, missing := DiffLitellm(c, prices)
+	d := DiffLitellm(c, prices, DiffOptions{MaxMove: 0})
+	drifts, missing := d.Drifts, d.Missing
 	if len(drifts) != 0 {
 		t.Fatalf("drifts = %+v, want none; the pinned key agrees with us", drifts)
 	}
@@ -286,7 +289,8 @@ func TestRepointedKeyIsNotAppliedAsDrift(t *testing.T) {
 	repricedInPlace := LitellmPrices{
 		"mistral-medium-3": {Input: 0.5, Output: 2.5, HasOutput: true, MaxInput: 131072, Mode: "chat"},
 	}
-	drifts, repointed, _, _ := DiffLitellm(c, repricedInPlace)
+	r := DiffLitellm(c, repricedInPlace, DiffOptions{MaxMove: 0})
+	drifts, repointed := r.Drifts, r.Repointed
 	if len(drifts) != 1 || len(repointed) != 0 {
 		t.Errorf("a price move at the same window is ordinary drift; got %d drift, %d repointed",
 			len(drifts), len(repointed))
@@ -295,7 +299,8 @@ func TestRepointedKeyIsNotAppliedAsDrift(t *testing.T) {
 	newGenerationUnderTheSameKey := LitellmPrices{
 		"mistral-medium-3": {Input: 1.5, Output: 7.5, HasOutput: true, MaxInput: 262144, Mode: "chat"},
 	}
-	drifts, repointed, notes, _ := DiffLitellm(c, newGenerationUnderTheSameKey)
+	g := DiffLitellm(c, newGenerationUnderTheSameKey, DiffOptions{MaxMove: 0})
+	drifts, repointed, notes := g.Drifts, g.Repointed, g.Notes
 	if len(drifts) != 0 {
 		t.Errorf("a price that moved with the window was offered as applyable drift: %+v", drifts)
 	}
@@ -308,5 +313,121 @@ func TestRepointedKeyIsNotAppliedAsDrift(t *testing.T) {
 	// The window disagreement still has to be said out loud.
 	if len(notes) == 0 {
 		t.Error("no note named the context window disagreement")
+	}
+}
+
+// 128000 and 131072 are one window written two ways, and treating that
+// as a repoint would hold back every real repricing on a model whose
+// upstream rounds differently. A doubling is a different model.
+func TestWindowToleranceSeparatesRoundingFromRepointing(t *testing.T) {
+	m := validModel()
+	m.ID = "tolerant"
+	m.ContextWindow = 131072
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+
+	rounded := LitellmPrices{"tolerant": {Input: 2, Output: 4, HasOutput: true, MaxInput: 128000, Mode: "chat"}}
+	if d := DiffLitellm(c, rounded, DiffOptions{MaxMove: 0}); len(d.Drifts) != 1 || len(d.Repointed) != 0 {
+		t.Errorf("a rounded window read as a repoint: drifts %d, repointed %d", len(d.Drifts), len(d.Repointed))
+	}
+	doubled := LitellmPrices{"tolerant": {Input: 2, Output: 4, HasOutput: true, MaxInput: 262144, Mode: "chat"}}
+	if d := DiffLitellm(c, doubled, DiffOptions{MaxMove: 0}); len(d.Drifts) != 0 || len(d.Repointed) != 1 {
+		t.Errorf("a doubled window did not read as a repoint: drifts %d, repointed %d", len(d.Drifts), len(d.Repointed))
+	}
+}
+
+// grok-4 was cut to 1.25/2.5 from 3/15, a real change that a person
+// should look at before it ships on its own. Below the factor the
+// nightly job applies the move; above it the move waits.
+func TestLargeMovesAreHeldForAPerson(t *testing.T) {
+	m := validModel()
+	m.ID = "swing"
+	m.InputPerMtok, m.OutputPerMtok = 3, 15
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+	prices := LitellmPrices{"swing": {Input: 1.25, Output: 2.5, HasOutput: true, MaxInput: 1000, Mode: "chat"}}
+
+	if d := DiffLitellm(c, prices, DiffOptions{MaxMove: 0}); len(d.Drifts) != 1 || len(d.Held) != 0 {
+		t.Errorf("with no cap the move should apply: drifts %d, held %d", len(d.Drifts), len(d.Held))
+	}
+	if d := DiffLitellm(c, prices, DiffOptions{MaxMove: 3}); len(d.Drifts) != 0 || len(d.Held) != 1 {
+		t.Errorf("a 6x move under a 3x cap should be held: drifts %d, held %d", len(d.Drifts), len(d.Held))
+	}
+	if d := DiffLitellm(c, prices, DiffOptions{MaxMove: 10}); len(d.Drifts) != 1 || len(d.Held) != 0 {
+		t.Errorf("a 6x move under a 10x cap should apply: drifts %d, held %d", len(d.Drifts), len(d.Held))
+	}
+}
+
+// Nine entries sat retired upstream and active here, and the tool
+// recommended one of them six months after it shut off. A date is a
+// fact from the provider, like a price, and is applied like one.
+func TestDeprecationDatesAreAppliedWhenTheWindowMatches(t *testing.T) {
+	m := validModel()
+	m.ID = "retiring"
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+
+	same := LitellmPrices{"retiring": {Input: 1, Output: 2, HasOutput: true, MaxInput: 1000, Mode: "chat", Deprecation: "2026-10-23"}}
+	d := DiffLitellm(c, same, DiffOptions{MaxMove: 0})
+	if len(d.Deprecations) != 1 || d.Deprecations[0].Date != "2026-10-23" {
+		t.Fatalf("deprecations = %+v, want the upstream date", d.Deprecations)
+	}
+	// A repointed key's date is for whatever the key names now.
+	moved := LitellmPrices{"retiring": {Input: 1, Output: 2, HasOutput: true, MaxInput: 9000, Mode: "chat", Deprecation: "2026-10-23"}}
+	if d := DiffLitellm(c, moved, DiffOptions{MaxMove: 0}); len(d.Deprecations) != 0 {
+		t.Errorf("a repointed key's deprecation was applied: %+v", d.Deprecations)
+	}
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte("2026-01-01\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := "id: retiring\nprovider: testco\ninput_per_mtok: 1\noutput_per_mtok: 2\ncontext_window: 1000\ntier: mid\nreleased: \"2025-01-01\"\nsource: https://example.com\n"
+	path := filepath.Join(dir, "models", "retiring.yaml")
+	if err := os.WriteFile(path, []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyDeprecations(dir, d.Deprecations); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	want := "released: \"2025-01-01\"\ndeprecated: \"2026-10-23\"\n"
+	if !strings.Contains(string(got), want) {
+		t.Errorf("entry after apply:\n%s\nwant the date after released", got)
+	}
+	// Applying it again replaces rather than duplicates.
+	if err := ApplyDeprecations(dir, []Deprecation{{ID: "retiring", Date: "2027-01-01"}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = os.ReadFile(path)
+	if strings.Count(string(got), "deprecated:") != 1 || !strings.Contains(string(got), `"2027-01-01"`) {
+		t.Errorf("second apply did not replace the line:\n%s", got)
+	}
+	// And the result still validates as a catalog entry.
+	if _, err := LoadDir(dir); err != nil {
+		t.Errorf("applied entry does not load: %v", err)
+	}
+}
+
+// An entry with a retirement date still ahead of it is live, and its
+// price has to keep syncing until the date. Treating any set date as
+// retired would have frozen the current lineup's prices the night the
+// published dates were applied.
+func TestFutureDatedEntriesStillSync(t *testing.T) {
+	today := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+	live := validModel()
+	live.ID = "still-live"
+	live.Deprecated = "2027-07-24"
+	gone := validModel()
+	gone.ID = "already-gone"
+	gone.Deprecated = "2026-02-28"
+	c := &Catalog{Version: "2026-01-01", Models: []Model{live, gone}}
+	prices := LitellmPrices{
+		"still-live":   {Input: 2, Output: 4, HasOutput: true, MaxInput: 1000, Mode: "chat"},
+		"already-gone": {Input: 2, Output: 4, HasOutput: true, MaxInput: 1000, Mode: "chat"},
+	}
+	d := DiffLitellm(c, prices, DiffOptions{Today: today})
+	if len(d.Drifts) != 1 || d.Drifts[0].ID != "still-live" {
+		t.Errorf("drifts = %+v, want only the live entry to sync", d.Drifts)
 	}
 }

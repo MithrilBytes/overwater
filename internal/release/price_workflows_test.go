@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// price-watch is the only workflow that commits what it computed, and
-// price-release turns a merged one into a tag and a release without a
-// human in the loop. Neither runs until it fires for real, so the guards
+// price-watch commits what it computed and releases it with no person
+// in the loop. It does not run until it fires for real, so the guards
 // that keep that path from shipping garbage are pinned here.
 
 // A run block is bash -e but not pipefail, so a pipeline reports its last
@@ -34,53 +33,72 @@ func TestPriceWatchStepsSetPipefail(t *testing.T) {
 func TestPriceWatchGuardsTheRosterCopy(t *testing.T) {
 	var run string
 	for _, s := range readWorkflow(t, "price-watch.yml").Jobs["diff"].Steps {
-		if strings.Contains(s.Run, "cp /tmp/unlisted.txt catalog/unlisted.txt") {
+		if strings.Contains(s.Run, `cp "$RUNNER_TEMP/unlisted.txt" catalog/unlisted.txt`) {
 			run = s.Run
 		}
 	}
 	if run == "" {
 		t.Fatal("no price-watch step commits the roster; this test guards that copy")
 	}
-	guard := strings.Index(run, "[ ! -s /tmp/unlisted.txt ]")
+	guard := strings.Index(run, `[ ! -s "$RUNNER_TEMP/unlisted.txt" ]`)
 	if guard < 0 {
-		t.Fatal("price-watch copies /tmp/unlisted.txt over the roster without checking it carries anything")
+		t.Fatal("price-watch copies the roster over the committed one without checking it carries anything")
 	}
-	if guard > strings.Index(run, "cp /tmp/unlisted.txt") {
+	if guard > strings.Index(run, `cp "$RUNNER_TEMP/unlisted.txt"`) {
 		t.Error("the empty roster guard runs after the copy it exists to prevent")
 	}
 }
 
-// The branch used to be the date alone, pushed with -f, so a second run
-// in a day rewrote the ref an open PR was built from. A soft failing gh
-// pr create left the branch pushed, no PR, and a green run to notice it.
-func TestPriceWatchBranchIsPerRun(t *testing.T) {
-	src := repoFile(t, ".github", "workflows", "price-watch.yml")
-	for _, want := range []string{
-		"concurrency:",
-		"group: price-watch",
-		`branch="$prefix/$(date +%Y-%m-%d)-$GITHUB_RUN_ID"`,
-		"if ! gh pr create",
-	} {
-		if !strings.Contains(src, want) {
-			t.Errorf("price-watch.yml is missing %q", want)
+// What ships on its own was tested moments before by the same job,
+// because a push made with GITHUB_TOKEN starts no ci run to test it
+// afterward. The order is the guard: apply, regold, test, then ship.
+func TestPriceWatchTestsBeforeItShips(t *testing.T) {
+	steps := readWorkflow(t, "price-watch.yml").Jobs["diff"].Steps
+	pos := map[string]int{}
+	for i, st := range steps {
+		pos[st.Name] = i
+	}
+	apply, ok := pos["apply what passed the guards"]
+	if !ok {
+		t.Fatal("price-watch.yml has no apply step")
+	}
+	ship, ok := pos["ship on its own"]
+	if !ok {
+		t.Fatal("price-watch.yml has no ship step")
+	}
+	if apply >= ship {
+		t.Error("the ship step runs before the apply step that tests the change")
+	}
+	run := steps[apply].Run
+	for _, want := range []string{"-max-move", "tools/regold", "go test ./...", "scripts/smoke.sh"} {
+		if !strings.Contains(run, want) {
+			t.Errorf("the apply step does not run %q before anything ships", want)
 		}
 	}
-	if strings.Contains(src, `|| echo "could not open a PR`) {
-		t.Error("price-watch.yml still swallows a failed gh pr create")
+	if !strings.Contains(steps[ship].If, "steps.apply.outcome == 'success'") {
+		t.Error("the ship step does not gate on the apply step succeeding")
 	}
 }
 
-// The tag job releases main whatever the merged PR contained, and a head
-// branch name is chosen by whoever opened the PR, not by price-watch.
-func TestPriceReleaseGuardsMoreThanTheBranchName(t *testing.T) {
-	src := repoFile(t, ".github", "workflows", "price-release.yml")
-	for _, want := range []string{
-		"github.event.pull_request.base.ref == 'main'",
-		"github.event.pull_request.head.repo.full_name == github.repository",
-		"github.event.pull_request.user.login == 'github-actions[bot]'",
-	} {
-		if !strings.Contains(src, want) {
-			t.Errorf("price-release.yml tag job does not require %s", want)
+// A price that failed a guard has to reach a person somewhere they will
+// see it. A step summary on a green nightly run is not that place.
+func TestPriceWatchFilesAnIssueForHeldPrices(t *testing.T) {
+	w := readWorkflow(t, "price-watch.yml")
+	hand := ""
+	for _, st := range w.Jobs["diff"].Steps {
+		if st.Name == "hand the rest to a person" {
+			hand = st.If + st.Run
 		}
+	}
+	if hand == "" {
+		t.Fatal("price-watch.yml has no step that hands held prices to a person")
+	}
+	for _, want := range []string{"repointed", "held", "gh issue"} {
+		if !strings.Contains(hand, want) {
+			t.Errorf("the hand off step does not mention %q", want)
+		}
+	}
+	if _, ok := w.Jobs["alert"]; !ok {
+		t.Error("price-watch.yml has no alert job, so a failed nightly is invisible")
 	}
 }

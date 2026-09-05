@@ -1,123 +1,258 @@
 name: price-watch
 
+# The nightly comparison against LiteLLM, and everything that follows
+# from it, with no person in the loop for the ordinary case.
+#
+# A price that moved and passed every guard is applied, the goldens are
+# regenerated because dollar figures moved in them, the suite runs, and
+# if it is green the change is committed to main and released. A price
+# that failed a guard, because the context window moved with it or
+# because the step is larger than one nightly run should take alone,
+# goes into an issue for a person instead. Nothing here opens a pull
+# request: a merge made with GITHUB_TOKEN fires no event, so a bot's
+# pull request needs a human click to release, which is what this
+# workflow exists to remove.
+#
+# The suite runs here rather than in ci because a push made with
+# GITHUB_TOKEN starts no workflow run. What lands on main was tested,
+# by this job, moments before.
 on:
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Do everything except push, tag, release, or open an issue
+        type: boolean
+        default: false
+      litellm_url:
+        description: Fetch the price file from here instead of upstream, for testing
+        type: string
+        default: ""
 
 permissions:
   contents: write
-  pull-requests: write
+  issues: write
+  id-token: write
+  attestations: write
+  packages: write
 
-# The branch name carries the run id, so two runs cannot land on the
-# same ref. This keeps them from racing to commit and open a PR for the
-# same drift at all.
 concurrency:
   group: price-watch
   cancel-in-progress: false
 
+env:
+  # The largest factor a price may move in one nightly step and still
+  # ship on its own. grok-4's 6x cut was real and still deserved a look.
+  MAX_MOVE: "3"
+
 jobs:
   diff:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ship.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
       - name: fetch litellm prices
+        env:
+          URL: ${{ inputs.litellm_url }}
         run: |
           set -euo pipefail
-          curl -fsSL -o /tmp/litellm.json \
-            https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
-      - name: diff and apply
-        # A run block is bash -e but not pipefail, so the step would take
-        # tee's exit status and a catalog diff that exited 2 would commit
-        # a half applied catalog behind a green run.
+          url="${URL:-https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json}"
+          curl -fsSL -o "$RUNNER_TEMP/litellm.json" "$url"
+
+      - name: measure
+        id: measure
         run: |
           set -euo pipefail
-          go run ./cmd/overwater catalog diff -write /tmp/litellm.json | tee /tmp/diff.txt
-      - name: models upstream prices and we do not
-        # The full list is over a thousand entries and says the same thing
-        # every night. Only what appeared since the last run is news, so
-        # the roster is committed and this reports the delta against it.
+          go run ./cmd/overwater catalog diff -max-move "$MAX_MOVE" "$RUNNER_TEMP/litellm.json" | tee "$RUNNER_TEMP/diff.txt"
+          # The last line is a contract with the CLI:
+          #   N drifted, N repointed, N held, N deprecations, N notes, N not in litellm, N checked
+          summary="$(tail -n 1 "$RUNNER_TEMP/diff.txt")"
+          for key in drifted repointed held deprecations; do
+            n="$(printf '%s' "$summary" | grep -o "[0-9]* $key" | head -1 | cut -d' ' -f1)"
+            echo "$key=${n:-0}" >> "$GITHUB_OUTPUT"
+          done
+          {
+            echo "### catalog diff"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/diff.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: refresh the roster
+        id: roster
+        # The full list of models upstream prices and we do not is over
+        # a thousand entries. It is committed so that only the delta is
+        # news.
         run: |
           set -euo pipefail
-          go run ./cmd/overwater catalog diff -reverse /tmp/litellm.json \
-            2>> "$GITHUB_STEP_SUMMARY" | cut -f1 | sort > /tmp/unlisted.txt
-          # pipefail catches a diff that failed. This catches one that
-          # succeeded and printed nothing, which the comm below would read
-          # as upstream dropping every model and commit as an empty roster.
-          if [ ! -s /tmp/unlisted.txt ]; then
-            echo "the reverse diff listed no models; leaving the roster alone" >&2
+          go run ./cmd/overwater catalog diff -reverse "$RUNNER_TEMP/litellm.json" \
+            2>> "$GITHUB_STEP_SUMMARY" | cut -f1 | sort > "$RUNNER_TEMP/unlisted.txt"
+          if [ ! -s "$RUNNER_TEMP/unlisted.txt" ]; then
+            echo "reverse diff produced an empty roster; not replacing the committed one" >&2
             exit 1
           fi
-          comm -13 catalog/unlisted.txt /tmp/unlisted.txt > /tmp/new-models.txt || true
-          comm -23 catalog/unlisted.txt /tmp/unlisted.txt > /tmp/gone-models.txt || true
-          cp /tmp/unlisted.txt catalog/unlisted.txt
-          if [ -s /tmp/new-models.txt ]; then
+          comm -13 catalog/unlisted.txt "$RUNNER_TEMP/unlisted.txt" > "$RUNNER_TEMP/new-models.txt" || true
+          cp "$RUNNER_TEMP/unlisted.txt" catalog/unlisted.txt
+          if git diff --quiet -- catalog/unlisted.txt; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -s "$RUNNER_TEMP/new-models.txt" ]; then
             {
               echo
               echo "### New upstream models, absent from this catalog"
               echo
               echo '```'
               go run ./cmd/overwater catalog diff -reverse \
-                -only "$(paste -sd, /tmp/new-models.txt)" /tmp/litellm.json 2>/dev/null
+                -only "$(paste -sd, "$RUNNER_TEMP/new-models.txt")" "$RUNNER_TEMP/litellm.json" 2>/dev/null
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
-          if [ -s /tmp/gone-models.txt ]; then
-            echo "$(wc -l < /tmp/gone-models.txt) models upstream dropped or we adopted" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: apply what passed the guards
+        id: apply
+        if: steps.measure.outputs.drifted != '0' || steps.measure.outputs.deprecations != '0'
+        run: |
+          set -euo pipefail
+          go run ./cmd/overwater catalog diff -write -max-move "$MAX_MOVE" "$RUNNER_TEMP/litellm.json" > /dev/null
+          # Dollar figures and the catalog date moved in the goldens
+          # without any detector being wrong.
+          go run ./tools/regold
+          go test ./...
+          bash scripts/smoke.sh
+
+      - name: ship on its own
+        id: ship
+        if: steps.apply.outcome == 'success' && !inputs.dry_run
+        run: |
+          set -euo pipefail
+          next="$(git tag | go run ./internal/release/cmd -next-tag)"
+          if [ -z "$next" ]; then
+            echo "could not compute the next tag" >&2
+            exit 1
           fi
-      - name: open pr when prices moved
+          # The Action names the release it fetches and release.yml
+          # refuses a tag whose tree names a different one, so the bump
+          # lands in the same commit as the prices.
+          sed -i "s/^\( *version=\)\"v[0-9][^\"]*\"/\1\"$next\"/" action.yml
+          go run ./tools/sync-docs
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add catalog goldens action.yml README.md site/index.html
+          git commit -m "chore: update catalog prices from litellm"
+          git pull --rebase origin main
+          git push origin main
+          git tag "$next"
+          git push origin "$next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+          echo "shipped $next" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: commit the roster alone
+        # Nothing reads unlisted.txt but this workflow, so a roster
+        # change with no price change is not worth a release.
+        if: steps.apply.outcome == 'skipped' && steps.roster.outputs.changed == 'true' && !inputs.dry_run
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add catalog/unlisted.txt
+          git commit -m "chore: refresh the upstream model roster"
+          git pull --rebase origin main
+          git push origin main
+
+      - name: hand the rest to a person
+        if: (steps.measure.outputs.repointed != '0' || steps.measure.outputs.held != '0') && !inputs.dry_run
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if git diff --quiet; then
-            echo "prices match litellm" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          # The roster alone is not worth a release, so a run that only
-          # refreshed it uses a branch price-release does not act on. The
-          # branch, the commit and the PR are one decision, made here.
-          prefix="price-watch"
-          title="chore: update catalog prices from litellm"
-          if git diff --quiet -- catalog/models catalog/catalog.json catalog/VERSION; then
-            prefix="catalog-roster"
-            title="chore: refresh the upstream model roster"
-          fi
-          # The date alone repeats, and the push below is forced: a second
-          # run in a day would rewrite the branch under an open PR and
-          # discard whatever a reviewer had pushed onto it.
-          branch="$prefix/$(date +%Y-%m-%d)-$GITHUB_RUN_ID"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-          git add catalog/
-          git commit -m "$title"
-          git push -f origin "$branch"
+          title="price-watch: prices held for a person"
           {
-            echo "Detected by the nightly diff against LiteLLM's pricing file."
-            echo "Verify each change against the provider source URL before merging."
+            echo "Found by the nightly diff on $(date -u +%Y-%m-%d). These were not applied."
+            echo
+            echo "A repointed price moved together with the context window, which is upstream"
+            echo "reusing an id for a new generation. A held price moved more than ${MAX_MOVE}x in"
+            echo "one step. Check the provider's own pricing page, then edit the entry in"
+            echo "catalog/models by hand; the next nightly run will find nothing to hold."
             echo
             echo '```'
-            cat /tmp/diff.txt
+            grep -E '^(repointed|held):' "$RUNNER_TEMP/diff.txt"
             echo '```'
-            if [ -s /tmp/new-models.txt ]; then
-              echo
-              echo "New upstream models this catalog does not carry. Adding one"
-              echo "decides a tier and a capability set, so none is applied here."
-              echo
-              echo '```'
-              go run ./cmd/overwater catalog diff -reverse \
-                -only "$(paste -sd, /tmp/new-models.txt)" /tmp/litellm.json 2>/dev/null
-              echo '```'
-            fi
-          } > /tmp/body.md
-          # A pushed branch with no PR notifies nobody, and the run that
-          # left it there was the notification. Fail so the schedule does.
-          if ! gh pr create --title "$title" \
-            --body-file /tmp/body.md --head "$branch"; then
-            echo "pushed $branch but could not open a PR; check that Actions may create pull requests" >> "$GITHUB_STEP_SUMMARY"
-            exit 1
+          } > "$RUNNER_TEMP/issue.md"
+          gh label create price-watch --color 0E8A16 --description "opened by the nightly price diff" --force > /dev/null
+          existing="$(gh issue list --label price-watch --state open --search "$title" --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file "$RUNNER_TEMP/issue.md" > /dev/null
+            echo "updated issue #$existing" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh issue create --title "$title" --label price-watch --body-file "$RUNNER_TEMP/issue.md" > /dev/null
+            echo "opened an issue for the held prices" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: dry run
+        if: inputs.dry_run
+        run: |
+          set -euo pipefail
+          {
+            echo "### dry run"
+            echo
+            echo "drifted=${{ steps.measure.outputs.drifted }} repointed=${{ steps.measure.outputs.repointed }} held=${{ steps.measure.outputs.held }} deprecations=${{ steps.measure.outputs.deprecations }} roster_changed=${{ steps.roster.outputs.changed }}"
+            echo
+            echo "Nothing was pushed, tagged, released, or filed."
+          } >> "$GITHUB_STEP_SUMMARY"
+          git status --short
+
+  release:
+    needs: diff
+    if: needs.diff.outputs.tag != ''
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.diff.outputs.tag }}
+
+  image:
+    needs: diff
+    if: needs.diff.outputs.tag != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tag: ${{ needs.diff.outputs.tag }}
+
+  alert:
+    # A failed nightly is invisible in a step summary. An issue is not.
+    needs: [diff, release, image]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="price-watch failed"
+          gh label create price-watch --color 0E8A16 --description "opened by the nightly price diff" --force > /dev/null
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --label price-watch --state open --search "$title" --json number --jq '.[0].number // empty')"
+          body="The nightly price run failed on $(date -u +%Y-%m-%d): $RUN_URL"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body" > /dev/null
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label price-watch --body "$body" > /dev/null
           fi

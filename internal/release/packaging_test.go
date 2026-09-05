@@ -261,77 +261,37 @@ func TestImagePublishesOnTagsOnly(t *testing.T) {
 	}
 }
 
-// price-release exists because a tag pushed with GITHUB_TOKEN starts no
-// workflow run: it has to call release rather than rely on the push.
-func TestPriceReleaseCallsRelease(t *testing.T) {
-	src := repoFile(t, ".github", "workflows", "price-release.yml")
-
-	for _, want := range []string{
-		"pull_request",
-		"merged == true",
-		"price-watch/",
-		"-next-tag",
-		"uses: ./.github/workflows/release.yml",
-	} {
+// The nightly price run releases what it applied by calling release and
+// image itself, because a tag pushed with GITHUB_TOKEN starts no run.
+func TestPriceWatchCallsReleaseAndImage(t *testing.T) {
+	src := repoFile(t, ".github", "workflows", "price-watch.yml")
+	for _, want := range []string{"-next-tag", "uses: ./.github/workflows/release.yml"} {
 		if !strings.Contains(src, want) {
-			t.Errorf("price-release.yml is missing %q", want)
+			t.Errorf("price-watch.yml is missing %q", want)
 		}
 	}
-
 	rel := repoFile(t, ".github", "workflows", "release.yml")
 	if !strings.Contains(rel, "workflow_call:") {
-		t.Error("release.yml has no workflow_call trigger, so price-release cannot call it")
+		t.Error("release.yml has no workflow_call trigger, so price-watch cannot call it")
 	}
-	// The tag drives the stamped version, the notes range, and the
-	// release itself; a leftover GITHUB_REF_NAME would be empty when
-	// release runs as a called workflow.
 	if strings.Contains(rel, "GITHUB_REF_NAME") {
 		t.Error("release.yml still reads GITHUB_REF_NAME, which is wrong when called with an input tag")
 	}
 	if !strings.Contains(rel, "TAG: ${{ inputs.tag || github.ref_name }}") {
 		t.Error("release.yml does not fall back to github.ref_name for a plain tag push")
 	}
-}
 
-// The binaries are only half the release. The image needs the same
-// called-workflow treatment for the same reason, or an automated price
-// release ships new binaries against a stale image.
-func TestPriceReleaseCallsImage(t *testing.T) {
-	w := readWorkflow(t, "price-release.yml")
-	job, ok := w.Jobs["image"]
-	if !ok {
-		t.Fatal("price-release.yml has no job that builds the image for the tag it pushed")
-	}
-	if job.Uses != "./.github/workflows/image.yml" {
-		t.Errorf("price-release image job calls %q, want ./.github/workflows/image.yml", job.Uses)
-	}
-	if got := job.With["tag"]; got != "${{ needs.tag.outputs.tag }}" {
-		t.Errorf("price-release image job passes tag %q, want the tag job's output", got)
-	}
-	// A called workflow's token can only narrow its caller's, and the
-	// publish step pushes to GHCR.
-	if job.Permissions["packages"] != "write" {
-		t.Errorf("price-release image job packages permission is %q, want write", job.Permissions["packages"])
-	}
-
-	img := repoFile(t, ".github", "workflows", "image.yml")
-	if !strings.Contains(img, "workflow_call:") {
-		t.Error("image.yml has no workflow_call trigger, so price-release cannot call it")
-	}
-	// The same trap release.yml walked into: when called, the ref is the
-	// merged pull request, so the tag has to come from the input.
-	if strings.Contains(img, "GITHUB_REF_NAME") {
-		t.Error("image.yml still reads GITHUB_REF_NAME, which is the caller's ref when called with an input tag")
-	}
-	if !strings.Contains(img, "ref: ${{ inputs.tag || github.ref }}") {
-		t.Error("image.yml does not check out the input tag, so it would build the caller's ref")
-	}
-
-	// And the tag guard on the publish step has to admit a called run,
-	// which carries no tag ref at all.
-	for _, s := range readWorkflow(t, "image.yml").Jobs["image"].Steps {
-		if strings.Contains(s.Run, "docker push") && !strings.Contains(s.If, "inputs.tag") {
-			t.Errorf("step %q would skip the push when called with an input tag (if: %q)", s.Name, s.If)
+	w := readWorkflow(t, "price-watch.yml")
+	for _, name := range []string{"release", "image"} {
+		job, ok := w.Jobs[name]
+		if !ok {
+			t.Fatalf("price-watch.yml has no %s job for the tag it pushed", name)
+		}
+		if job.Uses != "./.github/workflows/"+name+".yml" {
+			t.Errorf("price-watch %s job calls %q", name, job.Uses)
+		}
+		if got := job.With["tag"]; got != "${{ needs.diff.outputs.tag }}" {
+			t.Errorf("price-watch %s job passes tag %q, want the diff job's output", name, got)
 		}
 	}
 }
@@ -339,8 +299,8 @@ func TestPriceReleaseCallsImage(t *testing.T) {
 // A price change is a patch release like any other. It used to push two
 // tags, a four component one and a semver twin beside it, because four
 // component tags are not semver and go install could not resolve them.
-func TestPriceReleasePushesOneTag(t *testing.T) {
-	src := repoFile(t, ".github", "workflows", "price-release.yml")
+func TestPriceWatchPushesOneTag(t *testing.T) {
+	src := repoFile(t, ".github", "workflows", "price-watch.yml")
 	for _, want := range []string{
 		"-next-tag",
 		`git tag "$next"`,
@@ -348,12 +308,12 @@ func TestPriceReleasePushesOneTag(t *testing.T) {
 		`echo "tag=$next"`,
 	} {
 		if !strings.Contains(src, want) {
-			t.Errorf("price-release.yml is missing %q", want)
+			t.Errorf("price-watch.yml is missing %q", want)
 		}
 	}
 	for _, gone := range []string{"-next-tags", "$twin", "$update"} {
 		if strings.Contains(src, gone) {
-			t.Errorf("price-release.yml still references %q from the two tag scheme", gone)
+			t.Errorf("price-watch.yml still references %q from the two tag scheme", gone)
 		}
 	}
 }
@@ -375,15 +335,6 @@ func TestReleasePinsAfterBuilding(t *testing.T) {
 		if !strings.Contains(src, want) {
 			t.Errorf("release.yml pin job is missing %q", want)
 		}
-	}
-}
-
-// A price change reaches users only if its release pins too, which it
-// does by calling release rather than duplicating it.
-func TestPriceReleaseInheritsThePin(t *testing.T) {
-	src := repoFile(t, ".github", "workflows", "price-release.yml")
-	if !strings.Contains(src, "uses: ./.github/workflows/release.yml") {
-		t.Error("price-release does not call release, so an auto shipped update would never repin")
 	}
 }
 

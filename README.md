@@ -299,10 +299,12 @@ overwater catalog history -on 2026-08-08
 
 ## Releases
 
-Tags are semver: `vMAJOR.MINOR.PATCH`, nothing else. Merging a
-price-watch PR cuts the next patch and releases it on its own, so a
-price the catalog accepts reaches the binaries without a human picking a
-version.
+Tags are semver: `vMAJOR.MINOR.PATCH`, nothing else. The nightly price
+run applies a price that passed its guards, regenerates the goldens,
+runs the suite, and cuts the next patch itself. A price that moved with
+its context window, or moved more than 3x in one step, goes into an
+issue for a person instead. A retirement date upstream publishes is
+applied the same way and takes effect on the day, not before.
 
 Each release pins itself, in two halves that move at different times.
 `action.yml` names the version and nothing else, so it is bumped and
@@ -406,7 +408,7 @@ provenance on every released binary all ship as of v2.2.
 The three manifests are generated on every release and published
 nowhere, so `brew install overwater` and its equivalents do not work.
 
-- [x] build the container image for tags that price-release pushes
+- [x] build the container image for tags the nightly price run pushes
 
 ### Detection
 

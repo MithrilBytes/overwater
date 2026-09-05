@@ -58,6 +58,7 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 	dir := fs.String("dir", "catalog", "catalog source directory")
 	write := fs.Bool("write", false, "apply drifted prices and rebuild catalog.json")
+	maxMove := fs.Float64("max-move", 0, "hold back a price that moves more than this factor in one step; 0 applies any")
 	reverse := fs.Bool("reverse", false, "list models litellm prices that this catalog lacks")
 	only := fs.String("only", "", "comma separated ids to narrow -reverse to")
 	if err := fs.Parse(args); err != nil {
@@ -110,8 +111,8 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%d models priced upstream and absent here\n", len(unlisted))
 		return ExitClean
 	}
-	drifts, repointed, notes, missing := catalog.DiffLitellm(c, prices)
-	for _, d := range drifts {
+	diff := catalog.DiffLitellm(c, prices, catalog.DiffOptions{MaxMove: *maxMove})
+	for _, d := range diff.Drifts {
 		// A missing upstream output price prints "?", never a zero that
 		// reads like a real price.
 		theirsOut := "?"
@@ -122,29 +123,45 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 	}
 	// Loud, and above the notes: this is the case where taking the
 	// number would be worse than doing nothing.
-	for _, d := range repointed {
-		theirsOut := "?"
+	theirs := func(d catalog.Drift) string {
 		if d.TheirsOutKnown {
-			theirsOut = strconv.FormatFloat(d.TheirsOut, 'g', -1, 64)
+			return strconv.FormatFloat(d.TheirsOut, 'g', -1, 64)
 		}
+		return "?"
+	}
+	for _, d := range diff.Repointed {
 		fmt.Fprintf(stdout, "repointed: %s: ours %g/%g, litellm %g/%s, and the context window moved too;"+
 			" check whether the id still names our model before taking the price\n",
-			d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirsOut)
+			d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirs(d))
 	}
-	for _, n := range notes {
+	for _, d := range diff.Held {
+		fmt.Fprintf(stdout, "held: %s: ours %g/%g, litellm %g/%s, more than %gx in one step;"+
+			" a person decides this one\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirs(d), *maxMove)
+	}
+	for _, dep := range diff.Deprecations {
+		fmt.Fprintf(stdout, "deprecate: %s on %s\n", dep.ID, dep.Date)
+	}
+	for _, n := range diff.Notes {
 		fmt.Fprintf(stdout, "note: %s\n", n)
 	}
-	fmt.Fprintf(stdout, "%d drifted, %d repointed, %d notes, %d not in litellm, %d checked\n",
-		len(drifts), len(repointed), len(notes), len(missing), len(c.Models))
-	if !*write || len(drifts) == 0 {
+	// The nightly job reads this line back, so its shape is a contract.
+	fmt.Fprintf(stdout, "%d drifted, %d repointed, %d held, %d deprecations, %d notes, %d not in litellm, %d checked\n",
+		len(diff.Drifts), len(diff.Repointed), len(diff.Held), len(diff.Deprecations),
+		len(diff.Notes), len(diff.Missing), len(c.Models))
+	if !*write || len(diff.Drifts)+len(diff.Deprecations) == 0 {
 		return ExitClean
 	}
-	version := time.Now().Format("2006-01-02")
-	if err := catalog.ApplyPrices(*dir, drifts, version); err != nil {
+	if err := catalog.ApplyDeprecations(*dir, diff.Deprecations); err != nil {
 		fmt.Fprintf(stderr, "overwater: %v\n", err)
 		return ExitError
 	}
-	fmt.Fprintf(stdout, "updated %d entries, bumped VERSION to %s, rebuilt catalog.json\n", len(drifts), version)
+	version := time.Now().Format("2006-01-02")
+	if err := catalog.ApplyPrices(*dir, diff.Drifts, version); err != nil {
+		fmt.Fprintf(stderr, "overwater: %v\n", err)
+		return ExitError
+	}
+	fmt.Fprintf(stdout, "updated %d prices and %d deprecations, bumped VERSION to %s, rebuilt catalog.json\n",
+		len(diff.Drifts), len(diff.Deprecations), version)
 	return ExitClean
 }
 

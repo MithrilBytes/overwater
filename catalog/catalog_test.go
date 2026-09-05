@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestEmbeddedMatchesLoadDir(t *testing.T) {
@@ -303,5 +304,27 @@ func TestLoadDirUnknownFields(t *testing.T) {
 	}
 	if _, err := LoadDir(dir); err == nil {
 		t.Fatal("LoadDir accepted an entry with an unknown field")
+	}
+}
+
+// Providers publish retirement dates for models that are still current.
+// A date in the future is a warning, not a shutdown.
+func TestRetiredIsAQuestionAboutToday(t *testing.T) {
+	today := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		date string
+		want bool
+	}{
+		{"", false},
+		{"2027-07-24", false}, // claude-opus-5's published date
+		{"2026-09-06", false}, // tomorrow
+		{"2026-09-05", true},  // today: the provider said "after", so today is the last day
+		{"2026-02-28", true},  // grok-3-mini, gone in February
+	} {
+		m := validModel()
+		m.Deprecated = tc.date
+		if got := m.Retired(today); got != tc.want {
+			t.Errorf("Retired(%q on 2026-09-05) = %v, want %v", tc.date, got, tc.want)
+		}
 	}
 }

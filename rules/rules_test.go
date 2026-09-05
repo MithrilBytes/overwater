@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -968,5 +969,41 @@ func TestLowConfidenceDemotes(t *testing.T) {
 	}
 	if got[0].Confidence != "medium" {
 		t.Errorf("confidence = %s, want medium after demotion from high", got[0].Confidence)
+	}
+}
+
+// The published retirement dates are being applied by the nightly job
+// now, and most of them are a year out for models that are current.
+// The rule fires the day the provider shuts the model off and not a day
+// sooner, and nominate keeps offering the model until then.
+func TestDeprecationFiresOnTheDateNotTheAnnouncement(t *testing.T) {
+	e, cat := loadEngine(t)
+	e.Today = time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+
+	var announced, retired *catalog.Model
+	for i := range cat.Models {
+		switch cat.Models[i].ID {
+		case "claude-opus-5":
+			announced = &cat.Models[i]
+		case "grok-3-mini":
+			retired = &cat.Models[i]
+		}
+	}
+	if announced == nil || retired == nil {
+		t.Fatal("the catalog no longer carries the two models this test reads")
+	}
+	announced.Deprecated = "2027-07-24"
+	retired.Deprecated = "2026-02-28"
+
+	yes := true
+	w := When{Deprecated: &yes}
+	if e.matches(w, scan.Site{}, announced, 0, 0) {
+		t.Error("deprecated-model fired on a model whose retirement is ten months away")
+	}
+	if !e.matches(w, scan.Site{}, retired, 0, 0) {
+		t.Error("deprecated-model did not fire on a model that shut off in February")
+	}
+	if announced.Retired(e.Today) {
+		t.Error("a future dated model reads as retired to nominate")
 	}
 }

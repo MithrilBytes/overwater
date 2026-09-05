@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Price drift detection against LiteLLM's community pricing file. The
@@ -83,23 +84,65 @@ type Drift struct {
 	TheirsOutKnown bool
 }
 
-// DiffLitellm compares active catalog entries against LiteLLM prices,
-// matching by id, alias, and provider prefixed variants of both.
-// Deprecated entries keep their historical prices and are skipped.
-// Prices come back as applyable drift; context window and deprecation
-// disagreements come back as notes for a human, never auto applied.
-//
-// A price that moved together with the context window is returned as
-// repointed rather than as drift, and is never applied. Upstream reuses
-// a key when a family ships a new generation: mistral-medium-3 went to
-// 1.5/7.5 at a 262144 window while the model this catalog describes,
-// at 131072, stayed at 0.4/2 under its dated id. Taking that price
-// would have overstated every call site by 3.75x. One number moving is
-// a repricing; both moving is evidence the name now means something
-// else, and only a human can say which.
-func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts, repointed []Drift, notes, missing []string) {
+// Deprecation is an upstream retirement date for an entry that has
+// none. It is applied like a price: the date is a fact about the
+// provider, and an entry without it keeps being nominated as a
+// replacement after the model has shut off.
+type Deprecation struct {
+	ID   string
+	Date string
+}
+
+// Diff is what one comparison against upstream found, sorted by what
+// may be done about it.
+type Diff struct {
+	// Drifts are prices that moved and may be applied as they stand.
+	Drifts []Drift
+	// Repointed are prices that moved together with the context window,
+	// which is upstream reusing an id for a new generation. Never
+	// applied: mistral-medium-3 went to 1.5/7.5 over 262144 while the
+	// model this catalog describes stayed at 0.4/2 over 131072 under its
+	// dated id, and taking the number would have priced every call site
+	// 3.75x high.
+	Repointed []Drift
+	// Held are prices that moved further than the caller allows in one
+	// step. A real cut can be that large, as grok-4's 6x on output was,
+	// so these are for a person rather than the nightly job.
+	Held []Drift
+	// Deprecations are retirement dates upstream lists for entries that
+	// carry none, where the window still matches ours.
+	Deprecations []Deprecation
+	Notes        []string
+	// Missing are active entries upstream does not price at all.
+	Missing []string
+}
+
+// windowTolerance is how far the context windows may disagree before
+// the disagreement means a different model. 128000 against 131072 is
+// the same window written two ways; 131072 against 262144 is a new
+// generation.
+const windowTolerance = 1.25
+
+// DiffOptions tune one comparison.
+type DiffOptions struct {
+	// MaxMove is the largest factor a price may move in one step and
+	// still be returned as applyable drift; a larger move is Held. Zero
+	// means no limit.
+	MaxMove float64
+	// Today decides which entries are retired. Zero means now.
+	Today time.Time
+}
+
+// DiffLitellm compares live catalog entries against LiteLLM prices,
+// matching by id, alias, and provider prefixed variants of both. An
+// entry the provider has already retired keeps its historical price and
+// is skipped; one with a retirement date still ahead of it is live and
+// keeps syncing until then.
+func DiffLitellm(c *Catalog, prices LitellmPrices, opt DiffOptions) Diff {
+	var d Diff
+	maxMove := opt.MaxMove
 	for _, m := range c.Models {
-		if m.Deprecated != "" {
+		if m.Retired(opt.Today) {
 			continue
 		}
 		keys := []string{m.ID, m.Provider + "/" + m.ID}
@@ -116,34 +159,65 @@ func DiffLitellm(c *Catalog, prices LitellmPrices) (drifts, repointed []Drift, n
 				continue
 			}
 			found = true
+			windowMoved := p.MaxInput > 0 && ratio(float64(p.MaxInput), float64(m.ContextWindow)) > windowTolerance
 			// Comparing against an absent output price would propose
 			// zeroing ours.
-			windowMoved := p.MaxInput > 0 && p.MaxInput != m.ContextWindow
 			outDrifts := p.HasOutput && differs(m.OutputPerMtok, p.Output)
 			if p.Input > 0 && (differs(m.InputPerMtok, p.Input) || outDrifts) {
-				d := Drift{
+				drift := Drift{
 					ID: m.ID, OursIn: m.InputPerMtok, OursOut: m.OutputPerMtok,
 					TheirsIn: p.Input, TheirsOut: p.Output, TheirsOutKnown: p.HasOutput,
 				}
-				if windowMoved {
-					repointed = append(repointed, d)
-				} else {
-					drifts = append(drifts, d)
+				switch {
+				case windowMoved:
+					d.Repointed = append(d.Repointed, drift)
+				case maxMove > 0 && moveFactor(drift) > maxMove:
+					d.Held = append(d.Held, drift)
+				default:
+					d.Drifts = append(d.Drifts, drift)
 				}
 			}
 			if windowMoved {
-				notes = append(notes, fmt.Sprintf("%s: context window ours %d, litellm %d", m.ID, m.ContextWindow, p.MaxInput))
+				d.Notes = append(d.Notes, fmt.Sprintf("%s: context window ours %d, litellm %d", m.ID, m.ContextWindow, p.MaxInput))
 			}
 			if p.Deprecation != "" {
-				notes = append(notes, fmt.Sprintf("%s: litellm lists deprecation date %s; our entry is active", m.ID, p.Deprecation))
+				if windowMoved {
+					d.Notes = append(d.Notes, fmt.Sprintf("%s: litellm lists deprecation date %s, but the window moved too", m.ID, p.Deprecation))
+				} else {
+					d.Deprecations = append(d.Deprecations, Deprecation{ID: m.ID, Date: p.Deprecation})
+				}
 			}
 			break
 		}
 		if !found {
-			missing = append(missing, m.ID)
+			d.Missing = append(d.Missing, m.ID)
 		}
 	}
-	return drifts, repointed, notes, missing
+	return d
+}
+
+// ratio is the larger of a/b and b/a, so a move reads the same size in
+// either direction.
+func ratio(a, b float64) float64 {
+	if a <= 0 || b <= 0 {
+		return 1
+	}
+	if a > b {
+		return a / b
+	}
+	return b / a
+}
+
+// moveFactor is how far a drift moves the price, on whichever side
+// moved more.
+func moveFactor(d Drift) float64 {
+	f := ratio(d.TheirsIn, d.OursIn)
+	if d.TheirsOutKnown {
+		if o := ratio(d.TheirsOut, d.OursOut); o > f {
+			f = o
+		}
+	}
+	return f
 }
 
 // floatingAlias reports whether a name points at whatever generation is
@@ -198,6 +272,39 @@ func scaleCacheRates(src string, oldIn, newIn float64) string {
 	}
 	src = scale(src, reCacheReadLine, "cache_read_per_mtok")
 	return scale(src, reCacheWriteLine, "cache_write_per_mtok")
+}
+
+var reDeprecatedLine = regexp.MustCompile(`(?m)^deprecated:.*\n`)
+var reReleasedLine = regexp.MustCompile(`(?m)^(released:.*\n)`)
+
+// ApplyDeprecations writes an upstream retirement date into each entry,
+// after its released line so the file reads in order. The date is
+// quoted the way the hand written entries quote theirs.
+func ApplyDeprecations(dir string, deps []Deprecation) error {
+	for _, dep := range deps {
+		path := filepath.Join(dir, "models", dep.ID+".yaml")
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		line := fmt.Sprintf("deprecated: %q\n", dep.Date)
+		src := string(raw)
+		switch {
+		case reDeprecatedLine.MatchString(src):
+			src = reDeprecatedLine.ReplaceAllString(src, line)
+		case reReleasedLine.MatchString(src):
+			src = reReleasedLine.ReplaceAllString(src, "${1}"+line)
+		default:
+			if !strings.HasSuffix(src, "\n") {
+				src += "\n"
+			}
+			src += line
+		}
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ApplyPrices rewrites the drifted entries in place, bumps VERSION, and

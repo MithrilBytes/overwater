@@ -59,7 +59,7 @@ func TestCatalogDiffDrift(t *testing.T) {
 	}
 	for _, want := range []string{
 		"test-model: ours 1/2, litellm 2/4",
-		"1 drifted, 0 repointed, 0 notes, 1 not in litellm, 2 checked",
+		"1 drifted, 0 repointed, 0 held, 0 deprecations, 0 notes, 1 not in litellm, 2 checked",
 	} {
 		if !strings.Contains(stdout.String(), want) {
 			t.Errorf("stdout is missing %q:\n%s", want, stdout.String())
@@ -71,7 +71,7 @@ func TestCatalogDiffDrift(t *testing.T) {
 	if code != ExitClean {
 		t.Fatalf("-write exit = %d, stderr = %q", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "updated 1 entries") {
+	if !strings.Contains(stdout.String(), "updated 1 prices") {
 		t.Errorf("stdout = %q, want the update count", stdout.String())
 	}
 	entry, err := os.ReadFile(filepath.Join(dir, "models", "test-model.yaml"))

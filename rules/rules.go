@@ -8,6 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"slices"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -225,6 +226,9 @@ type Engine struct {
 	Est                 Estimates
 	Volumes             *Volumes
 	DefaultVolumeSource string
+	// Today is what a retirement date is measured against. Set by Load;
+	// a test that needs a fixed calendar sets it directly.
+	Today time.Time
 }
 
 // Load reads the embedded rule and estimate files.
@@ -233,7 +237,7 @@ func Load() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := &Engine{DefaultVolumeSource: VolumeEstimate}
+	e := &Engine{DefaultVolumeSource: VolumeEstimate, Today: time.Now()}
 	for _, entry := range entries {
 		raw, err := ruleFiles.ReadFile(entry.Name())
 		if err != nil {

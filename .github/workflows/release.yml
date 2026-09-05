@@ -19,7 +19,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      # Called by price-release after a merged price change, or entered
+      # Called by price-watch after it applied a price change, or entered
       # directly by a tag push.
       TAG: ${{ inputs.tag || github.ref_name }}
     steps:

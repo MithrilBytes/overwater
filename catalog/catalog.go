@@ -73,6 +73,26 @@ type Catalog struct {
 
 const dateLayout = "2006-01-02"
 
+// Retired reports whether the provider has shut the model off as of
+// today. Providers publish retirement dates for models that are still
+// current, a year out in Anthropic's case, and every reader of the
+// date used to treat a set date as retired now: applying the published
+// dates would have deprecated the whole current lineup. A zero today
+// means now.
+func (m Model) Retired(today time.Time) bool {
+	if m.Deprecated == "" {
+		return false
+	}
+	if today.IsZero() {
+		today = time.Now()
+	}
+	on, err := time.Parse(dateLayout, m.Deprecated)
+	if err != nil {
+		return true // Validate rejects this; a bad date is not a live model
+	}
+	return !on.After(today)
+}
+
 func (m Model) validate() error {
 	if m.ID == "" {
 		return fmt.Errorf("entry is missing an id")

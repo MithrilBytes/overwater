@@ -19,7 +19,7 @@ func (e *Engine) nominate(cat *catalog.Catalog, current *catalog.Model, tier, no
 	var best *catalog.Model
 	for i := range cat.Models {
 		m := &cat.Models[i]
-		if m.Provider != current.Provider || m.Tier != tier || m.ID == current.ID || m.Deprecated != "" {
+		if m.Provider != current.Provider || m.Tier != tier || m.ID == current.ID || m.Retired(e.Today) {
 			continue
 		}
 		if !keepsCapabilities(m, current) {

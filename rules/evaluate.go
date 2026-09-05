@@ -110,7 +110,7 @@ func (e *Engine) matches(w When, site scan.Site, m *catalog.Model, dupCount, dup
 	if len(w.Provider) > 0 && !slices.Contains(w.Provider, m.Provider) {
 		return false
 	}
-	if w.Deprecated != nil && (m.Deprecated != "") != *w.Deprecated {
+	if w.Deprecated != nil && m.Retired(e.Today) != *w.Deprecated {
 		return false
 	}
 	if w.BatchContext != nil && site.Shape.BatchContext != *w.BatchContext {
