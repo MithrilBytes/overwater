@@ -10,6 +10,7 @@ DeepSeek-R1-Distill-Llama-70B
 DeepSeek-R1-Distill-Qwen-1.5B
 DeepSeek-R1-Turbo
 DeepSeek-V3.1-Terminus
+DeepSeek-V4-Flash-0731
 DeepSeek-V4-Pro-0813
 Embeddings
 Embeddings-2
@@ -436,7 +437,6 @@ deepseek-v3p1
 deepseek-v3p1-terminus
 deepseek-v3p2
 deepseek-v4-flash
-deepseek-v4-flash-0731
 deepseek-v4-flash-thinking
 deepseek-v4-flash-vision-exp
 deepseek-v4-pro
@@ -537,6 +537,7 @@ gemini-3.5-flash-lite
 gemini-3.5-live-translate-preview
 gemini-3.6-flash
 gemini-3.7-flash
+gemini-3.8-flash
 gemini-embedding-2
 gemini-embedding-2-preview
 gemini-exp-1114
@@ -604,6 +605,7 @@ glm-5p2
 glm-5p2-fast
 glm-5p2-fast-us
 glm-5p3
+glm-5p3-flash
 glm-5v-turbo
 google.gemini-2.5-flash
 google.gemini-2.5-flash-lite
@@ -683,6 +685,7 @@ gpt-5.6-cyber
 gpt-5.6-luna
 gpt-5.6-sol
 gpt-5.6-terra
+gpt-6-astra
 gpt-audio
 gpt-audio-1.5
 gpt-audio-1.5-2026-02-23
@@ -755,6 +758,7 @@ grok-4.5
 grok-4.5-latest
 grok-4.6
 grok-build-0.1
+grok-build-latest
 grok-code-fast
 grok-code-fast-1
 grok-code-fast-1-0825
@@ -1090,6 +1094,8 @@ multimodalembedding@001
 muse-spark-1.1
 muse-spark-1.2
 muse-spark-1.2-contributor
+muse-spark-1.3
+muse-spark-1.3-contributor
 nemotron-3-120b-a12b
 nemotron-3-ultra-550b-a55b
 nemotron-3-ultra-nvfp4
@@ -1298,6 +1304,8 @@ rerank-2
 rerank-2-lite
 rerank-2.5
 rerank-2.5-lite
+rerank-3
+rerank-3-lite
 rerank-english-v2.0
 rerank-english-v3.0
 rerank-multilingual-v2.0
@@ -1362,7 +1370,9 @@ together-ai-up-to-4b
 toppy-m-7b
 twelvelabs.marengo-embed-2-7-v1:0
 ui-tars-1.5-7b
+us-gov.anthropic.claude-opus-4-8
 us-gov.anthropic.claude-sonnet-4-5-20250929-v1:0
+us-gov.anthropic.claude-sonnet-5
 v0-1.0-md
 v0-1.5-lg
 v0-1.5-md
