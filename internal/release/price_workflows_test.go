@@ -102,3 +102,69 @@ func TestPriceWatchFilesAnIssueForHeldPrices(t *testing.T) {
 		t.Error("price-watch.yml has no alert job, so a failed nightly is invisible")
 	}
 }
+
+// A push that carries a fix or a feature becomes a release with no
+// person choosing the number. The tree is tested before it is tagged,
+// the goldens are deliberately not regenerated on this path, and a
+// major is refused rather than cut.
+func TestAutoreleaseTestsBeforeItTags(t *testing.T) {
+	w := readWorkflow(t, "autorelease.yml")
+	steps := w.Jobs["decide"].Steps
+	pos := map[string]int{}
+	runs := map[string]string{}
+	ifs := map[string]string{}
+	for i, st := range steps {
+		pos[st.Name] = i
+		runs[st.Name] = st.Run
+		ifs[st.Name] = st.If
+	}
+	for _, name := range []string{"read the commits since the last tag", "a major wants a person", "prepare the tree that will be tagged", "ship"} {
+		if _, ok := pos[name]; !ok {
+			t.Fatalf("autorelease.yml has no %q step", name)
+		}
+	}
+	if pos["prepare the tree that will be tagged"] >= pos["ship"] {
+		t.Error("ship runs before the tree is prepared and tested")
+	}
+	prep := runs["prepare the tree that will be tagged"]
+	for _, want := range []string{"-classify", "-next-tag -bump", "tools/sync-docs", "go test ./...", "scripts/smoke.sh"} {
+		if !strings.Contains(runs["read the commits since the last tag"]+prep, want) {
+			t.Errorf("the prepare path does not run %q", want)
+		}
+	}
+	if strings.Contains(prep, "regold") {
+		t.Error("autorelease regenerates goldens, which erases the guard a code change is supposed to trip")
+	}
+	if !strings.Contains(ifs["ship"], "steps.prepare.outcome == 'success'") {
+		t.Error("ship does not gate on prepare succeeding")
+	}
+	if !strings.Contains(ifs["a major wants a person"], "'major'") || !strings.Contains(runs["a major wants a person"], "gh issue") {
+		t.Error("a major is not refused and filed for a person")
+	}
+	for _, name := range []string{"release", "image"} {
+		job, ok := w.Jobs[name]
+		if !ok || job.Uses != "./.github/workflows/"+name+".yml" || job.With["tag"] != "${{ needs.decide.outputs.tag }}" {
+			t.Errorf("autorelease %s job does not call %s.yml with the decided tag", name, name)
+		}
+	}
+	if _, ok := w.Jobs["alert"]; !ok {
+		t.Error("autorelease.yml has no alert job, so a failed release is invisible")
+	}
+}
+
+// Two workflows commit to main on the same push. They serialise on one
+// concurrency group or the second push is rejected as non fast forward.
+func TestMainWritersShareAConcurrencyGroup(t *testing.T) {
+	groups := map[string]string{}
+	for _, name := range []string{"autorelease.yml", "docs.yml"} {
+		src := repoFile(t, ".github", "workflows", name)
+		i := strings.Index(src, "group: ")
+		if i < 0 {
+			t.Fatalf("%s declares no concurrency group", name)
+		}
+		groups[name] = strings.Fields(src[i+len("group: "):])[0]
+	}
+	if groups["autorelease.yml"] != groups["docs.yml"] {
+		t.Errorf("autorelease uses group %q and docs uses %q; they will race for main", groups["autorelease.yml"], groups["docs.yml"])
+	}
+}

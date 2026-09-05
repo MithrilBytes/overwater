@@ -299,12 +299,19 @@ overwater catalog history -on 2026-08-08
 
 ## Releases
 
-Tags are semver: `vMAJOR.MINOR.PATCH`, nothing else. The nightly price
-run applies a price that passed its guards, regenerates the goldens,
-runs the suite, and cuts the next patch itself. A price that moved with
-its context window, or moved more than 3x in one step, goes into an
-issue for a person instead. A retirement date upstream publishes is
-applied the same way and takes effect on the day, not before.
+Tags are semver: `vMAJOR.MINOR.PATCH`, nothing else, and nobody picks
+them. A push to main that carries a `fix` or `perf` commit becomes the
+next patch and a `feat` the next minor, read from the commit prefixes;
+docs and chores alone release nothing, and `[skip release]` in the
+commit message holds one back. A breaking `!` is refused and filed as
+an issue, since a major moves the `@v2` the examples name.
+
+The nightly price run applies a price that passed its guards,
+regenerates the goldens, runs the suite, and cuts the next patch. A
+price that moved with its context window, or more than 3x in one step,
+goes into an issue for a person instead. A retirement date upstream
+publishes is applied the same way and takes effect on the day, not
+before.
 
 Each release pins itself, in two halves that move at different times.
 `action.yml` names the version and nothing else, so it is bumped and

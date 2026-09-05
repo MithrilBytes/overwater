@@ -230,7 +230,7 @@ func TestNextTag(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NextTag(tt.tags)
+			got, err := NextTag(tt.tags, "patch")
 			if err != nil {
 				t.Fatalf("NextTag(%v) errored: %v", tt.tags, err)
 			}
@@ -243,7 +243,7 @@ func TestNextTag(t *testing.T) {
 
 func TestNextTagNeedsARelease(t *testing.T) {
 	for _, tags := range [][]string{nil, {}, {"latest"}, {"v2.2.1.1"}} {
-		if got, err := NextTag(tags); err == nil {
+		if got, err := NextTag(tags, "patch"); err == nil {
 			t.Errorf("NextTag(%v) = %q; want an error", tags, got)
 		}
 	}
@@ -255,7 +255,7 @@ func TestNextTagStaysOrdered(t *testing.T) {
 	tags := []string{"v2.2.1"}
 	prev := ""
 	for i := 0; i < 10; i++ {
-		next, err := NextTag(tags)
+		next, err := NextTag(tags, "patch")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,5 +267,43 @@ func TestNextTagStaysOrdered(t *testing.T) {
 	}
 	if prev != "v2.2.11" {
 		t.Errorf("after ten bumps the last is %q, want v2.2.11", prev)
+	}
+}
+
+// The automation reads the prefixes people already write. A feat is a
+// minor, a fix is a patch, docs alone are nothing, and a breaking
+// marker is a major that it refuses to cut on its own.
+func TestBumpForReadsTheCommitPrefixes(t *testing.T) {
+	for _, tc := range []struct {
+		subjects []string
+		want     string
+	}{
+		{nil, ""},
+		{[]string{"docs: fix a typo", "chore: pin the action"}, ""},
+		{[]string{"fix(scan): a symlinked root scanned nothing"}, "patch"},
+		{[]string{"perf(scan): parse each tsconfig once"}, "patch"},
+		{[]string{"fix: one", "feat: two", "docs: three"}, "minor"},
+		{[]string{"feat(rules): reach the agentic shapes"}, "minor"},
+		{[]string{"feat!: drop the two tag scheme", "fix: x"}, "major"},
+		{[]string{"a subject with no prefix at all"}, ""},
+	} {
+		if got := BumpFor(tc.subjects); got != tc.want {
+			t.Errorf("BumpFor(%q) = %q, want %q", tc.subjects, got, tc.want)
+		}
+	}
+}
+
+func TestNextTagBumpsEachComponent(t *testing.T) {
+	tags := []string{"v2.8.0", "v2.7.0", "v1.9.9"}
+	for bump, want := range map[string]string{
+		"": "v2.8.1", "patch": "v2.8.1", "minor": "v2.9.0", "major": "v3.0.0",
+	} {
+		got, err := NextTag(tags, bump)
+		if err != nil || got != want {
+			t.Errorf("NextTag(%q) = %q, %v; want %q", bump, got, err, want)
+		}
+	}
+	if _, err := NextTag(tags, "huge"); err == nil {
+		t.Error("an unknown bump was accepted")
 	}
 }

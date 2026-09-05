@@ -25,9 +25,24 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	prev := fs.String("prev", "", "previous tag, empty for the first release")
 	tag := fs.String("tag", "", "tag being released")
 	repo := fs.String("repo", "", "owner/name slug for the commit link")
-	nextTag := fs.Bool("next-tag", false, "read tags on stdin, print the next patch tag, and exit")
+	nextTag := fs.Bool("next-tag", false, "read tags on stdin, print the next tag, and exit")
+	bump := fs.String("bump", "patch", "with -next-tag: patch, minor or major")
+	classify := fs.Bool("classify", false, "read commit subjects on stdin, print the release they add up to (major, minor, patch, or nothing), and exit")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	if *classify {
+		var subjects []string
+		sc := bufio.NewScanner(stdin)
+		for sc.Scan() {
+			subjects = append(subjects, sc.Text())
+		}
+		if err := sc.Err(); err != nil {
+			fmt.Fprintf(stderr, "relnotes: reading subjects: %v\n", err)
+			return 2
+		}
+		fmt.Fprintln(stdout, release.BumpFor(subjects))
+		return 0
 	}
 	if *nextTag {
 		var tags []string
@@ -39,7 +54,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "relnotes: reading tags: %v\n", err)
 			return 2
 		}
-		next, err := release.NextTag(tags)
+		next, err := release.NextTag(tags, *bump)
 		if err != nil {
 			fmt.Fprintf(stderr, "relnotes: %v\n", err)
 			return 2

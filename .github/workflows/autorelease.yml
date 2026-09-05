@@ -1,0 +1,173 @@
+name: autorelease
+
+# A push to main that carries a fix or a feature becomes a release, with
+# the version chosen from the commit prefixes this repository already
+# writes: a feat is a minor, a fix or perf is a patch, docs and chores
+# alone are nothing. A breaking marker is a major, and that is refused
+# here and filed as an issue, because a major moves the floating tag
+# every README example names and a person should decide that.
+#
+# The order is the guard. The Action is bumped and the derived docs are
+# regenerated first, then the suite runs on the tree that will be
+# tagged, and only a green tree is pushed. The goldens are not
+# regenerated: a code change that moves one is a bug until a person
+# says otherwise, and go test says so.
+#
+# A push made with GITHUB_TOKEN starts no run, so the nightly price
+# commits and the docs sync do not arrive here, and this cannot loop.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Force a level instead of reading the commits (patch, minor, major)
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+permissions:
+  contents: write
+  issues: write
+  id-token: write
+  attestations: write
+  packages: write
+
+# Shared with the docs workflow, which also commits to main on a push.
+concurrency:
+  group: writes-main
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip release]')"
+    outputs:
+      tag: ${{ steps.ship.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: read the commits since the last tag
+        id: level
+        env:
+          FORCED: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          last="$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)"
+          if [ -z "$last" ]; then
+            echo "no release tag to bump from" >&2
+            exit 1
+          fi
+          if [ -n "$FORCED" ] && [ "$FORCED" != "auto" ]; then
+            level="$FORCED"
+          else
+            level="$(git log --no-merges --format=%s "$last..HEAD" | go run ./internal/release/cmd -classify)"
+          fi
+          echo "last=$last" >> "$GITHUB_OUTPUT"
+          echo "level=$level" >> "$GITHUB_OUTPUT"
+          {
+            echo "### since $last"
+            echo
+            git log --no-merges --format='- %s' "$last..HEAD"
+            echo
+            echo "release level: ${level:-none}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: a major wants a person
+        if: steps.level.outputs.level == 'major'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="a breaking change is waiting for a major release"
+          body="Commits since ${{ steps.level.outputs.last }} carry a breaking marker. Cut the major by hand: bump action.yml, run tools/sync-docs, commit, tag, and update the @v2 examples in the README."
+          existing="$(gh issue list --state open --search "$title" --json number --jq '.[0].number // empty')"
+          if [ -z "$existing" ]; then
+            gh issue create --title "$title" --body "$body" > /dev/null
+          fi
+          echo "refused to cut a major on its own; filed an issue" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: prepare the tree that will be tagged
+        id: prepare
+        if: steps.level.outputs.level == 'patch' || steps.level.outputs.level == 'minor'
+        run: |
+          set -euo pipefail
+          next="$(git tag | go run ./internal/release/cmd -next-tag -bump "${{ steps.level.outputs.level }}")"
+          if [ -z "$next" ]; then
+            echo "could not compute the next tag" >&2
+            exit 1
+          fi
+          # release.yml refuses a tag whose tree names a different
+          # version, which is what makes an exact version pinnable.
+          sed -i "s/^\( *version=\)\"v[0-9][^\"]*\"/\1\"$next\"/" action.yml
+          go run ./tools/sync-docs
+          go test ./...
+          bash scripts/smoke.sh
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+
+      - name: ship
+        id: ship
+        if: steps.prepare.outcome == 'success'
+        run: |
+          set -euo pipefail
+          next="${{ steps.prepare.outputs.next }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add action.yml README.md site/index.html
+            git commit -m "chore: name $next in the action before the tag lands"
+            git pull --rebase origin main
+            git push origin main
+          fi
+          git tag "$next"
+          git push origin "$next"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+          echo "tagged $next" >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    needs: decide
+    if: needs.decide.outputs.tag != ''
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.decide.outputs.tag }}
+
+  image:
+    needs: decide
+    if: needs.decide.outputs.tag != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      tag: ${{ needs.decide.outputs.tag }}
+
+  alert:
+    needs: [decide, release, image]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="autorelease failed"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title" --json number --jq '.[0].number // empty')"
+          body="The automatic release failed on $(date -u +%Y-%m-%d): $RUN_URL"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body" > /dev/null
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" > /dev/null
+          fi

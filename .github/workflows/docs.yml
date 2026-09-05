@@ -23,9 +23,10 @@ permissions:
   contents: write
   actions: write
 
-# A second push while this one is committing would race for main.
+# Shared with autorelease, which also commits to main on a push, so the
+# two cannot race for it.
 concurrency:
-  group: docs-main
+  group: writes-main
   cancel-in-progress: false
 
 jobs:

@@ -143,7 +143,7 @@ var (
 // which meant two tags, two lanes advancing independently, and a rule
 // about which lane owns the patch number. No four component tag was
 // ever pushed before the scheme came out.
-func NextTag(tags []string) (string, error) {
+func NextTag(tags []string, bump string) (string, error) {
 	var best []int
 	for _, t := range tags {
 		if m := reFixTag.FindStringSubmatch(strings.TrimSpace(t)); m != nil {
@@ -155,7 +155,48 @@ func NextTag(tags []string) (string, error) {
 	if best == nil {
 		return "", fmt.Errorf("no vMAJOR.MINOR.PATCH tag to bump from")
 	}
-	return fmt.Sprintf("v%d.%d.%d", best[0], best[1], best[2]+1), nil
+	switch bump {
+	case "", "patch":
+		return fmt.Sprintf("v%d.%d.%d", best[0], best[1], best[2]+1), nil
+	case "minor":
+		return fmt.Sprintf("v%d.%d.0", best[0], best[1]+1), nil
+	case "major":
+		return fmt.Sprintf("v%d.0.0", best[0]+1), nil
+	}
+	return "", fmt.Errorf("bump %q is not patch, minor or major", bump)
+}
+
+// BumpFor reads the commit subjects since the last tag and says what
+// kind of release they add up to, by the prefixes the notes already
+// group on: a feat is a minor, a fix or perf is a patch, and anything
+// else on its own is not a release. A breaking marker is a major, which
+// the automation refuses to cut, because a major moves the floating tag
+// every README example names and that wants a person. The strongest
+// prefix wins.
+func BumpFor(subjects []string) string {
+	bump := ""
+	for _, subject := range subjects {
+		prefix, _, ok := strings.Cut(subject, ":")
+		if !ok {
+			continue
+		}
+		prefix = strings.TrimSpace(prefix)
+		if strings.HasSuffix(prefix, "!") {
+			return "major"
+		}
+		if i := strings.IndexByte(prefix, '('); i >= 0 {
+			prefix = prefix[:i]
+		}
+		switch strings.ToLower(prefix) {
+		case "feat":
+			bump = "minor"
+		case "fix", "perf":
+			if bump == "" {
+				bump = "patch"
+			}
+		}
+	}
+	return bump
 }
 
 func ints(parts []string) []int {
