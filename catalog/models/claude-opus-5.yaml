@@ -12,6 +12,7 @@ output_per_mtok: 25.00
 context_window: 1000000
 tier: frontier
 released: "2026-06-01"
+deprecated: "2027-07-24"
 source: https://platform.claude.com/docs/en/pricing
 cache_read_per_mtok: 0.5
 cache_write_per_mtok: 6.25

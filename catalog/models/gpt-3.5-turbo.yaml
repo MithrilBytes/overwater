@@ -7,6 +7,7 @@ output_per_mtok: 1.50
 context_window: 16385
 tier: small
 released: "2023-03-01"
+deprecated: "2026-10-23"
 source: https://platform.openai.com/docs/pricing
 batch_multiplier: 0.5
 capabilities: [tools]
