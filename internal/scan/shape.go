@@ -38,6 +38,11 @@ var (
 	reTools      = regexp.MustCompile(`(?i)["']?tools["']?\s*[:=]\s*\[`)
 	reForcedTool = regexp.MustCompile(`(?i)tool_?choice.{0,60}["']tool["']`)
 	reStreaming  = regexp.MustCompile(`stream\s*[:=]\s*[Tt]rue|streamText\(|\.stream\(`)
+	// A tool result fed back to the model, in any SDK's spelling: a tool
+	// result block, a tool role message, a function response. Matched
+	// against the whole file like batching, since the loop and the model
+	// constant it drives rarely sit on adjacent lines.
+	reToolLoop = regexp.MustCompile(`(?i)tool_?call_?id|tool_?use_?id|tool[_-]?result|function_?response|["']?role["']?\s*[:=]\s*["']tool["']`)
 )
 
 // What kind of call this is: prompt caching, an embedding endpoint, or
@@ -62,12 +67,14 @@ var (
 type fileFacts struct {
 	batchContext bool
 	batchAPI     bool
+	toolLoop     bool
 }
 
 func readFileFacts(prose string) fileFacts {
 	return fileFacts{
 		batchContext: reBatchCtx.MatchString(prose),
 		batchAPI:     reBatchAPI.MatchString(prose),
+		toolLoop:     reToolLoop.MatchString(prose),
 	}
 }
 

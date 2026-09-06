@@ -203,3 +203,81 @@ func TestUnknownModelNeedsALeftBoundary(t *testing.T) {
 		}
 	}
 }
+
+// Ruby writes its prompts as heredocs. The body used to scan as code: its
+// prose was visible to the identifier reader and invisible to the prompt
+// reader, and a #{} interpolation blanked the rest of its line as a
+// comment. The append operator keeps its meaning, and a bare <<word in
+// lower case is a shift, not a heredoc.
+func TestMaskRubyHeredocs(t *testing.T) {
+	content := "instructions = <<~PROMPT\n  Summarize the thread for #{user.name} in two lines.\n  Keep the dates.\nPROMPT\nlist << item\nask(instructions)\n"
+	m := maskFile("job.rb", content)
+	if len(m.all) != len(content) || strings.Count(m.all, "\n") != strings.Count(content, "\n") {
+		t.Fatal("masking changed the length or the line structure")
+	}
+	for _, word := range []string{"Summarize", "Keep the dates", "user.name"} {
+		if strings.Contains(m.all, word) {
+			t.Errorf("heredoc body survived full masking: %q", m.all)
+		}
+	}
+	for _, code := range []string{"instructions = <<~PROMPT", "list << item", "ask(instructions)", "\nPROMPT\n"} {
+		if !strings.Contains(m.all, code) {
+			t.Errorf("code around the heredoc did not survive: %q", m.all)
+		}
+	}
+	// The body is one literal, so the prompt reader sees all of it.
+	var bodies []string
+	for _, s := range scanSpans(content, familyFor("job.rb")) {
+		if s.kind == spanString {
+			bodies = append(bodies, content[s.interiorStart:s.interiorEnd])
+		}
+	}
+	want := "  Summarize the thread for #{user.name} in two lines.\n  Keep the dates.\n"
+	if len(bodies) != 1 || bodies[0] != want {
+		t.Errorf("string spans = %q, want the heredoc body alone", bodies)
+	}
+
+	cases := []struct {
+		name    string
+		content string
+		strings int
+	}{
+		{"bare upper case", "x = <<EOS\nbody text long enough to be a prompt\nEOS\n", 1},
+		{"quoted id", "x = <<~'EOS'\nbody text long enough to be a prompt\nEOS\n", 1},
+		{"two on one line", "f(<<~A, <<~B)\nfirst body\nA\nsecond body\nB\n", 2},
+		{"shift", "n = 1 <<bits\n", 0},
+		{"unterminated", "x = <<~EOS\nbody with no end\n", 1},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			n := 0
+			for _, s := range scanSpans(tt.content, familyFor("job.rb")) {
+				if s.kind == spanString {
+					n++
+				}
+				if !(s.start <= s.interiorStart && s.interiorStart <= s.interiorEnd && s.interiorEnd <= s.end) {
+					t.Errorf("span interior invariant broken: %+v", s)
+				}
+			}
+			if n != tt.strings {
+				t.Errorf("string spans = %d, want %d", n, tt.strings)
+			}
+		})
+	}
+}
+
+// A Java text block and a Kotlin raw string are one literal, the way a
+// Python docstring is, and used to scan as code a line at a time, with
+// the braces of their templates counted as brackets.
+func TestMaskJavaTextBlocks(t *testing.T) {
+	content := "String t = \"\"\"\n    Classify the ticket {question} into one of: billing, bug.\n    \"\"\";\nreturn t;\n"
+	for _, name := range []string{"Router.java", "Router.kt"} {
+		m := maskFile(name, content)
+		if strings.Contains(m.all, "Classify") || strings.Contains(m.all, "{question}") {
+			t.Errorf("%s: text block survived full masking: %q", name, m.all)
+		}
+		if !strings.Contains(m.all, "return t;") {
+			t.Errorf("%s: code after the text block did not survive: %q", name, m.all)
+		}
+	}
+}

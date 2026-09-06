@@ -15,7 +15,7 @@ name, nested config objects, clients built far from the prompt.
 
 ## Cases from real repositories
 
-The `r1_` to `r5_` files are lifted from public repositories that call
+The `r1_` to `r10_` files are lifted from public repositories that call
 an LLM for their own reasons, not written for this corpus. A hand
 written case exercises a rule; these do not know the rules exist, which
 is why they fail differently.
@@ -25,6 +25,19 @@ is why they fail differently.
     r3_  basicallysource/sorter-v2
     r4_  lilfetz22/audio-digest-hub
     r5_  hexlet-basics/hexlet-basics
+    r6_  DaviMoreira27/instagram-saved-posts-categorizer, dahlia/yoyak,
+         exa-labs/company-researcher, harishdeivanayagam/rowfill,
+         usecloudy/cloudy, virattt/dexter
+    r7_  angelnicolasc/graymatter, eleith/miniflux-digest, kite-org/kite,
+         lasantosr/intelli-shell, umputun/tg-spam, zhanglun/lettura
+    r8_  akitaonrails/frank_investigator, aschmelyun/subvert, jinia91/blog,
+         mitou/jr.mitou.org, pipijoe/xryder-server, we-promise/sure
+    r9_  A-Hoier/Aula-AI.d, christianlouis/DocuElevate, haandol/claudecrawl,
+         mrwadams/takedown-gpt, neilzhangpro/FengShuiAgents,
+         RobbyLinson/CheckEmailLight
+    r10_ Actual-Chat/actual-chat, ErabliereApi/ErabliereApi,
+         shenmeyemeifashengguo/STATE-ToxiCN, shuyu-labs/Text2Sql.Net,
+         tisfeng/Easydict, trzy/RoBart
 
 Each file names its source path in a comment at the top and keeps the
 shape of the original call: the prompt as written, the caps and

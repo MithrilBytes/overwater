@@ -1454,6 +1454,226 @@
       "file": "r5_related_courses.rb",
       "archetype": "reranking",
       "split": "tune"
+    },
+    {
+      "file": "r6_company_sections.ts",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "r6_dexter_agent_loop.ts",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "r6_dexter_memory_embed.ts",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "r6_image_to_markdown.ts",
+      "archetype": "vision",
+      "split": "holdout"
+    },
+    {
+      "file": "r6_pr_needs_docs.ts",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "r6_saved_posts_categorize.ts",
+      "archetype": "vision",
+      "split": "tune"
+    },
+    {
+      "file": "r6_sheet_rows_extract.ts",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "r6_source_audio_transcribe.ts",
+      "archetype": "transcription",
+      "split": "holdout"
+    },
+    {
+      "file": "r6_thread_respond.ts",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "r6_yoyak_translate.ts",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "r7_article_summary_zh.rs",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "r7_digest_group_summary.go",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "r7_digest_strict_group.go",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "r7_kube_agent_stream.go",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "r7_memory_embed.go",
+      "archetype": "embedding",
+      "split": "tune"
+    },
+    {
+      "file": "r7_memory_facts.go",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "r7_shell_suggest.rs",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "r7_spam_gate_gemini.go",
+      "archetype": "moderation",
+      "split": "holdout"
+    },
+    {
+      "file": "r8_chart_type.java",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "r8_claim_extract.rb",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "r8_intent_route.kt",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "r8_ja_en_project_translate.rb",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "r8_memo_agent.kt",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "r8_monitor_sql.java",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "r8_subvert_video_summary.php",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "r8_subvert_vtt_translate.php",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "r8_txn_auto_categorize.rb",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "r9_aula_agent.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "r9_document_chat.py",
+      "archetype": "chat",
+      "split": "tune"
+    },
+    {
+      "file": "r9_document_metadata.py",
+      "archetype": "extraction",
+      "split": "tune"
+    },
+    {
+      "file": "r9_emotion_sense_zh.py",
+      "archetype": "classification",
+      "split": "holdout"
+    },
+    {
+      "file": "r9_inbox_digest.py",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "r9_lol_article_crawl.py",
+      "archetype": "extraction",
+      "split": "holdout"
+    },
+    {
+      "file": "r9_takedown_agent.py",
+      "archetype": "agentic",
+      "split": "tune"
+    },
+    {
+      "file": "r9_text_quality_gate.py",
+      "archetype": "classification",
+      "split": "tune"
+    },
+    {
+      "file": "r9_ui_string_translate.py",
+      "archetype": "translation",
+      "split": "tune"
+    },
+    {
+      "file": "r10_actual_media_shares_digest.cs",
+      "archetype": "summarization",
+      "split": "holdout"
+    },
+    {
+      "file": "r10_actual_speech_transcribe.cs",
+      "archetype": "transcription",
+      "split": "holdout"
+    },
+    {
+      "file": "r10_easydict_summary.swift",
+      "archetype": "summarization",
+      "split": "tune"
+    },
+    {
+      "file": "r10_easydict_translate.swift",
+      "archetype": "translation",
+      "split": "holdout"
+    },
+    {
+      "file": "r10_erabliere_tool_loop.cs",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "r10_robart_brain_loop.swift",
+      "archetype": "agentic",
+      "split": "holdout"
+    },
+    {
+      "file": "r10_text2sql_generate.cs",
+      "archetype": "codegen",
+      "split": "tune"
+    },
+    {
+      "file": "r10_toxicn_quadruples.ipynb",
+      "archetype": "extraction",
+      "split": "tune"
     }
   ]
 }

@@ -51,6 +51,7 @@ type langFamily struct {
 	backtick     bool
 	rawBacktick  bool // backtick strings take backslash literally (Go)
 	rustRaw      bool // r#"..."# strings, where the hash is a delimiter (Rust)
+	heredoc      bool // <<~ID blocks, whose body starts on the line after the opener (Ruby)
 	triples      bool
 	quotes       bool
 }
@@ -71,7 +72,17 @@ func familyFor(p string) langFamily {
 		return langFamily{slashComment: true, blockComment: true, backtick: true, rawBacktick: true, quotes: true}
 	case ".rs":
 		return langFamily{slashComment: true, blockComment: true, rustRaw: true, quotes: true}
-	case ".java", ".kt", ".kts", ".c", ".h", ".cpp", ".cc", ".cs", ".php", ".scala", ".swift", ".gradle", ".groovy":
+	case ".rb", ".rake":
+		// Ruby writes its prompts as heredocs. Read as code, a body is
+		// invisible to the prompt reader, and its #{} interpolations
+		// blank the rest of each line as comments.
+		return langFamily{hashComment: true, quotes: true, heredoc: true}
+	case ".java", ".kt", ".kts":
+		// Java text blocks and Kotlin raw strings spell a block of prose
+		// the way Python does. Without the delimiter the block scans as
+		// code, every line of it, the braces in its templates included.
+		return langFamily{slashComment: true, blockComment: true, triples: true, quotes: true}
+	case ".c", ".h", ".cpp", ".cc", ".cs", ".php", ".scala", ".swift", ".gradle", ".groovy":
 		return langFamily{slashComment: true, blockComment: true, quotes: true}
 	case ".tf", ".tfvars", ".hcl":
 		// HCL takes both comment spellings, so neither family alone.
@@ -162,10 +173,31 @@ func jsonStripComments(s string) string {
 
 func scanSpans(s string, fam langFamily) []span {
 	var spans []span
+	// A heredoc body starts on the line after its opener, so the opener
+	// is noted and the rest of its line scanned as usual; the bodies are
+	// consumed, in opener order, at the newline that ends that line.
+	var pending []heredocOpener
 	i := 0
 	for i < len(s) {
 		c := s[i]
 		switch {
+		case fam.heredoc && c == '<' && hasAt(s, i, "<<"):
+			h, n := heredocOpen(s, i)
+			if n == 0 {
+				i++
+				break
+			}
+			pending = append(pending, h)
+			i += n
+		case fam.heredoc && c == '\n' && len(pending) > 0:
+			body := i + 1
+			for _, h := range pending {
+				sp := heredocSpan(s, body, h)
+				spans = append(spans, sp)
+				body = min(sp.end+1, len(s))
+				i = sp.end
+			}
+			pending = pending[:0]
 		case fam.triples && c == '"' && hasAt(s, i, `"""`):
 			end, closed := findClose(s, i+3, `"""`, false)
 			spans = append(spans, stringSpan(i, end, 3, closed))
@@ -212,6 +244,69 @@ func scanSpans(s string, fam langFamily) []span {
 
 func hasAt(s string, i int, sub string) bool {
 	return i+len(sub) <= len(s) && s[i:i+len(sub)] == sub
+}
+
+// heredocOpener is one <<ID, <<-ID or <<~ID seen on the current line.
+// indented is true for the last two forms, whose terminator may be
+// indented.
+type heredocOpener struct {
+	id       string
+	indented bool
+}
+
+// heredocOpen reads a heredoc opener at i, returning its length, or zero
+// when the << is a shift or an append. A bare <<ID needs an uppercase
+// identifier, which is the convention that keeps it apart from
+// `list <<item`; the squiggly and dash forms are unambiguous and take
+// any identifier, quoted or not.
+func heredocOpen(s string, i int) (heredocOpener, int) {
+	j := i + 2
+	var h heredocOpener
+	if j < len(s) && (s[j] == '~' || s[j] == '-') {
+		h.indented = true
+		j++
+	}
+	var quote byte
+	if j < len(s) && (s[j] == '\'' || s[j] == '"' || s[j] == '`') {
+		quote = s[j]
+		j++
+	}
+	start := j
+	for j < len(s) && isIdentChar(s[j]) {
+		j++
+	}
+	h.id = s[start:j]
+	if h.id == "" || (s[start] >= '0' && s[start] <= '9') {
+		return h, 0
+	}
+	if quote != 0 {
+		if j >= len(s) || s[j] != quote {
+			return h, 0
+		}
+		j++
+	} else if !h.indented && strings.ToUpper(h.id) != h.id {
+		return h, 0
+	}
+	return h, j - i
+}
+
+// heredocSpan reads the body that starts at body up to its terminator
+// line, or to end of input when there is none. The span starts at the
+// body rather than at the opener so the span list stays ordered; the
+// terminator line is the span's only non interior part.
+func heredocSpan(s string, body int, h heredocOpener) span {
+	for ls := body; ls < len(s); {
+		le := lineEnd(s, ls)
+		line := s[ls:le]
+		if h.indented {
+			line = strings.TrimLeft(line, " \t")
+		}
+		if strings.TrimRight(line, " \t\r") == h.id {
+			return span{spanString, body, le, body, ls}
+		}
+		ls = le + 1
+	}
+	return span{spanString, body, len(s), body, len(s)}
 }
 
 func lineEnd(s string, i int) int {

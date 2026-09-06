@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // Archetypes layer 4 can assign to a call site.
@@ -54,6 +55,12 @@ const (
 	weightShapeWeak    = 2  // a parameter that leans one way
 	weightShapeHint    = 1  // a parameter that barely leans
 	weightShapeAgainst = -4 // a parameter this task would not be written with
+	// A tool result fed back to the model is the loop that makes an
+	// agent, and a loop with tools is agentic whatever one turn's prompt
+	// asks for: the content part fed back, plus the tool list a loop
+	// implies. Above weightSays plus weightHint, which is the most a
+	// prompt can say for one of the one shot tasks.
+	weightLoop = weightEndpoint + weightShapeStrong + weightShapeWeak
 )
 
 // Token caps read as intent: capLabel fits a label or a boolean,
@@ -92,32 +99,73 @@ type archetypeKeywords struct {
 	denies    []string
 }
 
+// codeOutputs are the ways a prompt says its output is code without
+// saying "code": a DSL, SQL, a script. They are shared between codegen,
+// which they name, and translation, which they rule out, because
+// "translate the request into the DSL" is a codegen prompt that happens
+// to use translation's verb. The output decides the task, not the verb.
+var codeOutputs = []string{"dsl", "into code", "into sql", "to sql", "into a script", "code generation"}
+
+// Prompts are written in the language of the people who read the
+// output, and a prompt the word lists cannot read leaves the scorer with
+// the call's parameters alone, which is the unknown verdict for most real
+// sites. So each list carries, after its English, the phrases that name
+// the task in Russian, Chinese and Korean: the imperative and the noun a
+// prompt in that language uses. The idents lists stay English, since
+// code is.
+//
+// Korean marks an instruction in the verb ending, and extraction is the
+// task an agent's prompt most often describes as a step ("extract the
+// memo, then save it"), so its Korean entries are the imperative forms:
+// the bare noun in a description of a flow is not what the call is for.
+// A phrase Japanese shares with Chinese is left out, since the lists do
+// not otherwise read Japanese and a lone match would decide the site.
 var archetypeWords = []archetypeKeywords{
 	{
 		archetype: ArchetypeClassification,
 		idents:    []string{"classif", "categor", "triage", "sentiment", "intent", "priority", "churn", "grade", "detect"},
 		says: []string{"classif", "categor", "triage", "pick one", "choose one", "choose the single",
+			"into the following categories", "into specific categories", "belong to one group",
 			"single label", "one label", "exactly one word", "answer with one word", "one word:",
 			"which queue", "assign the", "label the", "tag the", "from the allowed list",
-			"one of the following", "answer with the label", "answer with the code"},
-		hints: []string{"label", "category", "intent", "priority", "urgency", "sentiment", "topic",
-			"risk", "iso code", "one word", "one of:"},
+			"one of the following", "answer with the label", "answer with the code",
+			"классифи", "категори", "определи тип", "выбери один", "выбери одну",
+			"один из следующих", "одно из следующих", "одну из следующих",
+			"分类", "归类", "类别", "选择一个", "选出一个", "以下之一", "其中之一", "可选择的",
+			"분류", "카테고리"},
+		hints: []string{"evaluate whether", "assess whether", "determine whether", "decide whether",
+			"judge whether", "criteria for", "quality assessor",
+			"label", "category", "intent", "priority", "urgency", "sentiment", "topic",
+			"risk", "iso code", "one word", "one of:",
+			"метк", "настроени", "намерени", "приоритет",
+			"标签", "意图", "情感", "优先级",
+			"의도", "라벨", "레이블", "감정", "우선순위"},
 	},
 	{
 		archetype: ArchetypeExtraction,
 		idents:    []string{"extract", "parse", "fields", "invoice", "receipt", "resume", "purchase_order"},
 		says: []string{"extract", "copy the", "copied from", "pull the", "read out the", "record the fields",
-			"return json with the keys", "list each commitment", "fill in the fields", "copy values"},
+			"return json with the keys", "list each commitment", "fill in the fields", "copy values",
+			"извле", "заполни поля",
+			"提取", "抽取",
+			"추출하세요", "추출해", "추출하라", "추출하시오"},
 		hints: []string{"json with", "fields", "do not guess", "never infer", "as written", "null when",
-			"leave a field empty"},
+			"leave a field empty",
+			"поля", "字段", "필드"},
 	},
 	{
 		archetype: ArchetypeSummarization,
 		idents:    []string{"summar", "digest", "recap", "rollup", "roll_up", "tldr", "condense", "brief"},
 		says: []string{"summar", "sum up", "sums up", "condense", "tl;dr", "digest", "recap",
-			"release notes", "meeting notes", "key points", "main points", "brief on", "brief for"},
-		hints:  []string{"paragraph", "sentences", "bullets", "lead with", "plain language", "skip"},
-		denies: []string{"do not summarize", "no summary", "not a summary", "do not condense", "do not shorten"},
+			"release notes", "meeting notes", "key points", "main points", "brief on", "brief for",
+			"суммируй", "резюмируй", "кратко излож", "краткое содержание", "краткий пересказ",
+			"основные тезисы", "ключевые моменты",
+			"总结", "摘要", "概括", "概述",
+			"요약"},
+		hints: []string{"paragraph", "sentences", "bullets", "lead with", "plain language", "skip",
+			"абзац", "предложени", "段落", "문단"},
+		denies: append([]string{"do not summarize", "no summary", "not a summary", "do not condense", "do not shorten"},
+			assignsToOneCategory...),
 	},
 	{
 		archetype: ArchetypeChat,
@@ -126,34 +174,61 @@ var archetypeWords = []archetypeKeywords{
 			"answer the customer", "answer the user", "answer the reader", "answer visitors", "answer the caller",
 			"reply to the customer", "reply to the user", "respond to the customer", "respond to the user",
 			"keep replies", "keep each reply", "chat naturally", "conversational", "talk the", "reply in",
-			"end with a question", "keep the tone", "in a friendly voice"},
+			"end with a question", "keep the tone", "in a friendly voice",
+			"отвечай на языке", "отвечай пользователю", "отвечай на вопрос", "веди диалог",
+			"поддерживай разговор", "общайся",
+			"回答用户", "回复用户", "与用户对话",
+			"사용자에게 답변", "대화를 이어", "친절하게 답변"},
 		hints: []string{"you are a", "you are the", "assistant", "friendly", "warm", "brief", "chat",
-			"conversation", "in character", "buddy"},
+			"conversation", "in character", "buddy",
+			"ассистент", "разговор", "диалог", "ты помогаешь", "дружелюбн", "собеседник",
+			"你是一", "您是一", "助手", "对话", "友好", "聊天",
+			"당신은", "어시스턴트", "대화", "친절"},
 		denies: []string{"do not answer", "no commentary", "nothing else", "output only", "no explanation",
-			"do not reply", "numbers only", "one word", "no prose"},
+			"do not reply", "numbers only", "one word", "no prose",
+			"ничего больше", "без пояснений", "без объяснений", "одним словом", "только json", "только число",
+			"只输出", "仅输出", "只返回", "仅返回", "不要解释", "无需解释", "一个词", "一个单词",
+			"만 출력", "만 응답", "만 답변", "설명 없이", "한 단어"},
 	},
 	{
 		archetype: ArchetypeTranslation,
 		idents:    []string{"translat", "localiz", "locale", "toenglish", "to_english"},
 		says: []string{"translat", "localiz", "target language", "target locale", "in english", "into english",
-			"into the recipient", "into the language", "into their language"},
+			"into the recipient", "into the language", "into their language",
+			"перевод", "переведи", "перевести", "переводи", "на английский", "на русский",
+			"翻译", "译成", "译为", "目标语言",
+			"번역", "대상 언어"},
 		hints:  []string{"locale", "placeholder", "in the target"},
-		denies: []string{"do not translate", "never translate"},
+		denies: append([]string{"do not translate", "never translate"}, codeOutputs...),
 	},
 	{
 		archetype: ArchetypeReranking,
 		idents:    []string{"rerank", "rank", "reorder", "relevance", "order_", "_order"},
+		denies:    assignsToOneCategory,
 		says: []string{"rerank", "rank the", "reorder", "order the", "sort the", "by relevance",
-			"most relevant", "best first", "in order of", "ordered by", "descending score", "relevance to"},
-		hints: []string{"relevance", "ranking", "candidates", "passages", "in order"},
+			"most relevant", "best first", "in order of", "ordered by", "descending score", "relevance to",
+			"отсортир", "ранжир", "упорядоч", "в порядке", "по релевантности", "наиболее релевантн",
+			"наиболее подходящ", "по убыванию", "самые подходящие",
+			"排序", "重排", "按相关", "最相关", "从高到低",
+			"순위", "정렬", "관련성 순", "가장 관련"},
+		hints: []string{"relevance", "ranking", "candidates", "passages", "in order",
+			"релевантн", "кандидат", "по похожести",
+			"相关性", "候选", "相似度",
+			"관련성", "후보"},
 	},
 	{
 		archetype: ArchetypeModeration,
 		idents:    []string{"moderat", "gate", "guard", "policy", "safety", "abuse", "unsafe", "blocked"},
 		says: []string{"moderat", "policy", "allow or block", "answer allow", "safe or unsafe",
 			"community guidelines", "brand safe", "violat", "harassment", "screen the", "screens",
-			"approve or remove", "reject listings", "block "},
-		hints: []string{"flag", "abusive", "spam", "unsafe", "filter", "forbid", "guideline"},
+			"approve or remove", "reject listings", "block ",
+			"модерац", "нарушает", "нарушени",
+			"违规", "违反", "是否安全", "内容审核",
+			"위반"},
+		hints: []string{"flag", "abusive", "spam", "unsafe", "filter", "forbid", "guideline",
+			"спам", "токсичн", "оскорб", "запрещ",
+			"垃圾信息", "辱骂", "有害",
+			"스팸", "유해", "욕설"},
 	},
 	// The stem is transcrib, not transcri: transcripts usually names a
 	// summarizer's input, not this task.
@@ -161,33 +236,55 @@ var archetypeWords = []archetypeKeywords{
 		archetype: ArchetypeTranscription,
 		idents:    []string{"transcrib", "transcription", "whisper", "speech_to_text", "dictation", "stt"},
 		says: []string{"transcrib", "word for word", "verbatim", "speech to text", "write out everything",
-			"exactly what the", "what the caller says"},
-		hints: []string{"speaker", "filler words", "false starts", "timestamp"},
+			"exactly what the", "what the caller says",
+			"транскриб", "транскрипц", "расшифруй", "расшифровк", "дословно",
+			"转录", "转写", "逐字", "语音转文字", "语音识别",
+			"음성을 텍스트로", "받아쓰"},
+		hints: []string{"speaker", "filler words", "false starts", "timestamp",
+			"говорящ", "说话人", "时间戳", "화자", "타임스탬프"},
 	},
 	{
 		archetype: ArchetypeVision,
 		idents:    []string{"vision", "ocr", "image", "photo", "screenshot", "chart", "slide", "visual"},
 		says: []string{"in this image", "in the image", "this photo", "this picture", "this screenshot",
 			"ocr", "reading order", "what is in this", "visible in", "see in this", "changed visually",
-			"printed on them", "plotted here"},
-		hints: []string{"image", "photo", "screenshot", "slide", "chart", "visually", "illegible"},
+			"printed on them", "plotted here",
+			"на изображении", "на фото", "на картинке", "на скриншоте", "на снимке",
+			"图片中", "图像中", "照片中", "截图中", "这张图", "图中",
+			"이미지에서", "사진에서", "이 이미지", "이 사진", "스크린샷에서"},
+		hints: []string{"image", "photo", "screenshot", "slide", "chart", "visually", "illegible",
+			"изображени", "фото", "скриншот", "картинк",
+			"图片", "图像", "照片", "截图",
+			"이미지", "사진", "스크린샷"},
 	},
 	{
 		archetype: ArchetypeCodegen,
 		idents: []string{"codegen", "write_code", "generate_code", "writecode", "generatecode", "autocomplete",
 			"sql", "migration", "scaffold", "regex", "stub", "fim", "patch"},
-		says: []string{"write code", "generate code", "unit test", "pytest", "sql query", "output only sql", "the script",
+		says: append([]string{"write code", "generate code", "unit test", "pytest", "sql query", "output only sql", "the script",
+			"shell command", "command template", "generate commands", "command line", "cli assistant",
 			"regular expression", "bash script", "terraform", "hcl only", "code only", "source only",
-			"compilable", "no diff markers", "jq filter", "migration sql", "emit "},
-		hints: []string{"sql", "code", "syntax", "controller", "module"},
+			"compilable", "no diff markers", "jq filter", "migration sql", "emit ",
+			"напиши код", "сгенерируй код", "напиши скрипт", "напиши функцию", "sql-запрос", "sql запрос", "только sql",
+			"生成代码", "编写代码", "写代码", "sql语句", "sql 语句", "查询语句", "生成sql", "生成 sql",
+			"코드를 작성", "코드 생성", "코드를 생성", "sql 쿼리", "쿼리를 작성"}, codeOutputs...),
+		hints: []string{"sql", "code", "syntax", "controller", "module",
+			"скрипт", "代码", "脚本", "코드", "스크립트"},
 	},
 	{
 		archetype: ArchetypeAgentic,
 		idents:    []string{"agent", "scratchpad", "tool_", "toolconfig", "tools", "runner", "next_step", "nextstep"},
 		says: []string{"one tool call at a time", "take one action", "keep going until", "until you can",
 			"decide which tool", "use the tools", "keep querying", "plan, act", "and verify before",
-			"stop when", "then stop", "agent"},
-		hints: []string{"tool", "step", "plan", "loop"},
+			"stop when", "then stop", "agent",
+			"агент", "智能体", "에이전트",
+			"используй инструменты", "вызови инструмент", "вызывай инструменты", "доступные инструменты",
+			"подходящий инструмент", "вызов инструмент",
+			"调用工具", "使用工具", "工具调用", "可用的工具", "合适的工具", "调用函数",
+			"도구를 사용", "도구를 호출", "도구를 활용", "도구 호출", "적절한 도구", "필요한 도구",
+			"사용 가능한 도구", "툴을 사용", "툴 호출"},
+		hints: []string{"tool", "step", "plan", "loop",
+			"инструмент", "工具", "도구", "툴"},
 	},
 }
 
@@ -207,15 +304,33 @@ var endpointSignals = []struct {
 	{"audio/", ArchetypeTranscription},
 	{".rerank", ArchetypeReranking},
 	{"fim.complete", ArchetypeCodegen},
-	{"image_url", ArchetypeVision},
-	{"image/", ArchetypeVision},
-	{"inline_data", ArchetypeVision},
-	{"inlinedata", ArchetypeVision},
-	{"imagecontentpart", ArchetypeVision},
-	{"createimagepart", ArchetypeVision},
-	{"imageurl", ArchetypeVision},
-	{"ofimage", ArchetypeVision},
 }
+
+// Image content parts: the part's type or key, a MIME prefix, or an
+// SDK constructor. Read from the window around the call and not only
+// from its argument list, the way a forced tool is, because the
+// message list that carries the image is often built away from the
+// call: in a helper above it, or below a model constant. That reach is
+// why image_url needs its quotes or the colon of a key: as a bare
+// identifier it is a parameter name as often as a part.
+var reImagePart = regexp.MustCompile(`["']image_?url["']|image_?url\s*[:=(]|image/|inline_?data|imagecontentpart|createimagepart|ofimage`)
+
+// An image in the input rules out the readings that would take the
+// prompt's words at face value: a label, a set of fields or a digest
+// read off a photo is vision (corpus/README.md, the labeling rule).
+var imageInputDenies = map[string]bool{
+	ArchetypeClassification: true,
+	ArchetypeExtraction:     true,
+	ArchetypeSummarization:  true,
+}
+
+// A tools parameter spelled without an inline list: keyed, as a PHP
+// arrow, as a shorthand property, passed to or returned from a call
+// (bind_tools, setTools, Tools.Add), added one at a time by a builder
+// (addTool, toolCallbacks), or as a config object. The word tool in an
+// identifier or an error string is not one; agentic needs the
+// structure, not the word.
+var reToolsParam = regexp.MustCompile(`tools["']?\??\s*[:=,})(]|tools\.add\(|add_?tools?\(|tool_?callbacks?\s*[:=(]|tool_?call_?behavior\s*=|\btool_?config\s*[:=]`)
 
 // An archetype pragma pins a call site the heuristics get wrong:
 //
@@ -365,6 +480,13 @@ type evidence struct {
 	// call often spells in the config object it points at rather than
 	// in the call itself.
 	forcedTool bool
+	// imageInput is true when an image content part is in the call or
+	// in the window around it.
+	imageInput bool
+	// toolLoop is true when the file feeds a tool result back to the
+	// model. Read off the whole file (fileFacts): the loop and the
+	// model constant it drives rarely share a region.
+	toolLoop bool
 }
 
 func (a *analyzer) evidenceFor(p string, shape Shape, r region) evidence {
@@ -392,19 +514,24 @@ func (a *analyzer) evidenceFor(p string, shape Shape, r region) evidence {
 	if lits := a.regionLiterals(p, r); lits != "" {
 		prompt += "\n" + strings.ToLower(lits)
 	}
-	// The regex runs only where a tool choice could be written; it is
-	// the widest read this function does.
+	// The window is where a tool choice or an image part could be
+	// written; it is the widest read this function does.
+	window := src.prose[max(0, r.hit-fileWindowBytes):min(len(src.prose), r.hit+fileWindowBytes)]
 	forced := shape.ForcedTool
 	if !forced {
-		window := src.prose[max(0, r.hit-fileWindowBytes):min(len(src.prose), r.hit+fileWindowBytes)]
 		forced = strings.Contains(window, "hoice") && reForcedTool.MatchString(window)
 	}
+	markers := strings.ToLower(src.prose[r.start:r.end])
+	// The region first, since an extent can outrun the window.
+	image := reImagePart.MatchString(markers) || reImagePart.MatchString(strings.ToLower(window))
 	return evidence{
 		idents:     idents,
-		markers:    strings.ToLower(src.prose[r.start:r.end]),
+		markers:    markers,
 		prompt:     prompt,
 		funcName:   funcName,
 		forcedTool: forced,
+		imageInput: image,
+		toolLoop:   a.facts(p).toolLoop,
 	}
 }
 
@@ -481,12 +608,26 @@ func scoreEvidence(shape Shape, ev evidence) scoreSet {
 		set.named[arch] = set.named[arch] || names
 	}
 
+	verdict := verdictOutput(ev.prompt)
 	for _, fam := range archetypeWords {
 		if containsAny(ev.funcName, fam.idents) {
 			add(fam.archetype, weightFuncName, true)
 		}
 		if containsAny(ev.idents, fam.idents) {
 			add(fam.archetype, weightCode, false)
+		}
+		// The input rules a task out the way the prompt's own words
+		// can, and the words are then about the photo.
+		if ev.imageInput && imageInputDenies[fam.archetype] {
+			add(fam.archetype, weightDenied, true)
+			continue
+		}
+		// So does the output: an answer that is a verdict is not a
+		// record of fields and not a digest, whatever the prompt calls
+		// its input.
+		if verdict && verdictDenies[fam.archetype] {
+			add(fam.archetype, weightDenied, true)
+			continue
 		}
 		if ev.prompt == "" {
 			continue
@@ -507,6 +648,9 @@ func scoreEvidence(shape Shape, ev evidence) scoreSet {
 			add(sig.archetype, weightEndpoint, true)
 		}
 	}
+	if ev.imageInput {
+		add(ArchetypeVision, weightEndpoint, true)
+	}
 	shapeScores(add, shape, ev)
 	return set
 }
@@ -517,7 +661,7 @@ func scoreEvidence(shape Shape, ev evidence) scoreSet {
 // token cap or a temperature only leans.
 func shapeScores(add func(arch string, points int, names bool), shape Shape, ev evidence) {
 	scores := func(arch string, points int) { add(arch, points, false) }
-	if shape.SchemaEnumOnly || enumOnlyOutput(ev.markers) {
+	if shape.SchemaEnumOnly || enumOnlyOutput(ev.markers) || verdictOutput(ev.prompt) {
 		add(ArchetypeClassification, weightShapeStrong, true)
 	}
 	if shape.SchemaMultiField {
@@ -539,9 +683,11 @@ func shapeScores(add func(arch string, points int, names bool), shape Shape, ev 
 	switch {
 	case ev.forcedTool:
 		// Already counted as a schema above.
+	case ev.toolLoop:
+		add(ArchetypeAgentic, weightLoop, true)
 	case shape.Tools:
 		add(ArchetypeAgentic, weightShapeStrong+weightShapeWeak, true)
-	case strings.Contains(ev.markers, "tool"):
+	case reToolsParam.MatchString(ev.markers):
 		// Tools passed by name or held in a config object: the list is
 		// not readable from here, but the call still hands the model
 		// something to call.
@@ -608,6 +754,34 @@ func enumOnlyOutput(markers string) bool {
 		return false
 	}
 	return strings.Contains(markers, "schema") || strings.Contains(markers, "x.enum")
+}
+
+// A prompt that says which single category each item goes to is sorting
+// in the everyday sense, not the ranking sense, and it is not a digest of
+// the items either. Reranking's says stem "sort the" and summarization's
+// "digest" both fired on a strict grouping prompt and outvoted the
+// category words.
+var assignsToOneCategory = []string{
+	"into the following categories", "into specific categories", "belong to one group",
+	"only belong to one", "use only the categories", "do not create new categories",
+}
+
+// A prompt whose answer is a verdict, a boolean or a pass or fail, is
+// asking for a decision. It is classification whatever else the prompt
+// mentions: a quality gate said its input was "text extracted from a
+// PDF" and asked for a "one-sentence summary" as one field, and won for
+// extraction at high confidence on those two phrases alone. The verdict
+// rules those out the way an image input rules out reading fields.
+var reVerdictOutput = regexp.MustCompile(
+	`boolean \(true if|boolean, true if|pass or fail|"is_[a-z_]+": boolean`)
+
+var verdictDenies = map[string]bool{
+	ArchetypeExtraction:    true,
+	ArchetypeSummarization: true,
+}
+
+func verdictOutput(prompt string) bool {
+	return reVerdictOutput.MatchString(prompt)
 }
 
 // A schema whose only field is a boolean is a gate: the call asks for a
@@ -688,8 +862,16 @@ func containsAny(s string, words []string) bool {
 }
 
 // Words that flip the phrase after them. "never reply to the customer"
-// must not score as "reply to the customer".
-var negators = []string{"never ", "not ", "n't ", "avoid ", "without "}
+// must not score as "reply to the customer". The Russian and Chinese
+// forms sit before the verb the way the English ones do; Korean negates
+// after the verb, which the lookback cannot see, so only its "never" is
+// here.
+var negators = []string{"never ", "not ", "n't ", "avoid ", "without ",
+	"не ", "нельзя ", "不要", "请勿", "不得", "禁止", "无需", "切勿", "절대 "}
+
+// Sentence breaks the negation scan stops at, in ASCII and in the full
+// width forms Chinese and Korean prose use.
+const sentenceBreaks = ".;:\n!?。；：！？"
 
 // saysAny is containsAny for task phrases: a match preceded by a negator
 // does not count. Only phrases the prompt asserts score.
@@ -717,8 +899,10 @@ func negatedAt(s string, pos int) bool {
 	const lookback = 24
 	start := max(0, pos-lookback)
 	clause := s[start:pos]
-	if cut := strings.LastIndexAny(clause, ".;:\n!?"); cut >= 0 {
-		clause = clause[cut+1:]
+	if cut := strings.LastIndexAny(clause, sentenceBreaks); cut >= 0 {
+		// The break may be a multi byte rune; step over the whole of it.
+		_, size := utf8.DecodeRuneInString(clause[cut:])
+		clause = clause[cut+size:]
 	}
 	return containsAny(clause, negators)
 }
