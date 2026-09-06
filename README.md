@@ -24,7 +24,7 @@ digest, and the attestation when `gh` is available:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/MithrilBytes/overwater/main/scripts/install.sh
-sh install.sh v2.9.3
+sh install.sh v2.9.4
 ```
 
 ## Usage
