@@ -281,3 +281,32 @@ func TestMaskJavaTextBlocks(t *testing.T) {
 		}
 	}
 }
+
+// Swift and C# were in the C family, where a multi line string ended at
+// its first newline and the rest of the prompt scanned as code: the
+// Ruby heredoc defect in two more languages the scanner claims to parse.
+// Each form here is one string span reaching the prompt reader, proved
+// by the prompt classifying rather than falling to unknown.
+func TestMultiLineStringsInSwiftAndCSharpAreProse(t *testing.T) {
+	const prose = "You are an expert at summarizing content for busy readers.\nWrite a concise, 2-3 sentence summary of the entries below,\nhighlighting the most significant ones."
+	for _, tc := range []struct{ name, file, src string }{
+		{"swift multi line", "Digest.swift", "import Foundation\n\nfunc digest(client: OpenAIClient) async throws {\n    try await client.chat(model: \"gpt-4o-mini\", system: \"\"\"\n" + prose + "\n\"\"\")\n}\n"},
+		{"c# verbatim inline", "Digest.cs", "public class Digest {\n    public async Task Run(OpenAIClient client) {\n        await client.Chat(\"gpt-4o-mini\", @\"" + strings.ReplaceAll(prose, "entries", "\"\"entries\"\"") + "\");\n    }\n}\n"},
+		{"c# raw", "Raw.cs", "public class Raw {\n    public async Task Run(OpenAIClient client) {\n        await client.Chat(\"gpt-4o-mini\", \"\"\"\n" + prose + "\n\"\"\");\n    }\n}\n"},
+		{"c# verbatim const resolved by name", "Const.cs", "public class Const {\n    const string Prompt = @\"" + prose + "\";\n\n    public async Task Run(OpenAIClient client) {\n        await client.Chat(\"gpt-4o-mini\", Prompt);\n    }\n}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := writeTree(t, map[string]string{tc.file: tc.src})
+			report, err := Analyze(dir, mustCatalog(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(report.Sites) != 1 {
+				t.Fatalf("sites = %d, want 1: %+v", len(report.Sites), report.Sites)
+			}
+			if got := report.Sites[0].Archetype; got != ArchetypeSummarization {
+				t.Errorf("archetype = %s, want summarization; the prompt did not reach the reader", got)
+			}
+		})
+	}
+}

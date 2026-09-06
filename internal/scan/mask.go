@@ -52,6 +52,7 @@ type langFamily struct {
 	rawBacktick  bool // backtick strings take backslash literally (Go)
 	rustRaw      bool // r#"..."# strings, where the hash is a delimiter (Rust)
 	heredoc      bool // <<~ID blocks, whose body starts on the line after the opener (Ruby)
+	verbatim     bool // @"..." strings that span lines and double a quote to escape it (C#)
 	triples      bool
 	quotes       bool
 }
@@ -82,7 +83,17 @@ func familyFor(p string) langFamily {
 		// the way Python does. Without the delimiter the block scans as
 		// code, every line of it, the braces in its templates included.
 		return langFamily{slashComment: true, blockComment: true, triples: true, quotes: true}
-	case ".c", ".h", ".cpp", ".cc", ".cs", ".php", ".scala", ".swift", ".gradle", ".groovy":
+	case ".swift", ".scala", ".gradle", ".groovy":
+		// Swift multi line strings and Scala and Groovy triple quoted
+		// strings are blocks of prose, the way Python's are. In the C
+		// family they scanned as a one line string that ended at the
+		// first newline, the rest of the prompt reading as code.
+		return langFamily{slashComment: true, blockComment: true, triples: true, quotes: true}
+	case ".cs":
+		// C# 11 raw strings are triple quoted; verbatim @"..." strings
+		// span lines too, and escape a quote by doubling it.
+		return langFamily{slashComment: true, blockComment: true, triples: true, verbatim: true, quotes: true}
+	case ".c", ".h", ".cpp", ".cc", ".php":
 		return langFamily{slashComment: true, blockComment: true, quotes: true}
 	case ".tf", ".tfvars", ".hcl":
 		// HCL takes both comment spellings, so neither family alone.
@@ -219,6 +230,10 @@ func scanSpans(s string, fam langFamily) []span {
 			end, closed := findClose(s, i+open, close, true)
 			spans = append(spans, rawStringSpan(i, end, open, len(close), closed))
 			i = end
+		case fam.verbatim && c == '@' && hasAt(s, i, "@\""):
+			end, closed := verbatimEnd(s, i)
+			spans = append(spans, rawStringSpan(i, end, 2, 1, closed))
+			i = end
 		case fam.quotes && (c == '"' || c == '\''):
 			end, closed := quoteEnd(s, i)
 			spans = append(spans, stringSpan(i, end, 1, closed))
@@ -339,6 +354,23 @@ func rawStringSpan(start, end, open, close int, closed bool) span {
 		ie = is
 	}
 	return span{spanString, start, end, is, ie}
+}
+
+// verbatimEnd finds the end of a C# @"..." string opened at i. A
+// doubled quote is an escaped one and a backslash is literal, so
+// neither the escape aware nor the raw scanner fits it.
+func verbatimEnd(s string, i int) (end int, closed bool) {
+	for j := i + 2; j < len(s); j++ {
+		if s[j] != '"' {
+			continue
+		}
+		if j+1 < len(s) && s[j+1] == '"' {
+			j++
+			continue
+		}
+		return j + 1, true
+	}
+	return len(s), false
 }
 
 // rustRawDelims reports the opening and closing delimiters of a Rust

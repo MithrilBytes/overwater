@@ -67,6 +67,14 @@ func (a *analyzer) promptValue(p, content, value string, from int) (string, bool
 // and triple quotes may span lines.
 func literalText(content string, start int, delim string) (string, bool) {
 	rest := content[start:]
+	if delim == "@\"" {
+		// C# verbatim: the caller's start is past the @, at the quote.
+		end, closed := verbatimEnd(content, start-2)
+		if !closed {
+			return "", false
+		}
+		return content[start : end-1], true
+	}
 	if delim == `"` && strings.HasPrefix(rest, `""`) {
 		end := strings.Index(rest[2:], `"""`)
 		if end < 0 {
@@ -134,7 +142,7 @@ func resolveConstIn(content, name string) (string, bool) {
 	// The name needs a left boundary, or resolving PROMPT matches the
 	// tail of LEGACY_PROMPT. Triple quotes come before their single char
 	// forms so the longer delimiter wins.
-	re := regexp.MustCompile(`(?m)(?:^|[^A-Za-z0-9_$])` + regexp.QuoteMeta(name) + "\\s*=\\s*(`|\"\"\"|'''|\"|')")
+	re := regexp.MustCompile(`(?m)(?:^|[^A-Za-z0-9_$])` + regexp.QuoteMeta(name) + "\\s*=\\s*(@\"|`|\"\"\"|'''|\"|')")
 	m := re.FindStringSubmatchIndex(content)
 	if m == nil {
 		return "", false

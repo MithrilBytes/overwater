@@ -1,8 +1,11 @@
 package docs
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -130,5 +133,53 @@ func TestWrapKeepsLinesUnderTheColumn(t *testing.T) {
 	}
 	if got := wrap([]string{"only-one"}, 72); got != "`only-one`." {
 		t.Errorf("single id = %q", got)
+	}
+}
+
+// The corpus figures in both pages are prose, which the generator
+// leaves alone because rewriting a number can reflow a paragraph. So
+// they are held here instead: a case added to labels.json without
+// touching the sentence fails, which is the drift that turned 0.97 into
+// a rumour of 87.
+func TestCorpusFiguresInProseMatchLabels(t *testing.T) {
+	raw := repoFile(t, "corpus", "testdata", "labels.json")
+	var labels struct {
+		Cases []struct {
+			File  string `json:"file"`
+			Split string `json:"split"`
+		} `json:"cases"`
+	}
+	if err := json.Unmarshal([]byte(raw), &labels); err != nil {
+		t.Fatal(err)
+	}
+	if len(labels.Cases) == 0 {
+		t.Fatal("labels.json carries no cases")
+	}
+	total, holdout, real := len(labels.Cases), 0, 0
+	for _, c := range labels.Cases {
+		if c.Split == "holdout" {
+			holdout++
+		}
+		if regexp.MustCompile(`^r[0-9]+_`).MatchString(c.File) {
+			real++
+		}
+	}
+	want := map[string]int{
+		`([0-9]+) labeled corpus cases`: total,
+		`([0-9]+) of them lifted`:       real,
+		`a ([0-9]+) case holdout`:       holdout,
+	}
+	for _, page := range []string{"README.md", filepath.Join("site", "index.html")} {
+		src := repoFile(t, strings.Split(page, string(filepath.Separator))...)
+		for pat, n := range want {
+			m := regexp.MustCompile(pat).FindStringSubmatch(src)
+			if m == nil {
+				t.Errorf("%s has no sentence matching %q", page, pat)
+				continue
+			}
+			if got, _ := strconv.Atoi(m[1]); got != n {
+				t.Errorf("%s says %d where labels.json has %d (%s)", page, got, n, pat)
+			}
+		}
 	}
 }
