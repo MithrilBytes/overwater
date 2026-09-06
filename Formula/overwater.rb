@@ -2,28 +2,28 @@
 class Overwater < Formula
   desc "Flag LLM call sites that use more model than the task needs"
   homepage "https://github.com/MithrilBytes/overwater"
-  version "2.9.2"
+  version "2.9.3"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.2/overwater_darwin_arm64"
-      sha256 "bdcc266edec24de910dadcc9d3a246d3b98a7d299f216e85bbfe8634fbfefa66"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.3/overwater_darwin_arm64"
+      sha256 "bbaac269c74effed332580a56a1f4dd95ca230e081a29c71d80e78724177abae"
     end
     on_intel do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.2/overwater_darwin_amd64"
-      sha256 "4646ffb469131e368086f902b6491b36d94744f83297ab3e2591839eeb9db3c6"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.3/overwater_darwin_amd64"
+      sha256 "077cfcad5b4784acb0e36a0e7c42572d51d9e6e4e60dd3eb002c2894234b854b"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.2/overwater_linux_arm64"
-      sha256 "81bf9b49189a87d156ec91bd14a4423e140a3c94ea80a10a5b7638c884c97821"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.3/overwater_linux_arm64"
+      sha256 "2b4da14412757021ffab8a24301220f72ca021f3682d4ca067100e539caf03e5"
     end
     on_intel do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.2/overwater_linux_amd64"
-      sha256 "c94af09d39aba64dd61ffe0ddc64999c041dd9564ec470f804fa1c90ed975fd2"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.3/overwater_linux_amd64"
+      sha256 "8852a9120053a7132b251e6e5b529ac06b38ca238787f34ead749e711e96b2d3"
     end
   end
 
@@ -32,6 +32,6 @@ class Overwater < Formula
   end
 
   test do
-    assert_match "overwater v2.9.2", shell_output("#{bin}/overwater version")
+    assert_match "overwater v2.9.3", shell_output("#{bin}/overwater version")
   end
 end
