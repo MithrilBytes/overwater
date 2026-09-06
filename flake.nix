@@ -7,7 +7,7 @@
 
   outputs = { self, nixpkgs }:
     let
-      version = "2.9.1";
+      version = "2.9.2";
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems f;
     in
