@@ -43,7 +43,15 @@ type Model struct {
 	Tier              string   `yaml:"tier" json:"tier"`
 	Released          string   `yaml:"released" json:"released"`
 	Deprecated        string   `yaml:"deprecated,omitempty" json:"deprecated,omitempty"`
-	Source            string   `yaml:"source" json:"source"`
+	// Upstream is the LiteLLM key this entry's prices are checked
+	// against, for the case where upstream has reused the entry's own id
+	// for a newer model. mistral-medium-3 upstream became Medium 3.5 at
+	// a doubled window; the entry here is still the model released in
+	// May 2025, which upstream lists under its dated id. Without this
+	// the nightly diff sees a repointed key every night and asks a
+	// person about it every morning.
+	Upstream string `yaml:"upstream,omitempty" json:"upstream,omitempty"`
+	Source   string `yaml:"source" json:"source"`
 }
 
 // Capabilities a model entry may declare. Rule files validate their

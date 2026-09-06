@@ -274,7 +274,9 @@ catalog against LiteLLM and opens a PR when a provider moves a price.
 A price that moves together with the context window is reported as
 repointed and never applied: upstream reuses an id when a family ships a
 new generation, as `mistral-medium-3` did at 1.5/7.5 over a 262144
-window while the entry here stayed at 0.4/2 over 131072.
+window while the entry here stayed at 0.4/2 over 131072. An entry that
+has been checked names the key it is priced against, `upstream:
+mistral-medium-2505`, and is compared to that alone from then on.
 
 The same file answers the other question. `catalog diff -reverse` lists
 models LiteLLM prices that this catalog does not carry, collapsing the

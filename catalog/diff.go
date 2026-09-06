@@ -145,9 +145,15 @@ func DiffLitellm(c *Catalog, prices LitellmPrices, opt DiffOptions) Diff {
 		if m.Retired(opt.Today) {
 			continue
 		}
+		// An entry that names its upstream key is compared against that
+		// and nothing else: the id and the aliases are exactly the
+		// spellings upstream may have given to something newer.
 		keys := []string{m.ID, m.Provider + "/" + m.ID}
+		if m.Upstream != "" {
+			keys = []string{m.Upstream, m.Provider + "/" + m.Upstream}
+		}
 		for _, a := range m.Aliases {
-			if floatingAlias(a) {
+			if m.Upstream != "" || floatingAlias(a) {
 				continue
 			}
 			keys = append(keys, a, m.Provider+"/"+a)
@@ -180,7 +186,10 @@ func DiffLitellm(c *Catalog, prices LitellmPrices, opt DiffOptions) Diff {
 			if windowMoved {
 				d.Notes = append(d.Notes, fmt.Sprintf("%s: context window ours %d, litellm %d", m.ID, m.ContextWindow, p.MaxInput))
 			}
-			if p.Deprecation != "" {
+			// Only a date we do not already carry is news. Reporting the
+			// same 22 every night would apply them again, bump VERSION,
+			// and cut an empty patch release each morning.
+			if p.Deprecation != "" && p.Deprecation != m.Deprecated {
 				if windowMoved {
 					d.Notes = append(d.Notes, fmt.Sprintf("%s: litellm lists deprecation date %s, but the window moved too", m.ID, p.Deprecation))
 				} else {

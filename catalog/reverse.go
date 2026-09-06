@@ -105,6 +105,10 @@ func ReverseDiff(c *Catalog, prices LitellmPrices, onlyIDs []string) []Unlisted 
 	for _, m := range c.Models {
 		have[strings.ToLower(m.ID)] = true
 		have[strings.ToLower(bareID(m.ID))] = true
+		if m.Upstream != "" {
+			have[strings.ToLower(m.Upstream)] = true
+			have[strings.ToLower(bareID(m.Upstream))] = true
+		}
 		for _, a := range m.Aliases {
 			have[strings.ToLower(a)] = true
 			have[strings.ToLower(bareID(a))] = true

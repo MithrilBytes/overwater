@@ -431,3 +431,62 @@ func TestFutureDatedEntriesStillSync(t *testing.T) {
 		t.Errorf("drifts = %+v, want only the live entry to sync", d.Drifts)
 	}
 }
+
+// Upstream reused mistral-medium-3 for a newer model, so the nightly
+// diff saw a repointed key every night and filed the same issue every
+// morning. An entry that names the upstream key it is priced against
+// is compared to that key alone; its own id and aliases are exactly the
+// spellings that now mean something else.
+func TestAnEntryMayNameItsUpstreamKey(t *testing.T) {
+	m := validModel()
+	m.ID = "medium-3"
+	m.Aliases = []string{"medium-latest"}
+	m.Upstream = "medium-2505"
+	m.InputPerMtok, m.OutputPerMtok, m.ContextWindow = 0.4, 2, 131072
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+
+	prices := LitellmPrices{
+		// The reused id and the floating alias both name the newer model.
+		"medium-3":      {Input: 1.5, Output: 7.5, HasOutput: true, MaxInput: 262144, Mode: "chat"},
+		"medium-latest": {Input: 1.5, Output: 7.5, HasOutput: true, MaxInput: 262144, Mode: "chat"},
+		// The dated id is still this model, at this price.
+		"medium-2505": {Input: 0.4, Output: 2, HasOutput: true, MaxInput: 131072, Mode: "chat"},
+	}
+	d := DiffLitellm(c, prices, DiffOptions{})
+	if len(d.Repointed) != 0 || len(d.Drifts) != 0 || len(d.Missing) != 0 {
+		t.Errorf("named upstream key still drifted or repointed: %+v", d)
+	}
+	// A real repricing of the dated id still reaches the entry.
+	prices["medium-2505"] = LitellmEntry{Input: 0.5, Output: 2.5, HasOutput: true, MaxInput: 131072, Mode: "chat"}
+	d = DiffLitellm(c, prices, DiffOptions{})
+	if len(d.Drifts) != 1 || d.Drifts[0].TheirsIn != 0.5 {
+		t.Errorf("a repricing of the named key was not seen: %+v", d)
+	}
+	// And if upstream drops the dated id, the entry is missing rather
+	// than silently re-matched to the reused one.
+	delete(prices, "medium-2505")
+	if d = DiffLitellm(c, prices, DiffOptions{}); len(d.Missing) != 1 {
+		t.Errorf("an absent named key was not reported missing: %+v", d)
+	}
+}
+
+// The nightly applied 22 retirement dates one morning and would have
+// reported the same 22 the next, applied them again, bumped VERSION and
+// cut an empty patch release, every day. A date already carried is not
+// news; a changed one is.
+func TestADateAlreadyCarriedIsNotReportedAgain(t *testing.T) {
+	m := validModel()
+	m.ID = "dated"
+	m.Deprecated = "2027-07-24"
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+	today := time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC)
+
+	same := LitellmPrices{"dated": {Input: 1, Output: 2, HasOutput: true, MaxInput: 1000, Mode: "chat", Deprecation: "2027-07-24"}}
+	if d := DiffLitellm(c, same, DiffOptions{Today: today}); len(d.Deprecations) != 0 {
+		t.Errorf("a date we already carry was reported: %+v", d.Deprecations)
+	}
+	moved := LitellmPrices{"dated": {Input: 1, Output: 2, HasOutput: true, MaxInput: 1000, Mode: "chat", Deprecation: "2027-09-01"}}
+	if d := DiffLitellm(c, moved, DiffOptions{Today: today}); len(d.Deprecations) != 1 || d.Deprecations[0].Date != "2027-09-01" {
+		t.Errorf("a changed date was not reported: %+v", d.Deprecations)
+	}
+}

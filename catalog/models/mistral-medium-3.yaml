@@ -7,6 +7,7 @@ output_per_mtok: 2.00
 context_window: 131072
 tier: mid
 released: "2025-05-07"
+upstream: mistral-medium-2505
 source: https://mistral.ai/pricing
 batch_multiplier: 0.5
 capabilities: [vision, tools, structured_output]
