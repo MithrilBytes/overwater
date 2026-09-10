@@ -325,6 +325,7 @@ cogito-v1-preview-llama-70b
 cogito-v1-preview-llama-8b
 cogito-v1-preview-qwen-14b
 cogito-v1-preview-qwen-32b
+cohere-command-a
 cohere-rerank-v3-english
 cohere-rerank-v3-multilingual
 cohere-rerank-v3.5
@@ -728,6 +729,8 @@ gpt-audio-2025-08-28
 gpt-audio-mini
 gpt-audio-mini-2025-10-06
 gpt-audio-mini-2025-12-15
+gpt-chat-latest
+gpt-daybreak-blue-5.6-sol
 gpt-daybreak-blue-latest
 gpt-daybreak-red-latest
 gpt-oss-120b
@@ -772,6 +775,8 @@ grok-3-mini-fast-latest
 grok-3-mini-latest
 grok-4-1-fast-non-reasoning
 grok-4-1-fast-reasoning
+grok-4-20-non-reasoning
+grok-4-20-reasoning
 grok-4-fast-reasoning
 grok-4-latest
 grok-4.1-fast-non-reasoning
@@ -999,6 +1004,7 @@ llava-v1.6-mistral-7b-hf
 llava-yi-34b
 lyria-3-clip-preview
 lyria-3-pro-preview
+lyria-3.5
 lyria-3.5-clip-preview
 lyria-3.5-pro-preview
 macaron-v1-tall
@@ -1121,6 +1127,7 @@ mixtral-8x7b
 mixtral-8x7b-instruct
 mixtral-8x7b-instruct-hf
 mixtral-8x7b-instruct-v0:1
+model-router
 model_router
 moonshot-v1-128k
 moonshot-v1-128k-0430
@@ -1382,6 +1389,8 @@ rerank-multilingual-v3.0
 rerank-v1:0
 rerank-v3-5:0
 rerank-v3.5
+rerank-v4.0-fast
+rerank-v4.0-pro
 rolm-ocr
 router
 salamandra-7b-instruct-tools-16k
@@ -1476,6 +1485,7 @@ voyage-large-2
 voyage-law-2
 voyage-lite-01
 voyage-lite-02-instruct
+voyage-multilingual-2
 voyage-multimodal-3
 voyage-multimodal-3.5
 weaver
