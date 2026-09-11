@@ -755,6 +755,7 @@ granite-3.3-8b-instruct
 granite-4-h-small
 granite-4.0-h-micro
 granite-4.1-8b
+granite-4.2-8b
 granite-guardian-3-2-2b
 granite-guardian-3-3-8b
 granite-ttm-1024-96-r2
