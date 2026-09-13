@@ -3,7 +3,7 @@
 
   # A release branch, not a rolling one. flake.lock pins the exact
   # revision; run "nix flake lock" after changing this line.
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
 
   outputs = { self, nixpkgs }:
     let
@@ -15,7 +15,8 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          overwater = pkgs.buildGoModule {
+          # go.mod asks for 1.26; the branch default is older.
+          overwater = (pkgs.buildGoModule.override { go = pkgs.go_1_26; }) {
             pname = "overwater";
             inherit version;
             src = ./.;

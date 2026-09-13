@@ -104,7 +104,7 @@ func TestVolumesDisagree(t *testing.T) {
 	for _, order := range [][]string{{a, b}, {b, a}} {
 		code, report, stderr := scanJSON(t, order...)
 		if code != ExitClean {
-			t.Fatalf("scan %v exit = %d, stderr = %q", order, code, ExitClean)
+			t.Fatalf("scan %v exit = %d, stderr = %d", order, code, ExitClean)
 		}
 		if report.CallsPerMonth != solo.CallsPerMonth {
 			t.Errorf("scan %v header = %d calls, want the default %d once the roots disagree",
