@@ -12,14 +12,14 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: forbid em and en dashes
         run: |
           if grep -rnIP '[\x{2013}\x{2014}]' --exclude-dir=.git .; then
             echo 'em dash (U+2014) or en dash (U+2013) found; use a comma, colon, period, or parentheses' >&2
             exit 1
           fi
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - run: go build ./...
