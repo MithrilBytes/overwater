@@ -17,11 +17,13 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-// version is the current on disk format. Version 3 added the per entry
-// site hash, which is what lets a renamed file keep its entries; version
-// 2 added the Recorded date; version 1 files still load with every entry
-// undated.
-const version = 3
+// version is the current on disk format. Version 4 changed the site
+// hash to read the call's structure, so a reworded prompt keeps its
+// entry; files before it hold the older hash and match on it until
+// re-recorded. Version 3 added the per entry site hash, which is what
+// lets a renamed file keep its entries; version 2 added the Recorded
+// date; version 1 files still load with every entry undated.
+const version = 4
 
 const dateFormat = "2006-01-02"
 
@@ -57,7 +59,11 @@ type File struct {
 // Entries are written under it and matching prefers it; a site that
 // moved matches on siteKey instead.
 func Fingerprint(f rules.Finding) string {
-	h := sha256.Sum256([]byte(f.RuleID + "\x00" + f.File + "\x00" + f.SiteHash))
+	return fingerprint(f.RuleID, f.File, f.SiteHash)
+}
+
+func fingerprint(rule, file, site string) string {
+	h := sha256.Sum256([]byte(rule + "\x00" + file + "\x00" + site))
 	return hex.EncodeToString(h[:])[:16]
 }
 
@@ -107,6 +113,22 @@ func matchAll(findings []rules.Finding, bl *File, scanned map[string]bool) []int
 	for i, f := range findings {
 		if out[i] < 0 {
 			out[i] = claim(bySite, siteKey(f.RuleID, f.SiteHash))
+		}
+	}
+	// A file recorded before version 4 holds the older site hash. The
+	// same two passes run on it, so upgrading the scanner does not turn
+	// a whole baseline into new findings; re-recording writes the new
+	// hashes and these passes stop applying.
+	if bl.Version < 4 {
+		for i, f := range findings {
+			if out[i] < 0 {
+				out[i] = claim(byPrint, fingerprint(f.RuleID, f.File, f.SiteHashLegacy))
+			}
+		}
+		for i, f := range findings {
+			if out[i] < 0 {
+				out[i] = claim(bySite, siteKey(f.RuleID, f.SiteHashLegacy))
+			}
 		}
 	}
 	return out

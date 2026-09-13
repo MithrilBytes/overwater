@@ -292,3 +292,26 @@ func TestAgedMatchesBadDate(t *testing.T) {
 		t.Fatalf("aged with maxDays 0 = %+v, want nil; aging off means no nags at all", got)
 	}
 }
+
+// Baselines recorded before version 4 hold the older site hash, which
+// changed with every reworded short prompt. They match on the legacy
+// hash, at the recorded path or after a move, until re-recorded; a
+// version 4 file is never matched that way.
+func TestOlderBaselinesMatchOnTheLegacyHash(t *testing.T) {
+	recorded := finding("r", "f.ts", "old1")
+	bl := &File{Version: 3, Findings: Entries([]rules.Finding{recorded})}
+	now := finding("r", "f.ts", "new1")
+	now.SiteHashLegacy = "old1"
+	if fresh := NewFindings([]rules.Finding{now}, bl, nil); len(fresh) != 0 {
+		t.Fatalf("a version 3 entry did not absorb the finding on its legacy hash: %+v", fresh)
+	}
+	moved := now
+	moved.File = "src/f.ts"
+	if fresh := NewFindings([]rules.Finding{moved}, bl, nil); len(fresh) != 0 {
+		t.Fatalf("a version 3 entry did not follow a move on its legacy hash: %+v", fresh)
+	}
+	bl.Version = version
+	if fresh := NewFindings([]rules.Finding{now}, bl, nil); len(fresh) != 1 {
+		t.Fatalf("a version %d file matched on the legacy hash", version)
+	}
+}

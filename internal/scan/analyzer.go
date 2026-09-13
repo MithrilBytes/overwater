@@ -136,34 +136,87 @@ func (a *analyzer) lineStarts(p string) []int32 {
 func (a *analyzer) describe(site *Site, tier string) {
 	r := a.regionFor(site.File, site.Line, site.Col)
 	site.Shape = a.extractShape(site.File, r)
-	site.Hash = a.siteHash(site.File, site.Line, r)
+	site.Hash, site.HashLegacy = a.siteHash(site.File, site.Line, r, site.Ref)
 	site.Archetype, site.ArchetypeConfidence = a.classify(site.File, site.Shape, r, tier)
 	site.Ignored, site.VolumeOverride = a.pragmas(site.File, r)
 	site.NearbyStrings = a.nearbyStrings(site.File, r)
 }
 
 // siteHash fingerprints a call site so the baseline ratchet survives
-// line drift. An extent site hashes its prose masked extent with
-// whitespace collapsed, so moving the call or editing prompt prose
-// changes nothing but editing its parameters does; a fallback site
-// hashes its own line.
-func (a *analyzer) siteHash(p string, line int, r region) string {
-	var text string
-	if r.isExtent {
-		text = a.masked(p).prose[r.start:r.end]
-	} else {
-		content := a.byPath[p]
+// line drift and prompt edits. An extent site hashes its structure: the
+// extent with every string value blanked and whitespace collapsed, plus
+// the model reference. Moving the call, rewording a prompt of any
+// length or renaming a tool changes nothing; changing a number, a key
+// or the model does. A string followed by a colon is a key and stays,
+// since keys are the shape of a JSON style call. A fallback site hashes
+// its own line the same way.
+//
+// legacy is the hash baselines before format 4 were recorded under:
+// the prose masked text, which kept every string of proseStringLimit
+// bytes or fewer, so rewording a short prompt read as a new finding.
+// Older baselines match on it until they are re-recorded.
+func (a *analyzer) siteHash(p string, line int, r region, ref string) (hash, legacy string) {
+	content := a.byPath[p]
+	start, end := r.start, r.end
+	if !r.isExtent {
 		starts := a.lineStarts(p)
-		if line-1 < len(starts) {
-			end := len(content)
-			if line < len(starts) {
-				end = int(starts[line])
-			}
-			text = content[starts[line-1]:end]
+		if line-1 >= len(starts) {
+			return "", ""
+		}
+		start, end = int(starts[line-1]), len(content)
+		if line < len(starts) {
+			end = int(starts[line])
 		}
 	}
-	sum := sha256.Sum256([]byte(strings.Join(strings.Fields(text), " ")))
+	structure := a.blankStringValues(p, start, end)
+	hash = shortHash(strings.Join(strings.Fields(structure), " ") + "\x00" + ref)
+	prose := content[start:end]
+	if r.isExtent {
+		prose = a.masked(p).prose[start:end]
+	}
+	legacy = shortHash(strings.Join(strings.Fields(prose), " "))
+	return hash, legacy
+}
+
+func shortHash(text string) string {
+	sum := sha256.Sum256([]byte(text))
 	return hex.EncodeToString(sum[:])[:16]
+}
+
+// blankStringValues returns content[start:end] with the interior of
+// every string value replaced by spaces. Keys keep their text.
+func (a *analyzer) blankStringValues(p string, start, end int) string {
+	content := a.byPath[p]
+	buf := []byte(content[start:end])
+	spans := a.spans(p)
+	first := sort.Search(len(spans), func(i int) bool { return spans[i].end > start })
+	for _, s := range spans[first:] {
+		if s.start >= end {
+			break
+		}
+		if s.kind != spanString || isKey(content, s.end) {
+			continue
+		}
+		for i := max(s.interiorStart, start); i < min(s.interiorEnd, end); i++ {
+			buf[i-start] = ' '
+		}
+	}
+	return string(buf)
+}
+
+// isKey reports whether a string ending at from is followed by a colon,
+// which makes it a key rather than a value.
+func isKey(content string, from int) bool {
+	for i := from; i < len(content); i++ {
+		switch content[i] {
+		case ' ', '\t':
+		case ':':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
 }
 
 // hitOffsetIn converts a one based line and column to a byte offset.

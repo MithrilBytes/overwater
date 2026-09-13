@@ -188,18 +188,20 @@ type Rule struct {
 }
 
 // Finding is one downgrade nomination for one call site. SiteHash is
-// the scanner's content hash, the drift stable part of the baseline
-// fingerprint.
+// the scanner's structure hash, the drift stable part of the baseline
+// fingerprint; SiteHashLegacy is the hash baselines before format 4
+// were recorded under.
 type Finding struct {
-	RuleID     string
-	Confidence string
-	File       string
-	Line       int
-	SiteHash   string
-	Archetype  string
-	Evidence   string
-	Model      string
-	MonthlyUSD int
+	RuleID         string
+	Confidence     string
+	File           string
+	Line           int
+	SiteHash       string
+	SiteHashLegacy string
+	Archetype      string
+	Evidence       string
+	Model          string
+	MonthlyUSD     int
 	// Volume is the calls per month MonthlyUSD was priced at, and
 	// VolumeSource is where that number came from: measured, pragma,
 	// config, flag, fan-in, or estimate. Callers is how many callers of

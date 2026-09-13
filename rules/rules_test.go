@@ -36,10 +36,10 @@ func evaluateFixture(t *testing.T, name string) []Finding {
 	// cover the fingerprint. Check the hash is there, then blank it so
 	// the tables stay readable.
 	for i := range findings {
-		if findings[i].SiteHash == "" {
+		if findings[i].SiteHash == "" || findings[i].SiteHashLegacy == "" {
 			t.Errorf("finding %s at %s:%d has no site hash", findings[i].RuleID, findings[i].File, findings[i].Line)
 		}
-		findings[i].SiteHash = ""
+		findings[i].SiteHash, findings[i].SiteHashLegacy = "", ""
 	}
 	return findings
 }

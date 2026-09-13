@@ -63,7 +63,8 @@ type Site struct {
 	Known               bool
 	Archetype           string // filled by the classifier, layer 4
 	ArchetypeConfidence string // high, medium, or low; pragmas pin high
-	Hash                string // content hash of the call site, stable across line drift
+	Hash                string // structure hash of the call site, stable across line drift and prompt edits
+	HashLegacy          string // the hash baselines before format 4 were recorded under
 	Ignored             bool   // overwater:ignore pragma
 	VolumeOverride      int    // overwater:volume pragma, calls per month
 	ViaConfig           string // set when the model arrived via config tracing
