@@ -432,6 +432,7 @@ nowhere, so `brew install overwater` and its equivalents do not work.
 ### Guard
 
 - [x] rename stable fingerprints; a moved file reads as moved
+- [x] structure hashed fingerprints; a reworded prompt keeps its entry
 - [x] a sixth fixture covering the newer rules end to end
 
 ### Catalog
