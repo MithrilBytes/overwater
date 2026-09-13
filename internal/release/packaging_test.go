@@ -326,7 +326,7 @@ func TestReleasePinsAfterBuilding(t *testing.T) {
 		"pin:",
 		"needs: release",
 		"ref: main",
-		"actions/download-artifact@v4",
+		"actions/download-artifact@",
 		"name: SHA256SUMS",
 		"tools/sync-manifests",
 		"tools/major-tag",
