@@ -395,7 +395,7 @@ from real repositories, every rule has an end to end fixture, and a
 tripwire has a form a generated eval can exit on.
 
 Verified by 335 labeled corpus cases, 61 of them lifted from public
-repositories, at 0.93 accuracy on a 111 case holdout split assigned
+repositories, at 0.94 accuracy on a 111 case holdout split assigned
 before tuning, 103 black box smoke checks through
 the real binary, byte for byte golden output for six fixtures covering
 every rule, thirteen metamorphic properties, fuzz targets over the

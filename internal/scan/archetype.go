@@ -204,7 +204,7 @@ var archetypeWords = []archetypeKeywords{
 	{
 		archetype: ArchetypeReranking,
 		idents:    []string{"rerank", "rank", "reorder", "relevance", "order_", "_order"},
-		denies:    assignsToOneCategory,
+		denies:    append(producesTheCandidates, assignsToOneCategory...),
 		says: []string{"rerank", "rank the", "reorder", "order the", "sort the", "by relevance",
 			"most relevant", "best first", "in order of", "ordered by", "descending score", "relevance to",
 			"отсортир", "ранжир", "упорядоч", "в порядке", "по релевантности", "наиболее релевантн",
@@ -384,10 +384,43 @@ func (a *analyzer) classifySite(p string, shape Shape, r region, tier string) (s
 		}
 		return arch, conf, true
 	}
-	// Neither pass found a word about the task, so the parameters are all
-	// that is left. Reported low.
+	// Neither pass found a word about the task. One more place to look
+	// before the parameters decide: the file's one long string, if it
+	// holds exactly one. A module that keeps its prompt beside its
+	// client takes that prompt as a parameter, so nothing at the call
+	// names it, and the constant can sit further up than the window
+	// reaches. Reported low, and not as named, so the callers may still
+	// say otherwise.
+	if lit, ok := a.lonePrompt(p); ok {
+		ev := a.evidenceFor(p, shape, r)
+		ev.prompt += "\n" + strings.ToLower(lit)
+		if arch, _, ok := scoreEvidence(shape, ev).winner(); ok {
+			return arch, "low", false
+		}
+	}
+	// The parameters are all that is left. Reported low.
 	arch, _ := rank(narrow.scores)
 	return arch, "low", false
+}
+
+// lonePromptMinBytes separates a prompt from a value. Two strings that
+// long could be two prompts for two tasks, and picking one would be a
+// guess, so lonePrompt answers only when the file holds exactly one.
+const lonePromptMinBytes = 200
+
+func (a *analyzer) lonePrompt(p string) (string, bool) {
+	content := a.byPath[p]
+	found := ""
+	for _, s := range a.spans(p) {
+		if s.kind != spanString || s.interiorEnd-s.interiorStart < lonePromptMinBytes {
+			continue
+		}
+		if found != "" {
+			return "", false
+		}
+		found = content[s.interiorStart:min(s.interiorEnd, s.interiorStart+regionLiteralsMaxBytes)]
+	}
+	return found, found != ""
 }
 
 // How much of the caller set one site reads: enough calls to see what a
@@ -761,6 +794,15 @@ func enumOnlyOutput(markers string) bool {
 // the items either. Reranking's says stem "sort the" and summarization's
 // "digest" both fired on a strict grouping prompt and outvoted the
 // category words.
+// Reranking presumes the candidates are given. A prompt that opens by
+// asking the model to produce them is a generation task that also says
+// how to order its output, and "most relevant first" is then about the
+// presentation, not the task.
+var producesTheCandidates = []string{
+	"your task is to generate", "your task is to write", "your task is to create",
+	"your task is to propose", "come up with", "brainstorm",
+}
+
 var assignsToOneCategory = []string{
 	"into the following categories", "into specific categories", "belong to one group",
 	"only belong to one", "use only the categories", "do not create new categories",

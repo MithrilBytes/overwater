@@ -411,3 +411,66 @@ def check(sample):
 		})
 	}
 }
+
+// A module that keeps its prompt beside its client passes the prompt in
+// as a parameter, so the call names no task, and the constant can sit
+// further up than the widened window reaches. The file's one long
+// string is read as a last resort, at low confidence. Two long strings
+// could be two tasks, so nothing is read then.
+func TestALonePromptConstantIsReadAsALastResort(t *testing.T) {
+	prompt := `SUGGEST_PROMPT = """You are an expert CLI assistant. Your task is to generate shell command templates from the request. Reply with a JSON object holding a list of command templates, most relevant first, and nothing else. Never run a command yourself; propose templates only."""
+`
+	second := `REVIEW_PROMPT = """Summarize the pull request for the release notes in three sentences. Name the user facing change first, then the risk, then the rollout. Do not list files, do not quote code, and do not mention the author of the change."""
+`
+	// Pushes the model literal past the widened window.
+	padding := strings.Repeat("count = count + 1\n", 400)
+	client := `class Client:
+    def __init__(self, model):
+        self.model = model
+
+    def request(self, client, system_prompt, text):
+        return client.messages.create(model=self.model, max_tokens=800, system=system_prompt, messages=[{"role": "user", "content": text}])
+
+
+def test_client():
+    return Client("claude-sonnet-4-0")
+`
+	cases := []struct{ name, src, want, conf string }{
+		{"one long string", prompt + padding + client, ArchetypeCodegen, "low"},
+		{"two long strings", prompt + second + padding + client, ArchetypeUnknown, "low"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			r := analyzeTemp(t, map[string]string{"llm.py": tt.src})
+			if len(r.Sites) != 1 {
+				t.Fatalf("sites = %d, want 1", len(r.Sites))
+			}
+			s := r.Sites[0]
+			if s.Archetype != tt.want || s.ArchetypeConfidence != tt.conf {
+				t.Errorf("archetype = %s (%s), want %s (%s)", s.Archetype, s.ArchetypeConfidence, tt.want, tt.conf)
+			}
+		})
+	}
+}
+
+// Reranking presumes given candidates. A prompt that generates them and
+// then says how to order the output is a generation task; one that
+// orders passages it was handed is still reranking.
+func TestGeneratingTheCandidatesIsNotReranking(t *testing.T) {
+	cases := []struct{ name, prompt, want string }{
+		{"generates then orders",
+			"your task is to generate shell command templates for the request. list the most relevant first.",
+			ArchetypeCodegen},
+		{"orders given passages",
+			"rank the passages below by relevance to the query. return their ids, most relevant first.",
+			ArchetypeReranking},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			arch, _ := rank(scoreEvidence(Shape{}, evidence{prompt: tt.prompt}).scores)
+			if arch != tt.want {
+				t.Errorf("archetype = %s, want %s", arch, tt.want)
+			}
+		})
+	}
+}
