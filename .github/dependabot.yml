@@ -1,3 +1,7 @@
+# Minor and patch moves only. A major lands through a person, since the
+# release, pages and price paths only run on tags and schedules, so a
+# pull request's checks never exercise them. The build image follows
+# go.mod by hand: a test holds the two to the same Go version.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -7,6 +11,9 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
   - package-ecosystem: gomod
@@ -15,9 +22,3 @@ updates:
       interval: weekly
     commit-message:
       prefix: "fix(deps)"
-  - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: weekly
-    commit-message:
-      prefix: "chore(deps)"
