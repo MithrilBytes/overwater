@@ -65,7 +65,9 @@ Ling-3.0-flash
 Llama-2-13b-chat-hf
 Llama-2-70b-chat-hf
 Llama-2-7b-chat-hf
+Llama-3-8b-chat-hf
 Llama-3.1-Nemotron-70B-Instruct
+Llama-3.1-Nemotron-70B-Instruct-HF
 Llama-3.1-Nemotron-Ultra-253B-v1
 Llama-3.2-11B-Vision-Instruct
 Llama-3.2-90B-Vision-Instruct
@@ -81,6 +83,7 @@ MAI-DS-R1
 MAI-Thinking-1
 Mellum2-12B-A2.5B-Instruct
 Meta-Llama-3-70B-Instruct
+Meta-Llama-3-70B-Instruct-Turbo
 Meta-Llama-3-8B-Instruct
 Meta-Llama-3.1-405B-Instruct
 Meta-Llama-3.1-405B-Instruct-Turbo
@@ -142,7 +145,9 @@ Phi-4-mini-reasoning
 Phi-4-multimodal-instruct
 Phi-4-reasoning
 Qwen-SEA-LION-v4-32B-IT
+Qwen2-1.5B-Instruct
 Qwen2-Audio-7B-Instruct
+Qwen2.5-14B-Instruct
 Qwen2.5-32B-Instruct
 Qwen2.5-72B-Instruct
 Qwen2.5-72B-Instruct-Turbo
@@ -592,6 +597,7 @@ gemini-omni-flash-preview
 gemini-pro-latest
 gemini-robotics-er-1.5-preview
 gemini-robotics-er-1.6-preview
+gemini-robotics-er-2
 gemini-robotics-er-2-preview
 gemini-robotics-er-2-streaming-preview
 gemma-2-27b-it
@@ -649,6 +655,7 @@ glm-5p2
 glm-5p2-fast
 glm-5p2-fast-us
 glm-5p3
+glm-5p3-fast
 glm-5p3-flash
 glm-5v-turbo
 google.gemini-2.5-flash
@@ -722,6 +729,7 @@ gpt-5.4-pro
 gpt-5.4-pro-2026-03-05
 gpt-5.5
 gpt-5.5-2026-04-23
+gpt-5.5-cyber
 gpt-5.5-pro
 gpt-5.5-pro-2026-04-23
 gpt-5.6
@@ -759,6 +767,7 @@ gpt-oss-safeguard-120b
 gpt-oss-safeguard-20b
 gpt-oss:120b-cloud
 gpt-oss:20b-cloud
+gpt-rosalind-research
 granite-13b-chat-v2
 granite-13b-instruct-v2
 granite-3-3-8b-instruct
@@ -1462,6 +1471,7 @@ together-ai-embedding-151m-to-350m
 together-ai-embedding-up-to-150m
 together-ai-up-to-4b
 toppy-m-7b
+trinity-mini
 ui-tars-1.5-7b
 us-gov.anthropic.claude-3-haiku-20240307-v1:0
 us-gov.anthropic.claude-fable-5-1
