@@ -356,6 +356,14 @@ version. Applying a price carries the cache rates with it, which
 providers publish as multiples of base input and the previous version
 left describing the old price.
 
+**v2.9** releases itself: a push to main that carries a fix or a
+feature cuts the next patch or minor, and the nightly price run ships
+without a pull request. A module's lone prompt is read when the call
+names no task, a baselined finding survives a reworded prompt, Swift
+and C# multi line strings read as prose, a catalog entry can name the
+upstream key it is priced against, and the binaries build on a
+supported Go.
+
 **v2.8** generates the facts in this file and on the project page from
 the repository with `tools/sync-docs`: the rule list, and the release
 the install examples name. A workflow runs it on main and a test checks

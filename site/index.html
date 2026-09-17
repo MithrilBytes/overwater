@@ -155,7 +155,6 @@ td code { font-size: 0.85em; }
 .rel:last-child { border-bottom: 0; }
 .rel dt { font-weight: 640; font-size: 0.92rem; }
 .rel dd { margin: 0; color: var(--muted); font-size: 0.9rem; }
-.now { color: var(--water); }
 
 .facts { display: flex; flex-wrap: wrap; gap: 8px 26px; padding: 0; margin: 0; list-style: none; font-size: 0.88rem; color: var(--muted); }
 .facts b { color: var(--ink); font-weight: 620; font-variant-numeric: tabular-nums; }
@@ -414,7 +413,12 @@ footer { padding: 34px 0 60px; color: var(--faint); font-size: 0.86rem; border-t
   <section>
     <h2>Releases</h2>
     <dl>
-      <div class="rel"><dt>v2.8 <span class="now">current</span></dt><dd>The facts on this page and
+      <div class="rel"><dt>v2.9</dt><dd>Releases itself: a push to main that carries a fix or a feature
+        cuts the next patch or minor, and the nightly price run ships without a pull request. A
+        module's lone prompt is read when the call names no task, a baselined finding survives a
+        reworded prompt, Swift and C# multi line strings read as prose, a catalog entry can name the
+        upstream key it is priced against, and the binaries build on a supported Go.</dd></div>
+      <div class="rel"><dt>v2.8</dt><dd>The facts on this page and
         in the README are generated from the repository: the rule list, and the release the install
         examples name. A workflow runs the generator on main so the pages heal themselves rather
         than waiting for someone to notice. Counts inside wrapped prose and numbers inside release
