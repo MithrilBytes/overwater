@@ -2,28 +2,28 @@
 class Overwater < Formula
   desc "Flag LLM call sites that use more model than the task needs"
   homepage "https://github.com/MithrilBytes/overwater"
-  version "2.9.9"
+  version "2.9.10"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.9/overwater_darwin_arm64"
-      sha256 "d951628d3bab834d28c5f03dbc035d5d87bf6f9c4787c8852fcae9702672dffc"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.10/overwater_darwin_arm64"
+      sha256 "a3bb08c054710ba307f6567520cdfb73908cd74762e1b1b63d9deff19c284d72"
     end
     on_intel do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.9/overwater_darwin_amd64"
-      sha256 "1e10d3873c77557b762941d0f9384d577f2a409a06cff5b6059d7f317a2f4806"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.10/overwater_darwin_amd64"
+      sha256 "f1d5f2d25ecd90118bab28d63b9fcf6050eae9f894c7c9b3c005aecdf4c1636b"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.9/overwater_linux_arm64"
-      sha256 "d9a3c6f1fbfb0a82901aa86ae51b5aa8797bd155e102fea8f2816290f4075bbd"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.10/overwater_linux_arm64"
+      sha256 "6089e0cd74ee9f372431e97d98aee43607378392c617e6b63e5da4ae8fab8a71"
     end
     on_intel do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.9/overwater_linux_amd64"
-      sha256 "98a8cafeb4f5a345ec148fd01e2da5158ee17915e669c1325733912831ecad0b"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.10/overwater_linux_amd64"
+      sha256 "42c810428b488092e5dfa8e438088d1a137d7aca870734665142a9264c4fa845"
     end
   end
 
@@ -32,6 +32,6 @@ class Overwater < Formula
   end
 
   test do
-    assert_match "overwater v2.9.9", shell_output("#{bin}/overwater version")
+    assert_match "overwater v2.9.10", shell_output("#{bin}/overwater version")
   end
 end
