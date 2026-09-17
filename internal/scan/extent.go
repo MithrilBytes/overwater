@@ -2,7 +2,6 @@ package scan
 
 import (
 	"regexp"
-	"strings"
 )
 
 // An extent is the bracket region around a model string that names a
@@ -120,22 +119,6 @@ func innermostExtent(all string, hit int) (int, int, bool) {
 	return open, closer + 1, true
 }
 
-// headExpand pulls the region start a couple of lines above the opener
-// so call names like streamText( or .stream( stay visible to the shape
-// regexes, never reaching back further than lookbackMaxBytes.
-func headExpand(content string, from int) int {
-	limit := max(0, from-lookbackMaxBytes)
-	i := from
-	for k := 0; k < 3; k++ {
-		nl := strings.LastIndexByte(content[limit:i], '\n')
-		if nl < 0 {
-			return limit
-		}
-		i = limit + nl
-	}
-	return i + 1
-}
-
 // The fallback window, used when no extent can be found: config files,
 // env files, languages the extent walkers do not understand. Bounded in
 // lines and, for minified files where a line is not a useful unit, in
@@ -163,7 +146,9 @@ func (a *analyzer) regionFor(p string, line, col int) region {
 	hit := a.hitOffsetIn(p, line, col)
 	src := a.masked(p)
 	extent := func(s, e int) region {
-		return region{start: headExpand(content, s), end: e, extentStart: s, isExtent: true, hit: hit}
+		// Two lines above the opener so call names like streamText( or
+		// .stream( stay visible to the shape regexes.
+		return region{start: linesAbove(content, s, 2), end: e, extentStart: s, isExtent: true, hit: hit}
 	}
 	if builderStyle(p) {
 		if s, e, ok := builderExtent(src.all, hit); ok {

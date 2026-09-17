@@ -2,6 +2,7 @@ package scan
 
 import (
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -337,15 +338,10 @@ var reToolsParam = regexp.MustCompile(`tools["']?\??\s*[:=,})(]|tools\.add\(|add
 //	// overwater:archetype=extraction
 var rePragma = regexp.MustCompile(`overwater:archetype=([a-z]+)`)
 
+// validArchetype is every scored archetype plus embedding, which wins
+// outright and is never scored.
 func validArchetype(s string) bool {
-	switch s {
-	case ArchetypeEmbedding, ArchetypeClassification, ArchetypeExtraction,
-		ArchetypeSummarization, ArchetypeAgentic, ArchetypeChat,
-		ArchetypeTranslation, ArchetypeReranking, ArchetypeModeration,
-		ArchetypeTranscription, ArchetypeVision, ArchetypeCodegen:
-		return true
-	}
-	return false
+	return s == ArchetypeEmbedding || slices.Contains(archetypePriority, s)
 }
 
 // classify returns the archetype the call site's evidence favours, with
@@ -880,7 +876,8 @@ func promptIdents(region string) []string {
 }
 
 // linesAbove returns the offset n line starts above from, bounded by
-// lookbackMaxBytes for the same reason headExpand is.
+// lookbackMaxBytes so a minified file's one line is not walked to byte
+// zero.
 func linesAbove(content string, from, n int) int {
 	limit := max(0, from-lookbackMaxBytes)
 	i := from
@@ -895,12 +892,7 @@ func linesAbove(content string, from, n int) int {
 }
 
 func containsAny(s string, words []string) bool {
-	for _, w := range words {
-		if strings.Contains(s, w) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(words, func(w string) bool { return strings.Contains(s, w) })
 }
 
 // Words that flip the phrase after them. "never reply to the customer"

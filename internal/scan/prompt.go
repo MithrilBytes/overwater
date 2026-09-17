@@ -75,19 +75,12 @@ func literalText(content string, start int, delim string) (string, bool) {
 		}
 		return content[start : end-1], true
 	}
-	if delim == `"` && strings.HasPrefix(rest, `""`) {
-		end := strings.Index(rest[2:], `"""`)
-		if end < 0 {
+	if (delim == `"` || delim == "'") && strings.HasPrefix(rest, delim+delim) {
+		body, _, ok := strings.Cut(rest[2:], delim+delim+delim)
+		if !ok {
 			return "", false
 		}
-		return rest[2 : 2+end], true
-	}
-	if delim == "'" && strings.HasPrefix(rest, "''") {
-		end := strings.Index(rest[2:], "'''")
-		if end < 0 {
-			return "", false
-		}
-		return rest[2 : 2+end], true
+		return body, true
 	}
 	if delim == `"` || delim == "'" {
 		// Escape aware, mirroring the masker: an escaped quote belongs
@@ -105,11 +98,11 @@ func literalText(content string, start int, delim string) (string, bool) {
 		}
 		return "", false
 	}
-	end := strings.Index(rest, delim)
-	if end < 0 {
+	body, _, ok := strings.Cut(rest, delim)
+	if !ok {
 		return "", false
 	}
-	return rest[:end], true
+	return body, true
 }
 
 // resolveConstText finds a string constant by name, first in the same

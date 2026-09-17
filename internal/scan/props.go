@@ -107,17 +107,11 @@ func parseProps(content, all, prose string, start, end int) map[string]string {
 			if depth != 0 || valueStart >= 0 {
 				continue
 			}
-			if i+1 < end {
-				next := all[i+1]
-				if next == '=' || next == '>' || next == ':' {
-					continue
-				}
+			if i+1 < end && strings.IndexByte("=>:", all[i+1]) >= 0 {
+				continue
 			}
-			if i > start {
-				prev := all[i-1]
-				if prev == '=' || prev == '<' || prev == '>' || prev == '!' || prev == ':' {
-					continue
-				}
+			if i > start && strings.IndexByte("=<>!:", all[i-1]) >= 0 {
+				continue
 			}
 			key = keyBefore(prose, start, i)
 			valueStart = i + 1

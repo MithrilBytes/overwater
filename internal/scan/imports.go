@@ -2,9 +2,10 @@ package scan
 
 import (
 	"encoding/json"
+	"maps"
 	"path"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -101,11 +102,7 @@ func (a *analyzer) tsconfigs() []tsAliases {
 			if err := json.Unmarshal([]byte(jsonStripComments(a.byPath[known])), &cfg); err != nil {
 				continue
 			}
-			patterns := make([]string, 0, len(cfg.CompilerOptions.Paths))
-			for pattern := range cfg.CompilerOptions.Paths {
-				patterns = append(patterns, pattern)
-			}
-			sort.Strings(patterns)
+			patterns := slices.Sorted(maps.Keys(cfg.CompilerOptions.Paths))
 			a.tsCfgs = append(a.tsCfgs, tsAliases{
 				base:     path.Join(path.Dir(known), cfg.CompilerOptions.BaseURL),
 				patterns: patterns,
@@ -136,10 +133,5 @@ func (a *analyzer) tsconfigResolve(spec string) []string {
 }
 
 func importsName(list, name string) bool {
-	for _, part := range strings.Split(list, ",") {
-		if strings.TrimSpace(part) == name {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(strings.Split(list, ","), func(part string) bool { return strings.TrimSpace(part) == name })
 }

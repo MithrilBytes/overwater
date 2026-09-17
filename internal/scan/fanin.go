@@ -1,9 +1,12 @@
 package scan
 
 import (
+	"cmp"
+	"maps"
 	"path"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -655,7 +658,9 @@ func productionCalls(refs []callRef) ([]callRef, int) {
 }
 
 // tierOf is the catalog tier of a site's model, empty when the model is
-// unknown, matching what layer 4 was given the first time.
+// unknown. By id, not by Ref: Ref keeps the spelling the source used,
+// and matching is case insensitive, so GPT-4o is a valid reference and
+// not a catalog key.
 func tierOf(names map[string]*catalog.Model, s *Site) string {
 	if m := names[s.ModelID]; s.Known && m != nil {
 		return m.Tier
@@ -722,15 +727,8 @@ func (a *analyzer) callerModels(idx *repoIndex, d *funcDef, names map[string]*ca
 	if len(cs.tally) == 0 {
 		return nil
 	}
-	refs := make([]string, 0, len(cs.tally))
-	for ref := range cs.tally {
-		refs = append(refs, ref)
-	}
-	sort.Slice(refs, func(i, j int) bool {
-		if cs.tally[refs[i]] != cs.tally[refs[j]] {
-			return cs.tally[refs[i]] > cs.tally[refs[j]]
-		}
-		return refs[i] < refs[j]
+	refs := slices.SortedFunc(maps.Keys(cs.tally), func(x, y string) int {
+		return cmp.Or(cmp.Compare(cs.tally[y], cs.tally[x]), strings.Compare(x, y))
 	})
 	out := make([]CallerModel, 0, len(refs))
 	for _, ref := range refs {
@@ -783,17 +781,8 @@ func (cs *callerScan) walk(d *funcDef, depth int) {
 }
 
 func hasParam(d *funcDef, name string) bool {
-	for i := range d.params {
-		if d.params[i].name == name {
-			return true
-		}
-		for j := range d.params[i].entries {
-			if d.params[i].entries[j].name == name {
-				return true
-			}
-		}
-	}
-	return false
+	byName := func(p funcParam) bool { return p.name == name }
+	return slices.ContainsFunc(d.params, func(p funcParam) bool { return byName(p) || slices.ContainsFunc(p.entries, byName) })
 }
 
 // argAt returns the argument a call passes for a parameter, and whether
@@ -837,12 +826,7 @@ func (a *analyzer) argAt(c callRef, pos, entry int) (string, bool) {
 	}
 	// Sorted, so an object argument carrying two model shaped keys
 	// resolves the same way on every run.
-	keys := make([]string, 0, len(props))
-	for k := range props {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
+	for _, k := range slices.Sorted(maps.Keys(props)) {
 		if isModelName(k) {
 			return props[k], true
 		}

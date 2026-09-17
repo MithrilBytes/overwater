@@ -3,6 +3,8 @@ package scan
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -59,11 +61,7 @@ func newAnalyzer(files []file) *analyzer {
 	for _, f := range files {
 		a.byPath[f.path] = f.data
 	}
-	a.paths = make([]string, 0, len(a.byPath))
-	for p := range a.byPath {
-		a.paths = append(a.paths, p)
-	}
-	sort.Strings(a.paths)
+	a.paths = slices.Sorted(maps.Keys(a.byPath))
 	return a
 }
 

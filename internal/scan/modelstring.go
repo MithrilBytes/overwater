@@ -1,8 +1,10 @@
 package scan
 
 import (
+	"cmp"
+	"maps"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/MithrilBytes/overwater/catalog"
@@ -88,17 +90,10 @@ var toolNameRE = regexp.MustCompile(
 // findModelRefs scans one file for catalog ids and aliases (layer 2).
 // The catalog doubles as the detection dictionary.
 func findModelRefs(relPath, data string, names map[string]*catalog.Model) []Site {
-	keys := make([]string, 0, len(names))
-	for k := range names {
-		keys = append(keys, k)
-	}
 	// Longest first, so a dated alias claims its span before the bare id
 	// that prefixes it.
-	sort.Slice(keys, func(i, j int) bool {
-		if len(keys[i]) != len(keys[j]) {
-			return len(keys[i]) > len(keys[j])
-		}
-		return keys[i] < keys[j]
+	keys := slices.SortedFunc(maps.Keys(names), func(x, y string) int {
+		return cmp.Or(cmp.Compare(len(y), len(x)), strings.Compare(x, y))
 	})
 
 	var sites []Site

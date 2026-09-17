@@ -153,10 +153,8 @@ func applyCallInfo(s *Shape, info *callInfo) {
 	s.Streaming = strings.EqualFold(strings.TrimSpace(stream), "true") ||
 		strings.HasSuffix(info.Callee, ".stream") ||
 		strings.Contains(info.Callee, "streamText")
-	for _, k := range []string{"schema", "response_format", "responseSchema", "input_schema", "output_config"} {
-		if _, ok := prop(info, k); ok {
-			s.JSONSchema = true
-		}
+	if _, ok := prop(info, "schema", "response_format", "responseSchema", "input_schema", "output_config"); ok {
+		s.JSONSchema = true
 	}
 	if raw, ok := prop(info, "effort", "reasoning_effort"); ok {
 		s.Effort = strings.Trim(strings.TrimSpace(raw), `"'`)

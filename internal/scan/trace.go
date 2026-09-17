@@ -179,13 +179,9 @@ func (a *analyzer) traceConfigModels(report *Report, names map[string]*catalog.M
 					File: reader.path, Line: reader.line, Col: reader.col,
 					Ref: value, ViaConfig: cfgPath + " " + key,
 				}
-				if model != nil {
-					site.Known = true
-					site.ModelID = model.ID
-				}
 				tier := ""
 				if model != nil {
-					tier = model.Tier
+					site.Known, site.ModelID, tier = true, model.ID, model.Tier
 				}
 				a.describe(&site, tier)
 				report.Sites = append(report.Sites, site)

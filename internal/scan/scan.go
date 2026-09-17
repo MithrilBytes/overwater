@@ -1,10 +1,10 @@
 package scan
 
 import (
+	"cmp"
 	"fmt"
-	"runtime"
-	"sort"
-	"sync"
+	"slices"
+	"strings"
 
 	"github.com/MithrilBytes/overwater/catalog"
 )
@@ -133,14 +133,7 @@ func (a *analyzer) analyzeFile(f file, names map[string]*catalog.Model) ([]Site,
 	}
 	var sites []Site
 	for _, site := range refs {
-		tier := ""
-		// By id, not by Ref: Ref keeps the spelling the source used, and
-		// matching is case insensitive, so GPT-4o is a valid reference
-		// and not a catalog key.
-		if m := names[site.ModelID]; site.Known && m != nil {
-			tier = m.Tier
-		}
-		a.describe(&site, tier)
+		a.describe(&site, tierOf(names, &site))
 		sites = append(sites, site)
 	}
 	// In a config file a model bound to a key is a call site the program
@@ -182,32 +175,15 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 		truncated bool
 	}
 	results := make([]fileResult, len(files))
-	workers := min(runtime.GOMAXPROCS(0), len(files))
-	if workers < 1 {
-		workers = 1
-	}
-	work := make(chan int)
-	var wg sync.WaitGroup
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := range work {
-				f := files[i]
-				if only != nil && !only[f.path] {
-					continue // context only, no output
-				}
-				r := &results[i]
-				r.sdks = scanManifest(f.path, f.data)
-				r.sites, r.unpriced, r.truncated = a.analyzeFile(f, names)
-			}
-		}()
-	}
-	for i := range files {
-		work <- i
-	}
-	close(work)
-	wg.Wait()
+	parallelOver(len(files), func(i int) {
+		f := files[i]
+		if only != nil && !only[f.path] {
+			return // context only, no output
+		}
+		r := &results[i]
+		r.sdks = scanManifest(f.path, f.data)
+		r.sites, r.unpriced, r.truncated = a.analyzeFile(f, names)
+	})
 	for i, r := range results {
 		report.SDKs = append(report.SDKs, r.sdks...)
 		report.Sites = append(report.Sites, r.sites...)
@@ -220,18 +196,8 @@ func AnalyzeOnly(root string, cat *catalog.Catalog, only map[string]bool) (*Repo
 	a.applyFanIn(report, names)
 	// A total order: two models on one line differ by Col, then by Ref,
 	// so equal sites can never swap between runs.
-	sort.Slice(report.Sites, func(i, j int) bool {
-		a, b := report.Sites[i], report.Sites[j]
-		if a.File != b.File {
-			return a.File < b.File
-		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
-		}
-		if a.Col != b.Col {
-			return a.Col < b.Col
-		}
-		return a.Ref < b.Ref
+	slices.SortFunc(report.Sites, func(a, b Site) int {
+		return cmp.Or(strings.Compare(a.File, b.File), cmp.Compare(a.Line, b.Line), cmp.Compare(a.Col, b.Col), strings.Compare(a.Ref, b.Ref))
 	})
 	return report, nil
 }

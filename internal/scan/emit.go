@@ -110,13 +110,7 @@ func isTestPath(p string) bool {
 // names a model. The same vocabulary traceConfigModels uses, lowercased
 // because yaml and toml keys are not shouted the way env vars are.
 func modelKeyish(name string) bool {
-	n := strings.ToLower(name)
-	for _, want := range []string{"model", "deployment", "engine", "llm"} {
-		if strings.Contains(n, want) {
-			return true
-		}
-	}
-	return false
+	return containsAny(strings.ToLower(name), []string{"model", "deployment", "engine", "llm"})
 }
 
 var (
