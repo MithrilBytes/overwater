@@ -331,6 +331,7 @@ func TestReleasePinsAfterBuilding(t *testing.T) {
 		"tools/sync-manifests",
 		"tools/major-tag",
 		`git push -f origin "$major"`,
+		"gh workflow run pages.yml",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("release.yml pin job is missing %q", want)

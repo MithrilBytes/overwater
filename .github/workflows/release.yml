@@ -106,6 +106,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      actions: write
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
     steps:
@@ -143,3 +144,9 @@ jobs:
           git tag -f "$major"
           git push -f origin "$major"
           echo "$major now points at $(git rev-parse --short HEAD) pinned to $TAG" >> "$GITHUB_STEP_SUMMARY"
+      # The page names the release the install examples use, and the
+      # bump that wrote it was a bot push, which fires no workflow.
+      - name: republish the page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main
