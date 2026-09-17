@@ -347,11 +347,10 @@ func (r Rule) validate() error {
 func (e *Engine) Clone() *Engine {
 	c := &Engine{
 		Est:                 e.Est,
-		Rules:               make([]Rule, len(e.Rules)),
+		Rules:               slices.Clone(e.Rules),
 		Volumes:             e.Volumes,
 		DefaultVolumeSource: e.DefaultVolumeSource,
 	}
-	copy(c.Rules, e.Rules)
 	return c
 }
 
@@ -359,17 +358,7 @@ func (e *Engine) Clone() *Engine {
 // survive rule renames. Kept rules go into a fresh slice; filtering in
 // place would rewrite a clone's backing array too.
 func (e *Engine) Disable(ids []string) {
-	drop := map[string]bool{}
-	for _, id := range ids {
-		drop[id] = true
-	}
-	kept := make([]Rule, 0, len(e.Rules))
-	for _, r := range e.Rules {
-		if !drop[r.ID] {
-			kept = append(kept, r)
-		}
-	}
-	e.Rules = kept
+	e.Rules = slices.DeleteFunc(slices.Clone(e.Rules), func(r Rule) bool { return slices.Contains(ids, r.ID) })
 }
 
 // SetThreshold overrides one numeric When field on the named rule. An

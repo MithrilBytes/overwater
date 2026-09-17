@@ -1,9 +1,9 @@
 package rules
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -39,15 +39,8 @@ func (e *Engine) Evaluate(report *scan.Report, cat *catalog.Catalog) []Finding {
 		}
 		findings = append(findings, e.siteFindings(site, model, cat, dupCount, dupPos, vols.forSite(site, model))...)
 	}
-	sort.Slice(findings, func(i, j int) bool {
-		a, b := findings[i], findings[j]
-		if a.File != b.File {
-			return a.File < b.File
-		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
-		}
-		return a.RuleID < b.RuleID
+	slices.SortFunc(findings, func(a, b Finding) int {
+		return cmp.Or(strings.Compare(a.File, b.File), cmp.Compare(a.Line, b.Line), strings.Compare(a.RuleID, b.RuleID))
 	})
 	return findings
 }
@@ -253,30 +246,21 @@ func evidence(site scan.Site) string {
 }
 
 func (e *Engine) template(tpl string, site scan.Site, m *catalog.Model) string {
-	s := strings.ReplaceAll(tpl, "{system_tokens}", comma(e.systemTokens(site)))
+	s := strings.ReplaceAll(tpl, "{system_tokens}", Comma(e.systemTokens(site)))
 	if site.Shape.MaxRetries != nil {
 		s = strings.ReplaceAll(s, "{max_retries}", strconv.Itoa(*site.Shape.MaxRetries))
 	}
 	return strings.ReplaceAll(s, "{deprecated_date}", m.Deprecated)
 }
 
-func comma(n int) string {
+// Comma renders n with thousands separators, as every surface prints a
+// call count.
+func Comma(n int) string {
 	s := strconv.Itoa(n)
 	if len(s) <= 3 {
 		return s
 	}
-	var b strings.Builder
-	pre := len(s) % 3
-	if pre > 0 {
-		b.WriteString(s[:pre])
-	}
-	for i := pre; i < len(s); i += 3 {
-		if b.Len() > 0 {
-			b.WriteByte(',')
-		}
-		b.WriteString(s[i : i+3])
-	}
-	return b.String()
+	return Comma(n/1000) + "," + s[len(s)-3:]
 }
 
 func demote(confidence string) string {

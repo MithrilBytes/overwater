@@ -6,6 +6,7 @@ package release
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -147,7 +148,7 @@ func NextTag(tags []string, bump string) (string, error) {
 	var best []int
 	for _, t := range tags {
 		if m := reFixTag.FindStringSubmatch(strings.TrimSpace(t)); m != nil {
-			if v := ints(m[1:]); higher(v, best) {
+			if v := ints(m[1:]); slices.Compare(v, best) > 0 {
 				best = v
 			}
 		}
@@ -209,17 +210,4 @@ func ints(parts []string) []int {
 		out[i] = n
 	}
 	return out
-}
-
-// higher compares version components left to right.
-func higher(a, b []int) bool {
-	if b == nil {
-		return true
-	}
-	for i := range a {
-		if i >= len(b) || a[i] != b[i] {
-			return i >= len(b) || a[i] > b[i]
-		}
-	}
-	return false
 }

@@ -19,12 +19,12 @@ func SummaryLine(findings []rules.Finding, meta Meta) string {
 	switch measured := measuredCount(findings); {
 	case measured == 0:
 		return fmt.Sprintf("overwater: %d findings, ~$%s/mo estimated at %s calls/mo, catalog %s",
-			len(findings), comma(total), comma(meta.CallsPerMonth), meta.CatalogVersion)
+			len(findings), rules.Comma(total), rules.Comma(meta.CallsPerMonth), meta.CatalogVersion)
 	case measured == len(findings):
 		return fmt.Sprintf("overwater: %d findings, ~$%s/mo at measured volumes, catalog %s",
-			len(findings), comma(total), meta.CatalogVersion)
+			len(findings), rules.Comma(total), meta.CatalogVersion)
 	default:
 		return fmt.Sprintf("overwater: %d findings, ~$%s/mo, %d of %d at measured volumes, catalog %s",
-			len(findings), comma(total), measured, len(findings), meta.CatalogVersion)
+			len(findings), rules.Comma(total), measured, len(findings), meta.CatalogVersion)
 	}
 }

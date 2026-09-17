@@ -10,7 +10,6 @@ import (
 	"io"
 	"path"
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -100,9 +99,9 @@ type view struct {
 // missing any release asset, is an error: a manifest with an empty
 // checksum installs whatever the URL happens to serve.
 func Render(version string, sums map[string]string) (map[string]string, error) {
-	m := versionRe.FindStringSubmatch(strings.TrimSpace(version))
-	if m == nil {
-		return nil, fmt.Errorf("version %q is not vX.Y.Z; pass the release tag, for example v2.1.0", version)
+	v, err := normalizeVersion(version)
+	if err != nil {
+		return nil, err
 	}
 	var missing []string
 	for _, a := range Assets {
@@ -111,12 +110,11 @@ func Render(version string, sums map[string]string) (map[string]string, error) {
 		}
 	}
 	if len(missing) > 0 {
-		sort.Strings(missing)
 		return nil, fmt.Errorf("SHA256SUMS has no line for %s; use the SHA256SUMS published with %s", strings.Join(missing, ", "), version)
 	}
-	v := view{
-		Version:      m[1],
-		Tag:          "v" + m[1],
+	data := view{
+		Version:      v,
+		Tag:          "v" + v,
 		Repo:         repoURL,
 		Description:  description,
 		DarwinAMD64:  sums[assetDarwinAMD64],
@@ -129,7 +127,7 @@ func Render(version string, sums map[string]string) (map[string]string, error) {
 	out := make(map[string]string, len(manifests))
 	for name, tmpl := range manifests {
 		var b strings.Builder
-		if err := tmpl.Execute(&b, v); err != nil {
+		if err := tmpl.Execute(&b, data); err != nil {
 			return nil, fmt.Errorf("rendering %s: %w", name, err)
 		}
 		out[name] = b.String()
@@ -146,12 +144,12 @@ var flakeVersionRe = regexp.MustCompile(`(?m)^(\s*version\s*=\s*)"[^"]*"(\s*;.*)
 // BumpFlake returns flake.nix with its version set to the release's,
 // leaving every other line, including vendorHash, alone.
 func BumpFlake(src, version string) (string, error) {
-	m := versionRe.FindStringSubmatch(strings.TrimSpace(version))
-	if m == nil {
-		return "", fmt.Errorf("version %q is not vX.Y.Z; pass the release tag, for example v2.1.0", version)
+	v, err := normalizeVersion(version)
+	if err != nil {
+		return "", err
 	}
 	if !flakeVersionRe.MatchString(src) {
 		return "", fmt.Errorf(`flake.nix has no 'version = "..."' line to update; restore one or the flake will pin a stale release`)
 	}
-	return flakeVersionRe.ReplaceAllString(src, `${1}"`+m[1]+`"${2}`), nil
+	return flakeVersionRe.ReplaceAllString(src, `${1}"`+v+`"${2}`), nil
 }

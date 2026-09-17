@@ -236,8 +236,8 @@ func TestJSONCarriesVolumeProvenance(t *testing.T) {
 func TestComma(t *testing.T) {
 	cases := map[int]string{0: "0", 999: "999", 1000: "1,000", 10000: "10,000", 1234567: "1,234,567"}
 	for n, want := range cases {
-		if got := comma(n); got != want {
-			t.Errorf("comma(%d) = %q, want %q", n, got, want)
+		if got := rules.Comma(n); got != want {
+			t.Errorf("Comma(%d) = %q, want %q", n, got, want)
 		}
 	}
 }

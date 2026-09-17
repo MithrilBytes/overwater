@@ -6,12 +6,14 @@
 package baseline
 
 import (
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/MithrilBytes/overwater/rules"
@@ -168,13 +170,9 @@ func Outside(bl *File, scanned map[string]bool) []Entry {
 // prune anything fixed since the last record. Commit is the scanned
 // root's git HEAD, empty outside a repository.
 func Write(path string, entries []Entry, commit string) error {
-	sorted := make([]Entry, len(entries))
-	copy(sorted, entries)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Fingerprint != sorted[j].Fingerprint {
-			return sorted[i].Fingerprint < sorted[j].Fingerprint
-		}
-		return sorted[i].Rule < sorted[j].Rule
+	sorted := slices.Clone(entries)
+	slices.SortFunc(sorted, func(a, b Entry) int {
+		return cmp.Or(strings.Compare(a.Fingerprint, b.Fingerprint), strings.Compare(a.Rule, b.Rule))
 	})
 	b, err := json.MarshalIndent(File{Version: version, Commit: commit, Findings: sorted}, "", "  ")
 	if err != nil {

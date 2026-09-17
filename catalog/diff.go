@@ -211,10 +211,7 @@ func ratio(a, b float64) float64 {
 	if a <= 0 || b <= 0 {
 		return 1
 	}
-	if a > b {
-		return a / b
-	}
-	return b / a
+	return max(a/b, b/a)
 }
 
 // moveFactor is how far a drift moves the price, on whichever side
@@ -222,9 +219,7 @@ func ratio(a, b float64) float64 {
 func moveFactor(d Drift) float64 {
 	f := ratio(d.TheirsIn, d.OursIn)
 	if d.TheirsOutKnown {
-		if o := ratio(d.TheirsOut, d.OursOut); o > f {
-			f = o
-		}
+		f = max(f, ratio(d.TheirsOut, d.OursOut))
 	}
 	return f
 }
@@ -241,10 +236,7 @@ func floatingAlias(name string) bool {
 // differs allows half a percent of slack so float dust and rounding in
 // the upstream file do not read as price changes.
 func differs(ours, theirs float64) bool {
-	diff := ours - theirs
-	if diff < 0 {
-		diff = -diff
-	}
+	diff := math.Abs(ours - theirs)
 	base := ours
 	if base == 0 {
 		return diff > 0
@@ -327,16 +319,16 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 		if err != nil {
 			return err
 		}
-		out, n := replaceCounting(raw, reInputLine, "input_per_mtok: "+formatPrice(d.TheirsIn))
-		if n == 0 {
+		if !reInputLine.Match(raw) {
 			return fmt.Errorf("%s: no input_per_mtok line matched; price not applied", path)
 		}
+		out := reInputLine.ReplaceAllLiteral(raw, []byte("input_per_mtok: "+formatPrice(d.TheirsIn)))
 		out = []byte(scaleCacheRates(string(out), d.OursIn, d.TheirsIn))
 		if d.TheirsOutKnown {
-			out, n = replaceCounting(out, reOutputLine, "output_per_mtok: "+formatPrice(d.TheirsOut))
-			if n == 0 {
+			if !reOutputLine.Match(out) {
 				return fmt.Errorf("%s: no output_per_mtok line matched; price not applied", path)
 			}
+			out = reOutputLine.ReplaceAllLiteral(out, []byte("output_per_mtok: "+formatPrice(d.TheirsOut)))
 		}
 		if err := os.WriteFile(path, out, 0o644); err != nil {
 			return err
@@ -361,15 +353,6 @@ func ApplyPrices(dir string, drifts []Drift, version string) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, "history", version+".json"), b, 0o644)
-}
-
-func replaceCounting(raw []byte, re *regexp.Regexp, repl string) ([]byte, int) {
-	n := 0
-	out := re.ReplaceAllFunc(raw, func([]byte) []byte {
-		n++
-		return []byte(repl)
-	})
-	return out, n
 }
 
 func formatPrice(v float64) string {

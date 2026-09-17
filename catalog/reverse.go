@@ -1,7 +1,8 @@
 package catalog
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 )
 
@@ -67,31 +68,27 @@ var dotPrefixes = []string{
 	"mistral.", "cohere.", "ai21.", "deepseek.", "qwen.", "openai.",
 }
 
-// bareID strips routing so the same model under six hosts is one entry.
-func bareID(key string) string {
-	id := key
+// stripPrefixes peels every listed prefix off id, case insensitively,
+// until none matches.
+func stripPrefixes(id string, prefixes []string) string {
 	for changed := true; changed; {
 		changed = false
-		for _, p := range hostPrefixes {
-			if len(id) > len(p) && strings.EqualFold(id[:len(p)], p) {
-				id, changed = id[len(p):], true
-			}
-		}
-	}
-	// Whatever routing remains before the last slash is a host we have
-	// not named; the id is the final segment.
-	if i := strings.LastIndex(id, "/"); i >= 0 {
-		id = id[i+1:]
-	}
-	for changed := true; changed; {
-		changed = false
-		for _, p := range dotPrefixes {
+		for _, p := range prefixes {
 			if len(id) > len(p) && strings.EqualFold(id[:len(p)], p) {
 				id, changed = id[len(p):], true
 			}
 		}
 	}
 	return id
+}
+
+// bareID strips routing so the same model under six hosts is one entry.
+func bareID(key string) string {
+	id := stripPrefixes(key, hostPrefixes)
+	// Whatever routing remains before the last slash is a host we have
+	// not named; the id is the final segment.
+	id = id[strings.LastIndex(id, "/")+1:]
+	return stripPrefixes(id, dotPrefixes)
 }
 
 // ReverseDiff reports models LiteLLM prices that the catalog does not
@@ -145,7 +142,7 @@ func ReverseDiff(c *Catalog, prices LitellmPrices, onlyIDs []string) []Unlisted 
 
 	out := make([]Unlisted, 0, len(keysByID))
 	for _, keys := range keysByID {
-		sort.Strings(keys)
+		slices.Sort(keys)
 		// Every field comes from the sorted keys, so the same input
 		// always produces the same entry.
 		u := Unlisted{ID: bareID(keys[0]), Keys: keys}
@@ -171,11 +168,6 @@ func ReverseDiff(c *Catalog, prices LitellmPrices, onlyIDs []string) []Unlisted 
 	}
 	// Most expensive first: a model nobody can price is worth adding in
 	// the order it would cost somebody money.
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Input != out[j].Input {
-			return out[i].Input > out[j].Input
-		}
-		return out[i].ID < out[j].ID
-	})
+	slices.SortFunc(out, func(a, b Unlisted) int { return cmp.Or(cmp.Compare(b.Input, a.Input), strings.Compare(a.ID, b.ID)) })
 	return out
 }

@@ -4,9 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -42,7 +43,7 @@ func Sync(dir, version string, sums map[string]string) ([]string, error) {
 	files[ActionPath] = pinned
 
 	var changed []string
-	for _, name := range sortedKeys(files) {
+	for _, name := range slices.Sorted(maps.Keys(files)) {
 		full := filepath.Join(dir, filepath.FromSlash(name))
 		if old, err := os.ReadFile(full); err == nil && string(old) == files[name] {
 			continue
@@ -56,15 +57,6 @@ func Sync(dir, version string, sums map[string]string) ([]string, error) {
 		changed = append(changed, name)
 	}
 	return changed, nil
-}
-
-func sortedKeys(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 const usage = `Usage: sync-manifests -version vX.Y.Z -sums PATH [-dir REPO]

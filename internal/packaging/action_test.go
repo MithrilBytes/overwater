@@ -22,16 +22,6 @@ runs:
 `
 }
 
-func fullSums() map[string]string {
-	return map[string]string{
-		"overwater_linux_amd64":       strings.Repeat("a", 64),
-		"overwater_linux_arm64":       strings.Repeat("b", 64),
-		"overwater_darwin_amd64":      strings.Repeat("c", 64),
-		"overwater_darwin_arm64":      strings.Repeat("d", 64),
-		"overwater_windows_amd64.exe": strings.Repeat("e", 64),
-	}
-}
-
 func TestPinActionRewritesTheVersion(t *testing.T) {
 	out, err := PinAction(actionFixture(), "v2.4.0")
 	if err != nil {

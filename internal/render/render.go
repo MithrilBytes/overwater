@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"github.com/MithrilBytes/overwater/rules"
@@ -210,7 +209,7 @@ func costHeader(findings []rules.Finding, meta Meta) string {
 	case measured == 0:
 		return fmt.Sprintf(
 			"Prices from catalog %s. Costs are estimates at %s calls per\nmonth per call site; override with --volume.\n",
-			meta.CatalogVersion, comma(meta.CallsPerMonth))
+			meta.CatalogVersion, rules.Comma(meta.CallsPerMonth))
 	case measured == total:
 		return fmt.Sprintf(
 			"Prices from catalog %s. Costs use measured volumes for every\ncall site.\n",
@@ -218,29 +217,10 @@ func costHeader(findings []rules.Finding, meta Meta) string {
 	default:
 		return fmt.Sprintf(
 			"Prices from catalog %s. Costs use measured volumes for %d of %d\ncall sites; the rest are estimates at %s calls per month.\n",
-			meta.CatalogVersion, measured, total, comma(meta.CallsPerMonth))
+			meta.CatalogVersion, measured, total, rules.Comma(meta.CallsPerMonth))
 	}
 }
 
 func nullHeader(meta Meta) string {
 	return fmt.Sprintf("Prices from catalog %s.\n\n%s\n", meta.CatalogVersion, KeepVerdict)
-}
-
-func comma(n int) string {
-	s := strconv.Itoa(n)
-	if len(s) <= 3 {
-		return s
-	}
-	var b strings.Builder
-	pre := len(s) % 3
-	if pre > 0 {
-		b.WriteString(s[:pre])
-	}
-	for i := pre; i < len(s); i += 3 {
-		if b.Len() > 0 {
-			b.WriteByte(',')
-		}
-		b.WriteString(s[i : i+3])
-	}
-	return b.String()
 }

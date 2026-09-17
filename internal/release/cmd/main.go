@@ -32,12 +32,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if *classify {
-		var subjects []string
-		sc := bufio.NewScanner(stdin)
-		for sc.Scan() {
-			subjects = append(subjects, sc.Text())
-		}
-		if err := sc.Err(); err != nil {
+		subjects, err := lines(stdin)
+		if err != nil {
 			fmt.Fprintf(stderr, "relnotes: reading subjects: %v\n", err)
 			return 2
 		}
@@ -45,12 +41,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	}
 	if *nextTag {
-		var tags []string
-		sc := bufio.NewScanner(stdin)
-		for sc.Scan() {
-			tags = append(tags, sc.Text())
-		}
-		if err := sc.Err(); err != nil {
+		tags, err := lines(stdin)
+		if err != nil {
 			fmt.Fprintf(stderr, "relnotes: reading tags: %v\n", err)
 			return 2
 		}
@@ -67,16 +59,23 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	var subjects []string
-	sc := bufio.NewScanner(stdin)
-	sc.Buffer(make([]byte, 0, 64<<10), 1<<20)
-	for sc.Scan() {
-		subjects = append(subjects, sc.Text())
-	}
-	if err := sc.Err(); err != nil {
+	subjects, err := lines(stdin)
+	if err != nil {
 		fmt.Fprintf(stderr, "relnotes: read commit subjects from stdin: %v\n", err)
 		return 2
 	}
 	fmt.Fprint(stdout, release.Notes(subjects, *prev, *tag, *repo))
 	return 0
+}
+
+// lines reads r line by line. The buffer is wide enough for a commit
+// subject nobody trimmed.
+func lines(r io.Reader) ([]string, error) {
+	var out []string
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 0, 64<<10), 1<<20)
+	for sc.Scan() {
+		out = append(out, sc.Text())
+	}
+	return out, sc.Err()
 }

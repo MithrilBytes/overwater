@@ -2,10 +2,11 @@ package rules
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -45,12 +46,7 @@ func ParseVolumes(raw []byte) (*Volumes, error) {
 	if dec.More() {
 		return nil, fmt.Errorf("trailing data after the volumes object")
 	}
-	keys := make([]string, 0, len(v.Sites))
-	for key := range v.Sites {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
+	for _, key := range slices.Sorted(maps.Keys(v.Sites)) {
 		if _, _, ok := splitSiteKey(key); !ok {
 			return nil, fmt.Errorf("sites key %q is not file:line", key)
 		}
@@ -58,12 +54,7 @@ func ParseVolumes(raw []byte) (*Volumes, error) {
 			return nil, fmt.Errorf("sites key %q has a negative count", key)
 		}
 	}
-	models := make([]string, 0, len(v.Models))
-	for key := range v.Models {
-		models = append(models, key)
-	}
-	sort.Strings(models)
-	for _, key := range models {
+	for _, key := range slices.Sorted(maps.Keys(v.Models)) {
 		if key == "" {
 			return nil, fmt.Errorf("models has an empty key")
 		}
@@ -179,7 +170,7 @@ func (e *Engine) bindVolumes(report *scan.Report, cat *catalog.Catalog) *siteVol
 			sv.unmatched = append(sv.unmatched, fmt.Sprintf("no call site uses model %s", key))
 		}
 	}
-	sort.Strings(sv.unmatched)
+	slices.Sort(sv.unmatched)
 	return sv
 }
 
@@ -256,9 +247,4 @@ func (e *Engine) UnmatchedVolumeKeys(report *scan.Report, cat *catalog.Catalog) 
 	return e.bindVolumes(report, cat).unmatched
 }
 
-func (e *Engine) baseVolumeSource() string {
-	if e.DefaultVolumeSource == "" {
-		return VolumeEstimate
-	}
-	return e.DefaultVolumeSource
-}
+func (e *Engine) baseVolumeSource() string { return cmp.Or(e.DefaultVolumeSource, VolumeEstimate) }
