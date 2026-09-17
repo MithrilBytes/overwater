@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -199,9 +201,10 @@ type rootResult struct {
 	// scanner never opened does not read as a root with nothing wrong.
 	scanned int
 	// sdksMissed are SDKs a manifest declares where the scan resolved no
-	// call site at all. Layer 1 knows the repository talks to a model;
-	// saying so is the difference between "nothing to fix" and "we could
-	// not find what we know is there".
+	// call site in that manifest's own tree, so a silent package in a
+	// monorepo is not excused by a sibling. Layer 1 knows the repository
+	// talks to a model; saying so is the difference between "nothing to
+	// fix" and "we could not find what we know is there".
 	sdksMissed []scan.SDK
 	// unpriced are calls that spend tokens without naming a model at
 	// all: an HTTP endpoint whose model is a runtime variable, or an
@@ -232,9 +235,7 @@ func (p *pipeline) scanRoot(pl rootPlan, only map[string]bool, vol volumeChoice)
 		unpriced:           report.Unpriced,
 		scanned:            report.Scanned,
 	}
-	if len(report.Sites) == 0 {
-		res.sdksMissed = report.SDKs
-	}
+	res.sdksMissed = report.SDKsWithoutSites()
 	if pl.cfg != nil && pl.cfg.BudgetMonthlyUSD > 0 {
 		if total := eng.TotalMonthlyUSD(report, p.cat); total > pl.cfg.BudgetMonthlyUSD {
 			res.overBudget = fmt.Sprintf("~$%.0f/mo across all known call sites exceeds budget_monthly_usd %g",
@@ -298,16 +299,7 @@ func (p *pipeline) scanPlans(plans []rootPlan, only map[string]bool, vol volumeC
 // only other lever is disable, which is repo wide, so a generated file
 // that merely names model ids used to cost the rule everywhere.
 func dropExcluded(cfg *repoConfig, findings []rules.Finding) []rules.Finding {
-	if cfg == nil || len(cfg.Exclude) == 0 {
-		return findings
-	}
-	kept := findings[:0]
-	for _, f := range findings {
-		if !cfg.excluded(f.File) {
-			kept = append(kept, f)
-		}
-	}
-	return kept
+	return slices.DeleteFunc(findings, func(f rules.Finding) bool { return cfg.excluded(f.File) })
 }
 
 // reportMissedSDKs says when a manifest declares an LLM SDK and the scan
@@ -336,16 +328,10 @@ func reportUnpriced(calls []scan.UnpricedCall, stderr io.Writer) {
 	if len(calls) == 0 {
 		return
 	}
-	sort.Slice(calls, func(i, j int) bool {
-		if calls[i].File != calls[j].File {
-			return calls[i].File < calls[j].File
-		}
-		return calls[i].Line < calls[j].Line
+	slices.SortFunc(calls, func(a, b scan.UnpricedCall) int {
+		return cmp.Or(strings.Compare(a.File, b.File), cmp.Compare(a.Line, b.Line))
 	})
-	shown := calls
-	if len(shown) > maxUnpricedNamed {
-		shown = shown[:maxUnpricedNamed]
-	}
+	shown := calls[:min(len(calls), maxUnpricedNamed)]
 	fmt.Fprintf(stderr, "overwater: %d call %s no model to price:\n",
 		len(calls), plural(len(calls), "site names", "sites name"))
 	for _, c := range shown {
@@ -370,16 +356,12 @@ const maxUnpricedNamed = 5
 // config file is not one of them; see unrecognizedConfigKeys.
 func unrecognizedModels(report *scan.Report) []string {
 	seen := map[string]bool{}
-	var out []string
 	for _, s := range report.Sites {
-		if s.Known || s.Ref == "" || s.ViaConfig != "" || seen[s.Ref] {
-			continue
+		if !s.Known && s.Ref != "" && s.ViaConfig == "" {
+			seen[s.Ref] = true
 		}
-		seen[s.Ref] = true
-		out = append(out, s.Ref)
 	}
-	sort.Strings(out)
-	return out
+	return slices.Sorted(maps.Keys(seen))
 }
 
 // unrecognizedConfigKeys names where an unresolved value came from,
@@ -395,16 +377,12 @@ func unrecognizedModels(report *scan.Report) []string {
 // are enough for the operator to go and look.
 func unrecognizedConfigKeys(report *scan.Report) []string {
 	seen := map[string]bool{}
-	var out []string
 	for _, s := range report.Sites {
-		if s.Known || s.ViaConfig == "" || seen[s.ViaConfig] {
-			continue
+		if !s.Known && s.ViaConfig != "" {
+			seen[s.ViaConfig] = true
 		}
-		seen[s.ViaConfig] = true
-		out = append(out, s.ViaConfig)
 	}
-	sort.Strings(out)
-	return out
+	return slices.Sorted(maps.Keys(seen))
 }
 
 // reportUnrecognized says which model strings were found but could not
@@ -431,11 +409,7 @@ func reportUnrecognized(names, viaConfig map[string]bool, catalogVersion string,
 
 // cappedNames sorts a set for printing and folds the tail into a count.
 func cappedNames(set map[string]bool) []string {
-	var list []string
-	for name := range set {
-		list = append(list, name)
-	}
-	sort.Strings(list)
+	list := slices.Sorted(maps.Keys(set))
 	if len(list) > maxUnrecognizedNamed {
 		list = append(list[:maxUnrecognizedNamed:maxUnrecognizedNamed],
 			fmt.Sprintf("and %d more", len(set)-maxUnrecognizedNamed))
@@ -457,7 +431,7 @@ func (p *pipeline) reportUnmatched(misses map[string]int, roots int, stderr io.W
 			lines = append(lines, key)
 		}
 	}
-	sort.Strings(lines)
+	slices.Sort(lines)
 	for _, line := range lines {
 		fmt.Fprintf(stderr, "%s: %s\n", p.volumesPath, line)
 	}

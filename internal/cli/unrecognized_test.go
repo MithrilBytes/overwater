@@ -87,3 +87,22 @@ func TestUnrecognizedNoteIsBounded(t *testing.T) {
 		t.Errorf("stderr = %q, want the count of the ones it did not name", stderr)
 	}
 }
+
+// In a monorepo, a package that declares an SDK and resolves no call
+// site is a miss in that package, and a sibling that did resolve one
+// does not excuse it. The whole repo check used to stay silent here.
+func TestDeclaredSDKInSilentPackageIsReported(t *testing.T) {
+	dir := tree(t, map[string]string{
+		"pkg-a/package.json": `{"dependencies":{"openai":"^4.0.0"}}`,
+		"pkg-a/index.ts":     "export const name = \"pkg-a\";\n",
+		"pkg-b/index.ts":     classifierTS,
+	})
+
+	code, _, stderr := runScanArgs(t, dir)
+	if code == ExitError {
+		t.Fatalf("exit = %d, want a verdict; stderr = %q", code, stderr)
+	}
+	if !strings.Contains(stderr, "an SDK is declared but no call site found: openai") {
+		t.Errorf("stderr = %q, want the silent package's SDK named", stderr)
+	}
+}

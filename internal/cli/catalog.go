@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -112,23 +113,19 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 		return ExitClean
 	}
 	diff := catalog.DiffLitellm(c, prices, catalog.DiffOptions{MaxMove: *maxMove})
-	for _, d := range diff.Drifts {
-		// A missing upstream output price prints "?", never a zero that
-		// reads like a real price.
-		theirsOut := "?"
-		if d.TheirsOutKnown {
-			theirsOut = strconv.FormatFloat(d.TheirsOut, 'g', -1, 64)
-		}
-		fmt.Fprintf(stdout, "%s: ours %g/%g, litellm %g/%s\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirsOut)
-	}
-	// Loud, and above the notes: this is the case where taking the
-	// number would be worse than doing nothing.
+	// A missing upstream output price prints "?", never a zero that
+	// reads like a real price.
 	theirs := func(d catalog.Drift) string {
 		if d.TheirsOutKnown {
 			return strconv.FormatFloat(d.TheirsOut, 'g', -1, 64)
 		}
 		return "?"
 	}
+	for _, d := range diff.Drifts {
+		fmt.Fprintf(stdout, "%s: ours %g/%g, litellm %g/%s\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirs(d))
+	}
+	// Loud, and above the notes: this is the case where taking the
+	// number would be worse than doing nothing.
 	for _, d := range diff.Repointed {
 		fmt.Fprintf(stdout, "repointed: %s: ours %g/%g, litellm %g/%s, and the context window moved too;"+
 			" check whether the id still names our model before taking the price\n",
@@ -256,12 +253,7 @@ func printModelHistory(stdout, stderr io.Writer, snaps []catalog.Snapshot, name 
 	}
 	// An alias upstream repointed resolves to different entries along the
 	// series, and the price step means nothing without saying which.
-	showID := false
-	for _, p := range points {
-		if p.ID != name {
-			showID = true
-		}
-	}
+	showID := slices.ContainsFunc(points, func(p catalog.PricePoint) bool { return p.ID != name })
 	fmt.Fprintf(stdout, "%s across %d %s\n\n", name, len(points), plural(len(points), "snapshot", "snapshots"))
 	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
 	header, row := "DATE\tIN $/MTOK\tOUT $/MTOK", "%s\t%g\t%g"
@@ -290,13 +282,7 @@ func printModelHistory(stdout, stderr io.Writer, snaps []catalog.Snapshot, name 
 }
 
 func printSnapshotChange(stdout, stderr io.Writer, snaps []catalog.Snapshot, date string) int {
-	at := -1
-	for i, s := range snaps {
-		if s.Catalog.Version == date {
-			at = i
-			break
-		}
-	}
+	at := slices.IndexFunc(snaps, func(s catalog.Snapshot) bool { return s.Catalog.Version == date })
 	if at < 0 {
 		fmt.Fprintf(stderr, "overwater: no snapshot dated %s. Snapshots are:\n\n", date)
 		for _, s := range snaps {

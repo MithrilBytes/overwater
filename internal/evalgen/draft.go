@@ -2,6 +2,7 @@ package evalgen
 
 import (
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -102,9 +103,7 @@ func DraftPromptSets(root string, findings []rules.Finding, dir string) ([]strin
 		var b strings.Builder
 		for _, p := range prompts {
 			row := map[string]any{"prompt": p}
-			for k, v := range shape {
-				row[k] = v
-			}
+			maps.Copy(row, shape)
 			line, err := json.Marshal(row)
 			if err != nil {
 				return written, err

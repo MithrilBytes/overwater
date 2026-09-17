@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
-	"sort"
+	"slices"
+	"strings"
 )
 
 // runDiff compares two scan --json reports: call sites that appeared,
@@ -88,7 +91,7 @@ func groupByKey(r *scanReport) map[siteKey][]int {
 		m[k] = append(m[k], f.MonthlyUSD)
 	}
 	for _, costs := range m {
-		sort.Ints(costs)
+		slices.Sort(costs)
 	}
 	return m
 }
@@ -121,37 +124,19 @@ func cancelCommon(o, n []int) ([]int, []int) {
 // the unpaired remainder appeared or disappeared.
 func diffLines(oldR, newR *scanReport) []string {
 	oldM, newM := groupByKey(oldR), groupByKey(newR)
-	seen := map[siteKey]bool{}
-	var keys []siteKey
-	for k := range oldM {
-		if !seen[k] {
-			seen[k] = true
-			keys = append(keys, k)
-		}
-	}
+	keys := slices.Collect(maps.Keys(oldM))
 	for k := range newM {
-		if !seen[k] {
-			seen[k] = true
+		if _, ok := oldM[k]; !ok {
 			keys = append(keys, k)
 		}
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		a, b := keys[i], keys[j]
-		if a.file != b.file {
-			return a.file < b.file
-		}
-		if a.rule != b.rule {
-			return a.rule < b.rule
-		}
-		return a.candidate < b.candidate
+	slices.SortFunc(keys, func(a, b siteKey) int {
+		return cmp.Or(strings.Compare(a.file, b.file), strings.Compare(a.rule, b.rule), strings.Compare(a.candidate, b.candidate))
 	})
 	var lines []string
 	for _, k := range keys {
 		o, n := cancelCommon(oldM[k], newM[k])
-		paired := len(o)
-		if len(n) < paired {
-			paired = len(n)
-		}
+		paired := min(len(o), len(n))
 		for i := 0; i < paired; i++ {
 			lines = append(lines, fmt.Sprintf("cost: %s ~$%d/mo -> ~$%d/mo", describeSite(k), o[i], n[i]))
 		}

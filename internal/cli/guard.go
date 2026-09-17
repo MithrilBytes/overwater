@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -11,12 +13,7 @@ import (
 	"github.com/MithrilBytes/overwater/rules"
 )
 
-func defaultBaselinePath(path string) string {
-	if path == "" {
-		return ".overwater.json"
-	}
-	return path
-}
+func defaultBaselinePath(path string) string { return cmp.Or(path, ".overwater.json") }
 
 // dropBaselineFile removes the findings a baseline makes about itself.
 // The walker skips .overwater.json by name, but a baseline kept
@@ -46,13 +43,7 @@ func dropBaselineFile(findings []rules.Finding, root, baselinePath string) []rul
 	if rel == ".." || strings.HasPrefix(rel, "../") {
 		return findings // outside the scanned tree, so never walked
 	}
-	kept := make([]rules.Finding, 0, len(findings))
-	for _, f := range findings {
-		if f.File != rel {
-			kept = append(kept, f)
-		}
-	}
-	return kept
+	return slices.DeleteFunc(slices.Clone(findings), func(f rules.Finding) bool { return f.File == rel })
 }
 
 // guardOpts carries everything guardExit needs beyond the findings.

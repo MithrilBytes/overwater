@@ -7,9 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -124,7 +125,7 @@ func reportUnknownModels(counts map[string]int, stderr io.Writer) {
 	if len(unknown) == 0 {
 		return
 	}
-	sort.Strings(unknown)
+	slices.Sort(unknown)
 	fmt.Fprintf(stderr, "volumes import: not in the catalog, kept as written: %s\n", strings.Join(unknown, ", "))
 }
 
@@ -242,11 +243,7 @@ func importJSONUsage(raw []byte) (map[string]int, string, error) {
 	if len(records) == 0 {
 		return nil, "", fmt.Errorf("no records")
 	}
-	keys := make([]string, 0, len(records[0]))
-	for k := range records[0] {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(records[0]))
 	modelKey, _, ok := pickColumn(keys, modelColumns)
 	if !ok {
 		return nil, "", fmt.Errorf("no model field in %s", strings.Join(keys, ","))
