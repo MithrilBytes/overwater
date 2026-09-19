@@ -1557,6 +1557,7 @@ qwen3.8-27b:free
 qwen3.8-flash
 qwen3.8-max
 qwen3.8-max-0902
+qwen3.8-omni-flash
 qwen3p7-plus
 qwen3p8-max
 qwq-32b
