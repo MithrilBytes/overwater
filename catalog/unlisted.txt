@@ -705,6 +705,7 @@ glm-5.2:free
 glm-5.3
 glm-5.3-flash
 glm-5.3-flash:batch
+glm-5.3-flashx
 glm-5.3:batch
 glm-5p1
 glm-5p1-fast
@@ -1623,6 +1624,7 @@ step-3.7-flash
 swe-1.6
 swe-1.7
 swe-1.7-lightning
+ternary-bonsai-2-27b
 text-bison
 text-bison-001
 text-bison-safety-off
