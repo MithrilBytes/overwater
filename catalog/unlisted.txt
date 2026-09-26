@@ -5,14 +5,11 @@ Cohere-command-a-plus-05-2026
 Cohere-embed-v3-english
 Cohere-embed-v3-multilingual
 Cosmos3-Super-Reasoner
-DeepSeek-R1
 DeepSeek-R1-0528
 DeepSeek-R1-0528-Turbo
 DeepSeek-R1-Distill-Llama-70B
 DeepSeek-R1-Distill-Qwen-1.5B
 DeepSeek-R1-Turbo
-DeepSeek-V3-0324
-DeepSeek-V3.1
 DeepSeek-V3.1-Terminus
 DeepSeek-V4-Flash-0731
 DeepSeek-V4-Pro-0813
@@ -157,10 +154,8 @@ Qwen3-235B-A22B
 Qwen3-235B-A22B-Instruct-2507
 Qwen3-235B-A22B-Thinking-2507
 Qwen3-30B-A3B
-Qwen3-32B
 Qwen3-4B-Instruct-2507-GGUF
 Qwen3-Coder-30B-A3B-Instruct-GGUF
-Qwen3-Coder-480B-A35B-Instruct
 Qwen3-Coder-480B-A35B-Instruct-FP8
 Qwen3-Coder-480B-A35B-Instruct-Turbo
 Qwen3-Coder-Next-FP8
@@ -219,6 +214,7 @@ bge-m3
 bge-multilingual-gemma2
 bge-reranker-v2-m3
 bodybuilder
+c4ai-aya-expanse-32b
 cc-glm-5.1
 chat-bison
 chat-bison-001
@@ -455,6 +451,7 @@ deepseek-ocr-2
 deepseek-pro-latest
 deepseek-prover-v2
 deepseek-prover-v2-671b
+deepseek-r1
 deepseek-r1-0528-distill-qwen3-8b
 deepseek-r1-0528-maas
 deepseek-r1-0528-qwen3-8b
@@ -470,8 +467,10 @@ deepseek-r1-distill-qwen-7b
 deepseek-v2-lite-chat
 deepseek-v2p5
 deepseek-v3
+deepseek-v3-0324
 deepseek-v3-2-251201
 deepseek-v3-turbo
+deepseek-v3.1
 deepseek-v3.1-maas
 deepseek-v3.1:671b-cloud
 deepseek-v3.2
@@ -876,6 +875,7 @@ grok-4-1-fast-non-reasoning
 grok-4-1-fast-reasoning
 grok-4-20-non-reasoning
 grok-4-20-reasoning
+grok-4-fast-reasoning
 grok-4.1-fast-non-reasoning
 grok-4.1-fast-reasoning
 grok-4.20
@@ -964,6 +964,7 @@ jamba-large-1.6
 jamba-large-1.7
 jamba-mini-1.6
 jamba-mini-1.7
+jev-router
 jina-reranker-v2-base-multilingual
 jp.anthropic.claude-haiku-4-5-20251001-v1:0
 jp.anthropic.claude-opus-4-7
@@ -1369,6 +1370,7 @@ paddleocr-vl
 palmyra-x5
 pareto
 perceptron-mk1
+perceptron-mk1.5
 phi-2-3b
 phi-3-vision-128k-instruct
 phind-code-llama-34b-python-v1
@@ -1460,6 +1462,7 @@ qwen3-235b-a22b-instruct-2507-maas
 qwen3-30b-a3b-fp8
 qwen3-30b-a3b-instruct-2507
 qwen3-30b-a3b-thinking-2507
+qwen3-32b
 qwen3-32b-fp8
 qwen3-32b-v1:0
 qwen3-4b
@@ -1471,6 +1474,7 @@ qwen3-coder
 qwen3-coder-30b-a3b
 qwen3-coder-30b-a3b-instruct
 qwen3-coder-30b-a3b-v1:0
+qwen3-coder-480b-a35b-instruct
 qwen3-coder-480b-a35b-instruct-maas
 qwen3-coder-480b-a35b-v1:0
 qwen3-coder-480b-instruct-bf16
@@ -1640,6 +1644,7 @@ v0-1.0-md
 v0-1.5-lg
 v0-1.5-md
 v3-v1:0
+v3.1
 v3.2
 vicuna
 voxtral-mini-3b-2507
