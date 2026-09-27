@@ -46,6 +46,7 @@ GLM-5.2
 GLM-5.2-Fast
 GLM-5.3-Fast
 Gemma-3-4b-it-GGUF
+Gemma-4-31B-IT-NVFP4
 GigaChat-2
 GigaChat-2-Max
 GigaChat-2-Pro
@@ -78,6 +79,7 @@ Llama-4-Maverick-17B-128E-Instruct
 Llama-4-Maverick-17B-128E-Instruct-FP8
 Llama-4-Scout-17B-16E-Instruct
 Llama-Guard-4-12B
+Llama-Rank-V1
 MAI-DS-R1
 Mellum2-12B-A2.5B-Instruct
 Meta-Llama-3-70B-Instruct
@@ -86,6 +88,7 @@ Meta-Llama-3-8B-Instruct
 Meta-Llama-3.1-405B-Instruct
 Meta-Llama-3.1-70B-Instruct
 Meta-Llama-3.1-70B-Instruct-Turbo
+Meta-Llama-3.1-8B
 Meta-Llama-3.1-8B-Instruct
 Meta-Llama-3.3-70B-Instruct
 Meta-Llama-3_1-70B-Instruct
@@ -378,6 +381,7 @@ databricks-claude-opus-4-6
 databricks-claude-opus-4-7
 databricks-claude-opus-4-8
 databricks-claude-opus-5
+databricks-claude-opus-5-5
 databricks-claude-sonnet-4
 databricks-claude-sonnet-4-1
 databricks-claude-sonnet-4-5
@@ -633,6 +637,7 @@ gemma-2b-it-lora
 gemma-3-12b-it
 gemma-3-27b-it
 gemma-3-4b-it
+gemma-4-12B-it
 gemma-4-26b
 gemma-4-26b-a4b-it
 gemma-4-26b-a4b-it-maas
