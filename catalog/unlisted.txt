@@ -80,6 +80,7 @@ Llama-4-Maverick-17B-128E-Instruct-FP8
 Llama-4-Scout-17B-16E-Instruct
 Llama-Guard-4-12B
 Llama-Rank-V1
+MAI-Cyber-1-Flash
 MAI-DS-R1
 Mellum2-12B-A2.5B-Instruct
 Meta-Llama-3-70B-Instruct
