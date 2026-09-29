@@ -208,6 +208,7 @@ au.anthropic.claude-opus-5-5
 au.anthropic.claude-sonnet-4-5-20250929-v1:0
 au.anthropic.claude-sonnet-4-6
 au.anthropic.claude-sonnet-5
+au.anthropic.claude-sonnet-5-5
 auto
 autoglm-phone-9b-multilingual
 babbage-002
@@ -300,6 +301,9 @@ claude-sonnet-4.5
 claude-sonnet-4.5:batch
 claude-sonnet-4.6
 claude-sonnet-4.6:batch
+claude-sonnet-5-5
+claude-sonnet-5-5@default
+claude-sonnet-5.5
 claude-sonnet-5:batch
 claude-sonnet-5@default
 claude-sonnet-latest
@@ -980,6 +984,7 @@ jp.anthropic.claude-opus-5-5
 jp.anthropic.claude-sonnet-4-5-20250929-v1:0
 jp.anthropic.claude-sonnet-4-6
 jp.anthropic.claude-sonnet-5
+jp.anthropic.claude-sonnet-5-5
 kat-coder
 kat-coder-pro
 kat-coder-pro-v2.5
@@ -1639,6 +1644,7 @@ us-gov.anthropic.claude-opus-5
 us-gov.anthropic.claude-opus-5-5
 us-gov.anthropic.claude-sonnet-4-5-20250929-v1:0
 us-gov.anthropic.claude-sonnet-5
+us-gov.anthropic.claude-sonnet-5-5
 us-gov.nvidia.nemotron-nano-12b-v2
 us-gov.nvidia.nemotron-nano-3-30b
 us-gov.nvidia.nemotron-nano-9b-v2
@@ -1690,6 +1696,7 @@ xai.grok-4.20
 xai.grok-4.20-multi-agent
 xai.grok-4.3
 xai.grok-4.6
+xai.grok-4.7
 xai.grok-code-fast-1
 yi-34b
 yi-34b-200k-capybara
