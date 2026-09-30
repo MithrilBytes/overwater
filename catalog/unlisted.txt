@@ -13,6 +13,7 @@ DeepSeek-R1-Turbo
 DeepSeek-V3.1-Terminus
 DeepSeek-V4-Flash-0731
 DeepSeek-V4-Pro-0813
+DeepSeek-V4.1-Flash-Fast
 Embeddings
 Embeddings-2
 EmbeddingsGigaR
@@ -304,6 +305,7 @@ claude-sonnet-4.6:batch
 claude-sonnet-5-5
 claude-sonnet-5-5@default
 claude-sonnet-5.5
+claude-sonnet-5.5:batch
 claude-sonnet-5:batch
 claude-sonnet-5@default
 claude-sonnet-latest
@@ -439,6 +441,7 @@ daybreak-red-latest
 dbrx-instruct
 deep-research-max-preview-04-2026
 deep-research-preview-04-2026
+deep-research-pro-preview-12-2025
 deepseek-chat-v3-0324
 deepseek-chat-v3.1
 deepseek-coder
@@ -829,6 +832,11 @@ gpt-6-sol-2026-09-22
 gpt-6-sol-pro
 gpt-6-sol-pro:batch
 gpt-6-sol:batch
+gpt-6.1-sol
+gpt-6.1-sol-2026-09-29
+gpt-6.1-sol-pro
+gpt-6.1-sol-pro:batch
+gpt-6.1-sol:batch
 gpt-astra-latest
 gpt-audio
 gpt-audio-1.5
