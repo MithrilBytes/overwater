@@ -198,6 +198,7 @@ anthropic-claude-3.5-sonnet
 anthropic-claude-3.7-sonnet
 apertus-70b-instruct
 apertus-8b-instruct
+apodex-1.1-mini:free
 au.anthropic.claude-fable-5
 au.anthropic.claude-haiku-4-5-20251001-v1:0
 au.anthropic.claude-mythos-preview
@@ -1388,6 +1389,7 @@ orca-mini
 paddleocr-vl
 palmyra-x5
 pareto
+pareto-26.10-preview
 perceptron-mk1
 perceptron-mk1.5
 phi-2-3b
@@ -1558,6 +1560,7 @@ reka-flash-3
 relace-apply-3
 relace-search
 remm-slerp-l2-13b
+rerank-1
 rerank-2
 rerank-2-lite
 rerank-2.5
@@ -1565,6 +1568,7 @@ rerank-2.5-lite
 rerank-3
 rerank-3-lite
 rerank-english-v3.0
+rerank-lite-1
 rerank-multilingual-v3.0
 rerank-v1:0
 rerank-v3-5:0
@@ -1683,6 +1687,7 @@ voyage-context-3
 voyage-context-4
 voyage-finance-2
 voyage-large-2
+voyage-large-2-instruct
 voyage-law-2
 voyage-lite-01
 voyage-lite-02-instruct
