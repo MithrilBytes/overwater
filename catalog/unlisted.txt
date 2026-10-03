@@ -1038,6 +1038,7 @@ ling-3.0-flash-fin:free
 ling-3.0-flash-sante:free
 ling-3.0-flash-vl
 ling-3.0-flash-vl:free
+ling-3.1-flash
 llama-2-13b
 llama-2-13b-chat
 llama-2-70b
