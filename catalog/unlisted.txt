@@ -58,7 +58,6 @@ Hermes-4-405B
 Hermes-4-70B
 Kimi-K2-Instruct
 Kimi-K2-Instruct-0905
-Kimi-K2-Thinking
 Kimi-K2.5-fp4
 L3-8B-Lunaris-v1-Turbo
 L3-8B-Stheno-v3.2
@@ -542,6 +541,8 @@ embed-multilingual-v3
 embed-multilingual-v3.0
 embed-v-4-0
 embed-v4:0
+embed-v5.0-fast
+embed-v5.0-pro
 ember-1
 ernie-4.5-21B-a3b
 ernie-4.5-21B-a3b-thinking
@@ -1000,6 +1001,7 @@ kat-coder-pro-v2.5
 kat-dev-32b
 kat-dev-72b-exp
 kimi-k2-0905
+kimi-k2-thinking
 kimi-k2-thinking-251104
 kimi-k2-thinking-maas
 kimi-k2.5
