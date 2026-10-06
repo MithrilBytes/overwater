@@ -1726,4 +1726,5 @@ zai-glm-latest
 zai.glm-4.7
 zai.glm-4.7-flash
 zai.glm-5
+zai.glm-5.3
 zephyr-7b-beta
