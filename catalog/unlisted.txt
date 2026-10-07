@@ -222,8 +222,6 @@ bge-reranker-v2-m3
 bodybuilder
 c4ai-aya-expanse-32b
 cc-glm-5.1
-chat-bison
-chat-bison-001
 chat-latest
 chatdolphin
 chronos-hermes-13b-v2
@@ -633,6 +631,7 @@ gemini-flash-latest
 gemini-flash-lite-latest
 gemini-gemma-2-27b-it
 gemini-gemma-2-9b-it
+gemini-nano-banana-2.1
 gemini-omni-1.1-flash
 gemini-omni-1.1-flash-preview
 gemini-omni-flash-preview
@@ -958,6 +957,7 @@ hy-mt2-7b
 hy3
 hy3-preview
 hy4-preview
+in.moonshotai.kimi-k3
 inkling
 inkling-small
 inkling-small:free
@@ -1256,6 +1256,8 @@ mistral-large-2512:batch
 mistral-large-3
 mistral-large-3-675b-instruct
 mistral-large-3-fp8
+mistral-large-4
+mistral-large-4-0
 mistral-large-instruct-2407
 mistral-large2
 mistral-large@2407
@@ -1620,10 +1622,6 @@ swe-1.6
 swe-1.7
 swe-1.7-lightning
 ternary-bonsai-2-27b
-text-bison
-text-bison-001
-text-bison-safety-off
-text-bison-safety-recitation-off
 text-embedding-004
 text-embedding-005
 text-embedding-ada-002-v2
