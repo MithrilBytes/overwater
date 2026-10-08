@@ -200,6 +200,7 @@ apertus-8b-instruct
 apodex-1.1-mini:free
 au.anthropic.claude-fable-5
 au.anthropic.claude-haiku-4-5-20251001-v1:0
+au.anthropic.claude-haiku-5-5
 au.anthropic.claude-mythos-preview
 au.anthropic.claude-opus-4-6-v1
 au.anthropic.claude-opus-4-7
@@ -259,6 +260,9 @@ claude-fable-latest
 claude-haiku-4-5@20251001
 claude-haiku-4.5
 claude-haiku-4.5:batch
+claude-haiku-5-5
+claude-haiku-5-5@default
+claude-haiku-5.5
 claude-haiku-latest
 claude-instant-v1
 claude-mythos-5
@@ -987,6 +991,7 @@ jamba-mini-1.7
 jev-router
 jina-reranker-v2-base-multilingual
 jp.anthropic.claude-haiku-4-5-20251001-v1:0
+jp.anthropic.claude-haiku-5-5
 jp.anthropic.claude-opus-4-7
 jp.anthropic.claude-opus-4-8
 jp.anthropic.claude-opus-5
@@ -1652,6 +1657,7 @@ trinity-mini
 ui-tars-1.5-7b
 unslopnemo-12b
 us-gov.anthropic.claude-fable-5-1
+us-gov.anthropic.claude-haiku-5-5
 us-gov.anthropic.claude-opus-4-8
 us-gov.anthropic.claude-opus-5
 us-gov.anthropic.claude-opus-5-5
