@@ -221,6 +221,7 @@ chat
 chat-latest
 chatdolphin
 chronos-hermes-13b-v2
+classify
 claude-3-5-haiku
 claude-3-5-haiku-20241022-v1:0
 claude-3-5-haiku@20241022
@@ -346,6 +347,7 @@ command-nightly
 command-plus-latest
 command-text-v14
 community
+compress
 computer-use-preview
 databricks-bge-large-en
 databricks-claude-fable-5
@@ -409,6 +411,7 @@ davinci-002
 daybreak-blue-latest
 daybreak-red-latest
 dbrx-instruct
+decisions
 deep-research-max-preview-04-2026
 deep-research-preview-04-2026
 deep-research-pro-preview-12-2025
@@ -514,6 +517,7 @@ ernie-4.5-vl-424b-a47b
 ernie-4p5-21b-a3b-pt
 ernie-4p5-300b-a47b-pt
 ernie-5.1
+extract
 fare-20b
 firefunction-v1
 firefunction-v2
@@ -1177,6 +1181,7 @@ nova-2-pro-preview-20251202-v1:0
 nova-lite-v1
 nova-micro-v1
 nova-premier-v1
+nova-premier-v1:0
 nova-pro-v1
 nv-rerankqa-mistral-4b-v3
 nvidia-nemotron-nano-12b-v2
@@ -1393,6 +1398,7 @@ starcoder2-15b
 starcoder2-3b
 starcoder2-7b
 step-3.7-flash
+summarize
 swe-1.6
 swe-1.7
 swe-1.7-lightning
