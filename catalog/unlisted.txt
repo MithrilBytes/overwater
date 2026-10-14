@@ -569,6 +569,8 @@ gemini-3.6-flash
 gemini-3.7-flash
 gemini-3.8-flash
 gemini-3.8-flash-cyber
+gemini-4-argon
+gemini-4-argon-cyber-permissive
 gemini-embedding-2
 gemini-embedding-2-preview
 gemini-exp-1114
@@ -633,6 +635,7 @@ glm-5.2-fast-preview
 glm-5.2-maas
 glm-5.3
 glm-5.3-flash
+glm-5.3-flashx
 glm-5.3-fp4
 glm-5p1
 glm-5p1-fast
@@ -885,6 +888,7 @@ kimi-k2.5
 kimi-k2.6
 kimi-k2.7-code
 kimi-k2.7-code-highspeed
+kimi-k2.8-preview
 kimi-k2p5
 kimi-k2p6
 kimi-k2p6-fast
