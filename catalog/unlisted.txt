@@ -248,7 +248,6 @@ claude-4.5-haiku
 claude-4.5-sonnet
 claude-fable-5-1
 claude-fable-5-1@default
-claude-fable-5-5
 claude-fable-5@default
 claude-haiku-4-5@20251001
 claude-haiku-4.5
