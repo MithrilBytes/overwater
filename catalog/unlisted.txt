@@ -1,4 +1,6 @@
 ALIA-40b-instruct_Q8_0
+Beam-1.0
+Beam-1.0-501B-A23B
 CodeLlama-34b-Instruct-hf
 CodeLlama-70b-Instruct-hf
 Cohere-Embed-V5-Fast
@@ -213,6 +215,7 @@ au.anthropic.claude-sonnet-5-5
 autoglm-phone-9b-multilingual
 babbage-002
 baichuan-m2-32b
+beam
 bge-base-en-v1.5
 bge-en-icl
 bge-m3
@@ -251,6 +254,7 @@ claude-4.5-haiku
 claude-4.5-sonnet
 claude-fable-5-1
 claude-fable-5-1@default
+claude-fable-5.1
 claude-fable-5@default
 claude-haiku-4-5@20251001
 claude-haiku-4.5
@@ -275,9 +279,11 @@ claude-opus-4-8@default
 claude-opus-4.1
 claude-opus-4.5
 claude-opus-4.6
+claude-opus-4.8
 claude-opus-5-5
 claude-opus-5-5-fast
 claude-opus-5-5@default
+claude-opus-5.5
 claude-opus-5@default
 claude-sonnet-4
 claude-sonnet-4-20250514-v1:0
@@ -286,6 +292,7 @@ claude-sonnet-4-6@default
 claude-sonnet-4.5
 claude-sonnet-5-5
 claude-sonnet-5-5@default
+claude-sonnet-5.5
 claude-sonnet-5@default
 claude-v1
 claude-v2:1
@@ -1047,6 +1054,7 @@ magistral-medium
 magistral-small
 magistral-small-2509
 magistral-small-latest
+mai-code-1.1-flash
 mai-thinking-1
 mamba-codestral-7B-v0.1
 mercury-2
