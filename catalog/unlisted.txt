@@ -1085,6 +1085,7 @@ minimax-m2.7
 minimax-m2.7-highspeed
 minimax-m2p1
 minimax-m3
+minimax-m3p1-flash
 minimax.minimax-m2
 minimax.minimax-m2.1
 minimax.minimax-m2.5
