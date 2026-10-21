@@ -116,7 +116,6 @@
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-06-01",
-      "deprecated": "2027-06-09",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -145,7 +144,6 @@
       "context_window": 200000,
       "tier": "small",
       "released": "2025-10-01",
-      "deprecated": "2026-10-15",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -203,7 +201,6 @@
       "context_window": 200000,
       "tier": "frontier",
       "released": "2025-11-01",
-      "deprecated": "2026-11-24",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -228,7 +225,6 @@
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2025-12-15",
-      "deprecated": "2027-02-05",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -253,7 +249,6 @@
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-02-15",
-      "deprecated": "2027-04-16",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -278,7 +273,6 @@
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-04-15",
-      "deprecated": "2027-05-28",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -306,7 +300,6 @@
       "context_window": 1000000,
       "tier": "frontier",
       "released": "2026-06-01",
-      "deprecated": "2027-07-24",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -348,7 +341,7 @@
       "context_window": 200000,
       "tier": "mid",
       "released": "2025-09-29",
-      "deprecated": "2026-09-29",
+      "deprecated": "2026-11-30",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -373,7 +366,6 @@
       "context_window": 1000000,
       "tier": "mid",
       "released": "2026-02-15",
-      "deprecated": "2027-02-17",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
@@ -401,7 +393,6 @@
       "context_window": 1000000,
       "tier": "mid",
       "released": "2026-05-01",
-      "deprecated": "2027-06-30",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {

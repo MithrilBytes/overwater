@@ -490,3 +490,38 @@ func TestADateAlreadyCarriedIsNotReportedAgain(t *testing.T) {
 		t.Errorf("a changed date was not reported: %+v", d.Deprecations)
 	}
 }
+
+// A future date upstream withdrew is cleared, and the clear writes the
+// entry back without its deprecated line. A passed date stays.
+func TestAWithdrawnDateIsClearedWhileAhead(t *testing.T) {
+	m := validModel()
+	m.ID = "dated"
+	m.Deprecated = "2026-10-15"
+	c := &Catalog{Version: "2026-01-01", Models: []Model{m}}
+	none := LitellmPrices{"dated": {Input: 1, Output: 2, HasOutput: true, MaxInput: 1000, Mode: "chat"}}
+
+	ahead := time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC)
+	d := DiffLitellm(c, none, DiffOptions{Today: ahead})
+	if len(d.Deprecations) != 1 || d.Deprecations[0].Date != "" {
+		t.Fatalf("a withdrawn future date was not cleared: %+v", d.Deprecations)
+	}
+	passed := time.Date(2026, 10, 21, 0, 0, 0, 0, time.UTC)
+	if d := DiffLitellm(c, none, DiffOptions{Today: passed}); len(d.Deprecations) != 0 {
+		t.Errorf("a passed date was cleared: %+v", d.Deprecations)
+	}
+
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "models", "dated.yaml")
+	if err := os.WriteFile(path, []byte("id: dated\nreleased: \"2025-10-01\"\ndeprecated: \"2026-10-15\"\ntier: small\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplyDeprecations(dir, d.Deprecations); err != nil {
+		t.Fatal(err)
+	}
+	if raw, _ := os.ReadFile(path); strings.Contains(string(raw), "deprecated") || !strings.Contains(string(raw), "tier: small") {
+		t.Errorf("clear left %q", raw)
+	}
+}

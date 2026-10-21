@@ -136,6 +136,10 @@ func runCatalogDiff(args []string, stdout, stderr io.Writer) int {
 			" a person decides this one\n", d.ID, d.OursIn, d.OursOut, d.TheirsIn, theirs(d), *maxMove)
 	}
 	for _, dep := range diff.Deprecations {
+		if dep.Date == "" {
+			fmt.Fprintf(stdout, "undeprecate: %s, litellm withdrew its date\n", dep.ID)
+			continue
+		}
 		fmt.Fprintf(stdout, "deprecate: %s on %s\n", dep.ID, dep.Date)
 	}
 	for _, n := range diff.Notes {

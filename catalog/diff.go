@@ -196,6 +196,14 @@ func DiffLitellm(c *Catalog, prices LitellmPrices, opt DiffOptions) Diff {
 					d.Deprecations = append(d.Deprecations, Deprecation{ID: m.ID, Date: p.Deprecation})
 				}
 			}
+			// A date upstream withdrew is cleared while it is still ahead.
+			// Anthropic publishes a "not sooner than" floor that LiteLLM
+			// once carried as a retirement and later dropped, and keeping
+			// it retired an active model on the floor's day. A passed date
+			// stays: a retired model often loses its upstream date too.
+			if p.Deprecation == "" && m.Deprecated != "" && !m.Retired(opt.Today) {
+				d.Deprecations = append(d.Deprecations, Deprecation{ID: m.ID})
+			}
 			break
 		}
 		if !found {
@@ -291,6 +299,8 @@ func ApplyDeprecations(dir string, deps []Deprecation) error {
 		line := fmt.Sprintf("deprecated: %q\n", dep.Date)
 		src := string(raw)
 		switch {
+		case dep.Date == "":
+			src = reDeprecatedLine.ReplaceAllString(src, "")
 		case reDeprecatedLine.MatchString(src):
 			src = reDeprecatedLine.ReplaceAllString(src, line)
 		case reReleasedLine.MatchString(src):
