@@ -1,0 +1,46 @@
+name: weekly
+
+# CI runs on a push, and two things break a quiet tree with no push at
+# all: a Go security release, and the clock passing a retirement date
+# the fixtures lean on. Both sat unseen for weeks once, so this reruns
+# the suite and govulncheck on a schedule and files an issue if either
+# fails.
+on:
+  schedule:
+    - cron: "41 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+  alert:
+    needs: check
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="weekly check failed"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title" --json number --jq '.[0].number // empty')"
+          body="The suite or govulncheck failed on $(date -u +%Y-%m-%d): $RUN_URL. A Go security release means raising the patch in go.mod and the Dockerfile together."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body" > /dev/null
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" > /dev/null
+          fi
