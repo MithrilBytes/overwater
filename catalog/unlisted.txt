@@ -86,6 +86,7 @@ Llama-4-Maverick-17B-128E-Instruct-FP8
 Llama-4-Scout-17B-16E-Instruct
 Llama-Guard-4-12B
 Llama-Rank-V1
+MAI-Code-1.1-Flash
 MAI-Cyber-1-Flash
 MAI-DS-R1
 Mellum2-12B-A2.5B-Instruct
@@ -486,6 +487,7 @@ deepseek-v4.1-flash-fast-fp4
 deepseek-v4.1-flash-maas
 deepseek-v4p1-flash
 deepseek-v4p1-flash-1017
+deepseek-v4p1-flash-1017-us
 deepseek-v4p1-flash-us
 deepseek_v3
 devstral-2-123b
@@ -509,7 +511,9 @@ doubao-seed-2-0-code-preview
 doubao-seed-2-0-lite-260428
 doubao-seed-2-0-mini
 doubao-seed-2-0-pro
+doubao-seed-2-1-lite-260915
 doubao-seed-2-1-pro-260628
+doubao-seed-2-1-pro-260915
 doubao-seed-2-1-turbo
 doubao-seed-2-1-turbo-260628
 e5-mistral-7b-instruct
@@ -1059,7 +1063,6 @@ magistral-medium
 magistral-small
 magistral-small-2509
 magistral-small-latest
-mai-code-1.1-flash
 mai-thinking-1
 mamba-codestral-7B-v0.1
 mercury-2
