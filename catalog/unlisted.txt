@@ -109,7 +109,6 @@ MiniMax-M2.1-lightning
 MiniMax-M2.5
 MiniMax-M2.5-lightning
 MiniMax-M2.7-Turbo
-MiniMax-M3.1-Flash
 Mistral-7B-Instruct-v0.1
 Mistral-7B-Instruct-v0.3
 Mistral-Nemo-Instruct-2407
@@ -220,6 +219,7 @@ autoglm-phone-9b-multilingual
 babbage-002
 baichuan-m2-32b
 beam
+beam-free
 bge-base-en-v1.5
 bge-en-icl
 bge-m3
@@ -920,6 +920,7 @@ kimi-k2p7-code-fast
 kimi-k3
 kimi-k3-fast
 kimi-k3-us
+kimi-k3.1-pro
 l3-70b-euryale-v2.1
 l3-8b-lunaris
 l31-70b-euryale-v2.2
@@ -1052,6 +1053,7 @@ llava-7b
 llava-v1.6-mistral-7b-hf
 llava-yi-34b
 longcat-2.0
+longcat-2.5-preview-free
 lyria-3-clip-preview
 lyria-3-pro-preview
 lyria-3.5
@@ -1089,6 +1091,7 @@ minimax-m2.7
 minimax-m2.7-highspeed
 minimax-m2p1
 minimax-m3
+minimax-m3.1-flash
 minimax-m3p1-flash
 minimax.minimax-m2
 minimax.minimax-m2.1
@@ -1446,6 +1449,7 @@ starcoder2-15b
 starcoder2-3b
 starcoder2-7b
 step-3.7-flash
+step-5-preview
 summarize
 swe-1.6
 swe-1.7
@@ -1549,6 +1553,7 @@ yi-large
 zai-glm-5
 zai-glm-5-2
 zai-glm-5-3
+zai-glm-5-3-flash
 zai-glm-latest
 zai.glm-4.7
 zai.glm-4.7-flash
