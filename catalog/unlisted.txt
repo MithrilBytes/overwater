@@ -192,6 +192,10 @@ Ternary-Bonsai-27B
 Tev1-4B-experimental
 UAE-Large-V1
 WizardLM-2-8x22B
+abliterated-model
+abliterated-model-large
+abliterated-model-large-flash
+abliterated-model-large-v2
 ada
 agnes-2.5-flash
 agnes-2.5-pro
@@ -484,6 +488,7 @@ deepseek-v4-flash-thinking
 deepseek-v4-flash-vision-exp
 deepseek-v4-pro
 deepseek-v4.1-flash
+deepseek-v4.1-flash-abliterated
 deepseek-v4.1-flash-fast-fp4
 deepseek-v4.1-flash-maas
 deepseek-v4p1-flash
@@ -655,7 +660,9 @@ glm-5.1
 glm-5.2-fast-preview
 glm-5.2-maas
 glm-5.3
+glm-5.3-abliterated
 glm-5.3-flash
+glm-5.3-flash-abliterated
 glm-5.3-flashx
 glm-5.3-fp4
 glm-5p1
@@ -756,6 +763,7 @@ gpt-6-sol
 gpt-6-sol-2026-09-22
 gpt-6.1-sol
 gpt-6.1-sol-2026-09-29
+gpt-6.1-terra
 gpt-audio
 gpt-audio-1.5
 gpt-audio-1.5-2026-02-23
