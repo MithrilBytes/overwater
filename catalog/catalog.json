@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-02",
+  "version": "2026-10-29",
   "roster_verified": "2026-06-01",
   "models": [
     {
@@ -1383,6 +1383,7 @@
       "context_window": 200000,
       "tier": "frontier",
       "released": "2025-04-16",
+      "deprecated": "2026-12-11",
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
