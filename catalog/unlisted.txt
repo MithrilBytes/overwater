@@ -1541,6 +1541,7 @@ together-ai-embedding-up-to-150m
 together-ai-up-to-4b
 toppy-m-7b
 trinity-mini
+ultramarine-1-flash-us
 us-gov.anthropic.claude-fable-5-1
 us-gov.anthropic.claude-haiku-5-5
 us-gov.anthropic.claude-opus-4-8
