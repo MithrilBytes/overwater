@@ -17,7 +17,6 @@ DeepSeek-R1-Turbo
 DeepSeek-V3.1-Terminus
 DeepSeek-V4-Flash-0731
 DeepSeek-V4-Pro-0813
-DeepSeek-V4.1-Flash-1017
 DeepSeek-V4.1-Flash-1017-Fast
 DeepSeek-V4.1-Flash-Fast
 Embeddings
@@ -508,6 +507,7 @@ deepseek-v4-flash-thinking
 deepseek-v4-flash-vision-exp
 deepseek-v4-pro
 deepseek-v4.1-flash
+deepseek-v4.1-flash-1017
 deepseek-v4.1-flash-260910
 deepseek-v4.1-flash-abliterated
 deepseek-v4.1-flash-fast-fp4
@@ -788,6 +788,7 @@ gpt-6-astra
 gpt-6-astra-2026-09-03
 gpt-6-luna
 gpt-6-luna-2026-09-22
+gpt-6-rosalind
 gpt-6-sol
 gpt-6-sol-2026-09-22
 gpt-6.1-sol
@@ -1478,6 +1479,8 @@ rerank-v3-5:0
 rerank-v3.5
 rerank-v4.0-fast
 rerank-v4.0-pro
+rerank-v5.0-fast
+rerank-v5.0-pro
 rolm-ocr
 salamandra-7b-instruct-tools-16k
 sarvam-m
