@@ -786,6 +786,7 @@ gpt-5.6-terra-2026-07-09
 gpt-5.6-terra-pro
 gpt-6-astra
 gpt-6-astra-2026-09-03
+gpt-6-astra-law
 gpt-6-luna
 gpt-6-luna-2026-09-22
 gpt-6-rosalind
