@@ -1,6 +1,6 @@
 # Overwater verdict
 
-Prices from catalog 2026-10-29. Costs are estimates at 10,000 calls per
+Prices from catalog 2026-11-03. Costs are estimates at 10,000 calls per
 month per call site; override with --volume.
 
 ```

@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-29",
+  "version": "2026-11-03",
   "roster_verified": "2026-06-01",
   "models": [
     {
@@ -809,6 +809,7 @@
       "context_window": 1047576,
       "tier": "mid",
       "released": "2025-04-14",
+      "deprecated": "2027-01-14",
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
@@ -831,6 +832,7 @@
       "context_window": 1047576,
       "tier": "mid",
       "released": "2025-04-14",
+      "deprecated": "2027-01-14",
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
@@ -888,6 +890,7 @@
       "context_window": 128000,
       "tier": "mid",
       "released": "2024-05-13",
+      "deprecated": "2027-01-14",
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
@@ -926,6 +929,7 @@
       "context_window": 128000,
       "tier": "small",
       "released": "2024-07-18",
+      "deprecated": "2027-01-14",
       "source": "https://platform.openai.com/docs/pricing"
     },
     {
