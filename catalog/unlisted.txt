@@ -362,6 +362,8 @@ cogito-v1-preview-qwen-32b
 cohere-command-a
 cohere-rerank-v4.0-fast
 cohere-rerank-v4.0-pro
+cohere-rerank-v5-fast
+cohere-rerank-v5-pro
 command-a-plus-05-2026
 command-a-reasoning
 command-a-reasoning-08-2025
@@ -928,6 +930,7 @@ hy3-preview
 hy4
 hy4-preview
 in.moonshotai.kimi-k3
+in.moonshotai.kimi-k3.1
 inkling
 inkling-small
 internlm2_5-20b-chat
@@ -939,6 +942,8 @@ j2-mid
 j2-mid-v1
 j2-ultra
 j2-ultra-v1
+jais-13b-chat
+jais-30b-chat
 jamba-1-5-large-v1:0
 jamba-1-5-mini-v1:0
 jamba-1.5
@@ -1264,6 +1269,7 @@ moonshot.kimi-k2-thinking
 moonshotai.kimi-k2-thinking
 moonshotai.kimi-k2.5
 moonshotai.kimi-k3
+moonshotai.kimi-k3.1
 morph-dsv41flash
 morph-dsv41flash-1017
 morph-dsv41flash-abliterated
