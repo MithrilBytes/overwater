@@ -997,6 +997,7 @@ kimi-k3-1-pro
 kimi-k3-fast
 kimi-k3-spot
 kimi-k3-us
+kimi-k3.1-pro-highspeed
 kimi-k3p1-pro
 l3-70b-euryale-v2.1
 l3-8b-lunaris
@@ -1566,6 +1567,7 @@ rerank-v4.0-fast
 rerank-v4.0-pro
 rerank-v5.0-fast
 rerank-v5.0-pro
+rnj-1-instruct
 rolm-ocr
 salamandra-7b-instruct-tools-16k
 sarvam-m
