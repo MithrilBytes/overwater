@@ -270,7 +270,11 @@ claude-4.5-haiku
 claude-4.5-sonnet
 claude-fable-5-1
 claude-fable-5-1@default
+claude-fable-5-2
+claude-fable-5-2-fast
+claude-fable-5-2@default
 claude-fable-5.1
+claude-fable-5.2
 claude-fable-5@default
 claude-haiku-4-5@20251001
 claude-haiku-4.5
@@ -280,6 +284,8 @@ claude-haiku-5.5
 claude-instant-v1
 claude-mythos-5
 claude-mythos-5-1
+claude-mythos-5-2
+claude-mythos-5-2-fast
 claude-mythos-preview
 claude-opus-4
 claude-opus-4-1-20250805-v1:0
@@ -679,6 +685,7 @@ gemma-7b-it-lora
 gemma-sea-lion-v4-27b-it
 gemma2-9b-it
 gemma3-4b
+glimpse-1.0
 glm-4-32b-0414
 glm-4-32b-0414-128k
 glm-4-6v-flashx
@@ -1286,6 +1293,7 @@ mt0-xxl
 mt0-xxl-13b
 multimodalembedding
 multimodalembedding@001
+muse-ember-1.0
 muse-spark-1-1
 muse-spark-1-2
 muse-spark-1-3
@@ -1647,7 +1655,9 @@ toppy-m-7b
 trinity-mini
 ultramarine-1-flash-us
 us-gov.anthropic.claude-fable-5-1
+us-gov.anthropic.claude-fable-5-2
 us-gov.anthropic.claude-haiku-5-5
+us-gov.anthropic.claude-mythos-5-2
 us-gov.anthropic.claude-opus-4-8
 us-gov.anthropic.claude-opus-5
 us-gov.anthropic.claude-opus-5-5
