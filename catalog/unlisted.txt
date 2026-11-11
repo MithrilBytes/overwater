@@ -286,6 +286,7 @@ claude-mythos-5
 claude-mythos-5-1
 claude-mythos-5-2
 claude-mythos-5-2-fast
+claude-mythos-5-2@default
 claude-mythos-preview
 claude-opus-4
 claude-opus-4-1-20250805-v1:0
@@ -301,6 +302,7 @@ claude-opus-4-8@default
 claude-opus-4.1
 claude-opus-4.5
 claude-opus-4.6
+claude-opus-4.7
 claude-opus-4.8
 claude-opus-4.8-fast
 claude-opus-5-5
@@ -388,6 +390,7 @@ computer-use-preview-2025-03-11
 databricks-bge-large-en
 databricks-claude-fable-5
 databricks-claude-fable-5-1
+databricks-claude-fable-5-2
 databricks-claude-haiku-4-5
 databricks-claude-haiku-5-5
 databricks-claude-opus-4
@@ -483,6 +486,7 @@ deepseek-coder-v2-instruct
 deepseek-coder-v2-lite-base
 deepseek-coder-v2-lite-instruct
 deepseek-flash
+deepseek-flash-latest
 deepseek-llama3.3-70b
 deepseek-ocr
 deepseek-ocr-2
@@ -645,6 +649,8 @@ gemini-3.8-flash
 gemini-3.8-flash-cyber
 gemini-4-argon
 gemini-4-argon-cyber-permissive
+gemini-4-carbon
+gemini-4-carbon-cyber-permissive
 gemini-embedding-2
 gemini-embedding-2-preview
 gemini-exp-1114
@@ -735,6 +741,9 @@ glm-5p3-flash-us
 glm-5p3-spot
 glm-5p3-us
 glm-5v-turbo
+glm-fast-latest
+glm-flash-latest
+glm-latest
 google.gemini-2.5-flash
 google.gemini-2.5-flash-lite
 google.gemini-2.5-pro
@@ -855,19 +864,29 @@ gpt-rosalind-discovery
 gpt-rosalind-research
 granite-13b-chat-v2
 granite-13b-instruct-v2
+granite-20b-code-instruct-8k
 granite-3-3-8b-instruct
 granite-3-8b-instruct
+granite-3.0-2b-instruct
+granite-3.0-8b-instruct
+granite-3.1-2b-instruct
+granite-3.1-8b-instruct
+granite-3.2-8b-instruct
 granite-3.3-8b-instruct
 granite-4-h-small
 granite-4.0-h-micro
+granite-4.0-h-small
 granite-4.1-8b
 granite-4.2-8b
+granite-8b-code-instruct-128k
 granite-guardian-3-2-2b
 granite-guardian-3-3-8b
 granite-ttm-1024-96-r2
 granite-ttm-1536-96-r2
 granite-ttm-512-96-r2
 granite-vision-3-2-2b
+granite-vision-3.3-2b
+granite-vision-4.1-4b
 grok-2
 grok-2-vision
 grok-3-fast
@@ -944,6 +963,7 @@ internlm2_5-20b-chat
 internvl3-38b
 internvl3-78b
 internvl3-8b
+isaac-0.1
 j2-light
 j2-mid
 j2-mid-v1
@@ -981,6 +1001,7 @@ kat-coder
 kat-coder-pro
 kat-dev-32b
 kat-dev-72b-exp
+kimi-fast-latest
 kimi-k2-0905
 kimi-k2-6
 kimi-k2-7-code
@@ -1006,6 +1027,7 @@ kimi-k3-spot
 kimi-k3-us
 kimi-k3.1-pro-highspeed
 kimi-k3p1-pro
+kimi-latest
 l3-70b-euryale-v2.1
 l3-8b-lunaris
 l31-70b-euryale-v2.2
@@ -1063,9 +1085,11 @@ llama-4-maverick
 llama-4-maverick-17b
 llama-4-maverick-17b-128e-instruct-maas
 llama-4-maverick-17b-16e-instruct-maas
+llama-4-maverick-instruct
 llama-4-scout
 llama-4-scout-17b-128e-instruct-maas
 llama-4-scout-17b-16e-instruct-maas
+llama-4-scout-instruct
 llama-guard-2-8b
 llama-guard-3-11b-vision
 llama-guard-3-1b
@@ -1159,6 +1183,8 @@ mercury-2
 mercury-2.5
 mercury-coder-small
 mercury-edit-2
+meta-llama-3-70b
+meta-llama-3-8b
 meta-textgeneration-llama-2-13b
 meta-textgeneration-llama-2-13b-f
 meta-textgeneration-llama-2-70b
@@ -1171,6 +1197,7 @@ mimo-v2-6-pro-ultraspeed
 mimo-v2-flash
 mimo-v2-omni
 mimo-v2-pro
+minimax-latest
 minimax-m1-80k
 minimax-m2
 minimax-m2-7
@@ -1229,6 +1256,7 @@ mistral-large-3-675b-instruct
 mistral-large-3-fp8
 mistral-large-4
 mistral-large-4-0
+mistral-large-4-latest
 mistral-large-instruct-2407
 mistral-large2
 mistral-large@2407
@@ -1407,6 +1435,7 @@ qwen-3.7-plus
 qwen-3.8-27b
 qwen-3.8-max
 qwen-coder
+qwen-max-latest
 qwen-mt-plus
 qwen-plus-2025-01-25
 qwen-plus-2025-04-28
@@ -1596,6 +1625,7 @@ skylark-embedding-vision
 snorkel-mistral-7b-pairrm-dpo
 snowflake-arctic-embed-l-v2.0
 snowflake-arctic-embed-m-v2.0
+snowflake-arctic-instruct
 snowflake-llama-3.3-70b
 sonar
 sonar-deep-research
@@ -1624,6 +1654,7 @@ summarize
 swe-1.6
 swe-1.7
 swe-1.7-lightning
+system.ai.claude-fable-5-2
 text-embedding-004
 text-embedding-005
 text-embedding-ada-002-v2
