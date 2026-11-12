@@ -427,6 +427,7 @@ databricks-gemini-3-flash
 databricks-gemini-3-pro
 databricks-gemini-3-pro-image
 databricks-gemini-4-argon
+databricks-gemini-4-carbon
 databricks-gemma-3-12b
 databricks-glm-5-2
 databricks-glm-5-3
@@ -1655,6 +1656,7 @@ swe-1.6
 swe-1.7
 swe-1.7-lightning
 system.ai.claude-fable-5-2
+system.ai.gemini-4-carbon
 text-embedding-004
 text-embedding-005
 text-embedding-ada-002-v2
