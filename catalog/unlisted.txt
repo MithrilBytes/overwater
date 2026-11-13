@@ -68,6 +68,7 @@ Hermes-3-Llama-3.1-70B
 Hermes-4-405B
 Hermes-4-70B
 HunyuanOCR
+Inkling-2-Small
 Kimi-K2-Instruct
 Kimi-K2-Instruct-0905
 Kimi-K2.5-fp4
@@ -652,6 +653,7 @@ gemini-4-argon
 gemini-4-argon-cyber-permissive
 gemini-4-carbon
 gemini-4-carbon-cyber-permissive
+gemini-4-hydrogen
 gemini-embedding-2
 gemini-embedding-2-preview
 gemini-exp-1114
@@ -944,6 +946,7 @@ grok-code-fast
 grok-code-fast-1
 grok-code-fast-1-0825
 grok4.6
+grok4.7
 gte-base
 gte-large
 hermes-2-pro-llama-3-8b
