@@ -2,9 +2,9 @@ name: weekly
 
 # CI runs on a push, and two things break a quiet tree with no push at
 # all: a Go security release, and the clock passing a retirement date
-# the fixtures lean on. Both sat unseen for weeks once, so this reruns
-# the suite and govulncheck on a schedule and files an issue if either
-# fails.
+# the fixtures lean on. This takes the newest patch of the Go minor in
+# go.mod, tests it, commits it and asks autorelease for a patch; then it
+# reruns the suite and govulncheck and files an issue if either fails.
 on:
   schedule:
     - cron: "41 7 * * 1"
@@ -14,10 +14,52 @@ permissions:
   contents: read
 
 jobs:
+  toolchain:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    # Shared with autorelease and docs, which also commit to main.
+    concurrency:
+      group: writes-main
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+      - name: take the newest patch of this go minor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          minor="$(sed -n 's/^go //p' go.mod)"
+          have="$(sed -n 's/^toolchain go//p' go.mod)"
+          want="$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all' | jq -r --arg m "go$minor." '[.[] | select(.stable and (.version | startswith($m))) | .version | ltrimstr("go")] | sort_by(split(".") | map(tonumber)) | last')"
+          if [ -z "$want" ] || [ "$want" = "null" ] || [ "$want" = "$have" ]; then
+            echo "toolchain go$have is current" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          sed -i "s/^toolchain go.*/toolchain go$want/" go.mod
+          sed -i "s/^FROM golang:[^ ]* AS build/FROM golang:$want AS build/" Dockerfile
+          go test ./...
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add go.mod Dockerfile
+          git commit -m "fix(build): build on go $want"
+          git pull --rebase origin main
+          git push origin main
+          # A bot push fires nothing, so the release is asked for.
+          gh workflow run autorelease.yml --ref main -f bump=patch
+          echo "moved the toolchain from go$have to go$want" >> "$GITHUB_STEP_SUMMARY"
+
   check:
+    needs: toolchain
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
@@ -25,7 +67,7 @@ jobs:
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   alert:
-    needs: check
+    needs: [toolchain, check]
     if: failure()
     runs-on: ubuntu-latest
     permissions:
@@ -38,7 +80,7 @@ jobs:
           set -euo pipefail
           title="weekly check failed"
           existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title" --json number --jq '.[0].number // empty')"
-          body="The suite or govulncheck failed on $(date -u +%Y-%m-%d): $RUN_URL. A Go security release means raising the patch in go.mod and the Dockerfile together."
+          body="The suite or govulncheck failed on $(date -u +%Y-%m-%d): $RUN_URL."
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body" > /dev/null
           else

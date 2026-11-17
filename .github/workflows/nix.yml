@@ -42,3 +42,24 @@ jobs:
         run: |
           nix build .#overwater
           ./result/bin/overwater version
+
+  alert:
+    needs: flake
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="nix build failed"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title" --json number --jq '.[0].number // empty')"
+          body="The flake build failed on $(date -u +%Y-%m-%d): $RUN_URL."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body" > /dev/null
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" > /dev/null
+          fi
