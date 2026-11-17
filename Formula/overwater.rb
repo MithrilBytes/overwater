@@ -2,28 +2,28 @@
 class Overwater < Formula
   desc "Flag LLM call sites that use more model than the task needs"
   homepage "https://github.com/MithrilBytes/overwater"
-  version "2.9.15"
+  version "2.9.16"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.15/overwater_darwin_arm64"
-      sha256 "5a0603067878c62ddbd1b30b410c60d3f153c9d5bb442c603590695a29e8b8f6"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.16/overwater_darwin_arm64"
+      sha256 "1493d4f43c794b1c59eb0ee30ad945ad11ae223f5f06101e9fb44ddd4efe0d15"
     end
     on_intel do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.15/overwater_darwin_amd64"
-      sha256 "0e2c4744709036c8d0ab085620f9711f2495a6026315ddb050c24f84da6e660c"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.16/overwater_darwin_amd64"
+      sha256 "7d690f7dfb884e581baed1eb3b13dcae9b5ad7605ee05789add601acda79d732"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.15/overwater_linux_arm64"
-      sha256 "0b86c910be72ecbdfa6bdcbf94fbbb58399497d1243153927d7f126c38ac5ab8"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.16/overwater_linux_arm64"
+      sha256 "ea7765484bf3ff49b45cb9217abddb32d259fa784ec26f602c035a0067b0c0cf"
     end
     on_intel do
-      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.15/overwater_linux_amd64"
-      sha256 "ed2842090171bd283f30da14a80ec1320e3379d95402e596f4729362b4c129bf"
+      url "https://github.com/MithrilBytes/overwater/releases/download/v2.9.16/overwater_linux_amd64"
+      sha256 "09174f67dbebf33030ac372532ab83739349664606a3b6a752b7440d5992f480"
     end
   end
 
@@ -32,6 +32,6 @@ class Overwater < Formula
   end
 
   test do
-    assert_match "overwater v2.9.15", shell_output("#{bin}/overwater version")
+    assert_match "overwater v2.9.16", shell_output("#{bin}/overwater version")
   end
 end
