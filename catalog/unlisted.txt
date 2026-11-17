@@ -1587,6 +1587,7 @@ qwen3.8-max
 qwen3.8-omni-flash
 qwen3p7-plus
 qwen3p8-max
+qwen4-max
 qwq-32b
 qwq-plus
 r1-v1:0
@@ -1715,6 +1716,9 @@ v3-v1:0
 v3.1
 v3.2
 vicuna
+vision-large
+vision-medium
+vision-small
 voxtral-mini-3b-2507
 voxtral-small-24b-2507
 voxtral-small-2507
