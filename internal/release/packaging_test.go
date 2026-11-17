@@ -97,19 +97,25 @@ func TestVersionStampSymbolExists(t *testing.T) {
 	t.Errorf("nothing in %s declares var %s, so -ldflags -X %s.%s stamps nothing", dir, name, pkg, name)
 }
 
-// A builder newer or older than the go directive builds a different
-// binary than CI and the release do.
+// A builder newer or older than the toolchain line builds a different
+// binary than CI and the release do. The go line stays at the language
+// version: an exact patch there is a hard minimum, and it broke the
+// flake, whose channel trails the security releases.
 func TestDockerfileBuilderMatchesGoMod(t *testing.T) {
-	want := regexp.MustCompile(`(?m)^go (\S+)`).FindStringSubmatch(repoFile(t, "go.mod"))
+	mod := repoFile(t, "go.mod")
+	if !regexp.MustCompile(`(?m)^go \d+\.\d+$`).MatchString(mod) {
+		t.Error("go.mod's go line names a patch; put the patch on the toolchain line")
+	}
+	want := regexp.MustCompile(`(?m)^toolchain go(\S+)`).FindStringSubmatch(mod)
 	if want == nil {
-		t.Fatal("go.mod has no go directive")
+		t.Fatal("go.mod has no toolchain line")
 	}
 	got := regexp.MustCompile(`FROM golang:(\S+?)(?:-\S+)? AS`).FindStringSubmatch(repoFile(t, "Dockerfile"))
 	if got == nil {
 		t.Fatal("Dockerfile has no golang builder stage")
 	}
 	if got[1] != want[1] {
-		t.Errorf("Dockerfile builds on golang:%s, go.mod asks for go %s", got[1], want[1])
+		t.Errorf("Dockerfile builds on golang:%s, go.mod's toolchain is go%s", got[1], want[1])
 	}
 }
 
