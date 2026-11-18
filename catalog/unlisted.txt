@@ -238,6 +238,9 @@ bge-m3
 bge-multilingual-gemma2
 bge-reranker-v2-m3
 c4ai-aya-expanse-32b
+ca.amazon.nova-lite-v1:0
+ca.anthropic.claude-haiku-5-5
+ca.anthropic.claude-sonnet-5-5
 cc-glm-5.1
 chat
 chat-latest
@@ -544,6 +547,8 @@ deepseek-v4p1-flash-1017-us
 deepseek-v4p1-flash-spot
 deepseek-v4p1-flash-us
 deepseek_v3
+deepseekv4.1-flash-1017
+deepseekv4.1-flash-1017-interactive
 devstral-2-123b
 devstral-latest
 devstral-medium-latest
@@ -693,6 +698,7 @@ gemma-7b-it-lora
 gemma-sea-lion-v4-27b-it
 gemma2-9b-it
 gemma3-4b
+gemma4
 glimpse-1.0
 glm-4-32b-0414
 glm-4-32b-0414-128k
@@ -746,6 +752,8 @@ glm-5v-turbo
 glm-fast-latest
 glm-flash-latest
 glm-latest
+glm5.3
+glm5.3-flash
 google.gemini-2.5-flash
 google.gemini-2.5-flash-lite
 google.gemini-2.5-pro
@@ -837,6 +845,9 @@ gpt-6-sol-2026-09-22
 gpt-6.1-sol
 gpt-6.1-sol-2026-09-29
 gpt-6.1-terra
+gpt-6.2-astra
+gpt-6.2-astra-law
+gpt-6.2-sol
 gpt-audio
 gpt-audio-1.5
 gpt-audio-1.5-2026-02-23
@@ -958,8 +969,12 @@ hy3
 hy3-preview
 hy4
 hy4-preview
+in.anthropic.claude-opus-5
+in.anthropic.claude-sonnet-5
 in.moonshotai.kimi-k3
 in.moonshotai.kimi-k3.1
+in.openai.gpt-5.6-luna
+in.openai.gpt-5.6-terra
 inkling
 inkling-2-small
 inkling-small
@@ -1152,6 +1167,8 @@ llama3.1-8b
 llama3.1-8b-instruct
 llama3.1-nemotron-70b-instruct-fp8
 llama3.2-11b-vision-instruct
+llama3.2-1b
+llama3.2-3b
 llama3.2-3b-instruct
 llama3.3-70b
 llama3.3-70b-instruct
@@ -1181,6 +1198,8 @@ magistral-medium
 magistral-small
 magistral-small-2509
 magistral-small-latest
+mai-code-2
+mai-code-2-flash
 mai-thinking-1
 mamba-codestral-7B-v0.1
 mercury-2
@@ -1350,6 +1369,8 @@ nemotron-nano-v2-12b-vl
 nomic-embed-text
 nomic-embed-text-v1
 nomic-embed-text-v1.5
+north-mini-code-1.0
+north-small-translate-1.0
 nous-capybara-7b-v1p9
 nous-hermes-2-mixtral-8x7b-dpo
 nous-hermes-2-yi-34b
@@ -1612,6 +1633,8 @@ rerank-v5.0-pro
 rnj-1-instruct
 rolm-ocr
 salamandra-7b-instruct-tools-16k
+sarvam-105b
+sarvam-105b-conversations
 sarvam-m
 seed-2-0-code
 seed-2-0-lite
@@ -1661,6 +1684,7 @@ swe-1.7
 swe-1.7-lightning
 system.ai.claude-fable-5-2
 system.ai.gemini-4-carbon
+system.ai.gemini-4-hydrogen
 text-embedding-004
 text-embedding-005
 text-embedding-ada-002-v2
@@ -1705,6 +1729,9 @@ us-gov.nvidia.nemotron-nano-12b-v2
 us-gov.nvidia.nemotron-nano-3-30b
 us-gov.nvidia.nemotron-nano-9b-v2
 us-gov.nvidia.nemotron-super-3-120b
+us-gov.openai.gpt-5.4
+us-gov.openai.gpt-5.6-luna
+us-gov.openai.gpt-5.6-terra
 us-gov.openai.gpt-oss-120b-1:0
 us-gov.openai.gpt-oss-20b-1:0
 us-gov.xai.grok-4.6
