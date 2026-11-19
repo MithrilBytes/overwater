@@ -658,6 +658,7 @@ gemini-4-argon-cyber-permissive
 gemini-4-carbon
 gemini-4-carbon-cyber-permissive
 gemini-4-hydrogen
+gemini-4-neon
 gemini-embedding-2
 gemini-embedding-2-preview
 gemini-exp-1114
@@ -1002,6 +1003,10 @@ jamba-large-1.6
 jamba-large-1.7
 jamba-mini-1.6
 jamba-mini-1.7
+jina-embeddings-v5-omni-nano
+jina-embeddings-v5-omni-small
+jina-embeddings-v5-text-nano
+jina-embeddings-v5-text-small
 jina-reranker-m0
 jina-reranker-v2-base-multilingual
 jina-reranker-v3.5
@@ -1685,6 +1690,8 @@ swe-1.7-lightning
 system.ai.claude-fable-5-2
 system.ai.gemini-4-carbon
 system.ai.gemini-4-hydrogen
+system.ai.gpt-6-2-astra
+system.ai.gpt-6-2-sol
 text-embedding-004
 text-embedding-005
 text-embedding-ada-002-v2
