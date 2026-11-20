@@ -71,7 +71,6 @@ HunyuanOCR
 Kimi-K2-Instruct
 Kimi-K2-Instruct-0905
 Kimi-K2.5-fp4
-Kimi-K3.1-Pro
 L3-8B-Lunaris-v1-Turbo
 L3-8B-Stheno-v3.2
 L3.1-70B-Euryale-v2.2
@@ -431,6 +430,7 @@ databricks-gemini-3-pro
 databricks-gemini-3-pro-image
 databricks-gemini-4-argon
 databricks-gemini-4-carbon
+databricks-gemini-nano-banana-2-1
 databricks-gemma-3-12b
 databricks-glm-5-2
 databricks-glm-5-3
@@ -541,6 +541,7 @@ deepseek-v4.1-flash-fast-fp4
 deepseek-v4.1-flash-maas
 deepseek-v4p1-flash
 deepseek-v4p1-flash-1017
+deepseek-v4p1-flash-1017-flex
 deepseek-v4p1-flash-1017-spot
 deepseek-v4p1-flash-1017-ultrafast
 deepseek-v4p1-flash-1017-us
@@ -700,6 +701,7 @@ gemma-sea-lion-v4-27b-it
 gemma2-9b-it
 gemma3-4b
 gemma4
+genie-4
 glimpse-1.0
 glm-4-32b-0414
 glm-4-32b-0414-128k
@@ -1049,6 +1051,7 @@ kimi-k3-1-pro
 kimi-k3-fast
 kimi-k3-spot
 kimi-k3-us
+kimi-k3.1-pro
 kimi-k3.1-pro-highspeed
 kimi-k3p1-pro
 kimi-latest
