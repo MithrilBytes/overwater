@@ -430,7 +430,6 @@ databricks-gemini-3-pro
 databricks-gemini-3-pro-image
 databricks-gemini-4-argon
 databricks-gemini-4-carbon
-databricks-gemini-nano-banana-2-1
 databricks-gemma-3-12b
 databricks-glm-5-2
 databricks-glm-5-3
@@ -1453,6 +1452,8 @@ pplx-embed-context-v1-0.6b
 pplx-embed-context-v1-4b
 pplx-embed-v1-0.6b
 pplx-embed-v1-4b
+pplx-embed-v2-context-0.6b
+pplx-embed-v2-context-9b
 pythia-12b
 query
 qwen-2-1.5b-instruct
