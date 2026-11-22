@@ -1053,6 +1053,7 @@ kimi-k3-us
 kimi-k3.1-pro
 kimi-k3.1-pro-highspeed
 kimi-k3p1-pro
+kimi-k3p1-pro-us
 kimi-latest
 l3-70b-euryale-v2.1
 l3-8b-lunaris
