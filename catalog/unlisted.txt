@@ -659,6 +659,7 @@ gemini-4-carbon
 gemini-4-carbon-cyber-permissive
 gemini-4-hydrogen
 gemini-4-neon
+gemini-4-neon-cyber-permissive
 gemini-embedding-2
 gemini-embedding-2-preview
 gemini-exp-1114

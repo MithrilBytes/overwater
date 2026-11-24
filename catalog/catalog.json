@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-03",
+  "version": "2026-11-24",
   "roster_verified": "2026-06-01",
   "models": [
     {
@@ -201,6 +201,7 @@
       "context_window": 200000,
       "tier": "frontier",
       "released": "2025-11-01",
+      "deprecated": "2027-01-22",
       "source": "https://platform.claude.com/docs/en/pricing"
     },
     {
