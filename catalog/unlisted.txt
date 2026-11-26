@@ -748,7 +748,9 @@ glm-5p2-fast-us
 glm-5p3
 glm-5p3-fast
 glm-5p3-flash
+glm-5p3-flash-flex
 glm-5p3-flash-us
+glm-5p3-flex
 glm-5p3-spot
 glm-5p3-us
 glm-5v-turbo
@@ -1061,6 +1063,7 @@ kimi-k3-us
 kimi-k3.1-pro
 kimi-k3.1-pro-highspeed
 kimi-k3p1-pro
+kimi-k3p1-pro-ultrafast
 kimi-k3p1-pro-us
 kimi-latest
 l3-70b-euryale-v2.1
