@@ -430,6 +430,7 @@ databricks-gemini-3-pro
 databricks-gemini-3-pro-image
 databricks-gemini-4-argon
 databricks-gemini-4-carbon
+databricks-gemini-nano-banana-2-1
 databricks-gemma-3-12b
 databricks-glm-5-2
 databricks-glm-5-3
@@ -463,6 +464,7 @@ databricks-inkling
 databricks-kimi-k2-7
 databricks-kimi-k3
 databricks-kimi-k3-1-pro
+databricks-kimi-k3-1-pro-fast
 databricks-llama-4-maverick
 databricks-meta-llama-3-1-8b-instruct
 databricks-meta-llama-3-3-70b-instruct
@@ -1706,6 +1708,7 @@ swe-1.7-lightning
 system.ai.claude-fable-5-2
 system.ai.gemini-4-carbon
 system.ai.gemini-4-hydrogen
+system.ai.gemini-4-neon
 system.ai.gpt-6-2-astra
 system.ai.gpt-6-2-sol
 text-embedding-004
